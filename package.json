@@ -17,8 +17,9 @@
     "run:workflow": "bash scripts/run.sh",
     "check:config": "tsc && node dist/cli/main.js config validate && node dist/config/self-check.js",
     "check:artifact": "tsc && node dist/artifact/self-check.js",
+    "check:session": "tsc && node dist/session/self-check.js",
     "check:mock": "node scripts/check-mock.mjs",
-    "check": "npm run check:config && npm run check:mock && npm run check:artifact",
+    "check": "npm run check:config && npm run check:mock && npm run check:artifact && npm run check:session",
     "demo:slice": "npm run build && node scripts/demo-slice.mjs"
   },
   "engines": {

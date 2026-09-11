@@ -123,10 +123,13 @@ addGlobalConfigFlags(
     .option('--chapter <name>', 'evidence chapter name under evidence/')
     .option('--escalate', 'pause same session on stuck/policy for HITL')
     .option('--hitl-locator-patch', 'after HITL resume --note, one LLM patch of stuck target')
+    .option('--record-actions', 'P3: record operator clicks during HITL and merge into stuck target')
     .option('--auto-retrain', 'on locator_miss: discover once then retry replay (capped)')
     .option('--auto-retrain-max <n>', 'auto-retrain attempts (1–2)', '1')
+    .option('--autonomous-repair', 'P3: loop discover+replay on locator_miss until success or max')
+    .option('--autonomous-repair-max <n>', 'autonomous repair attempts (1–5, default 3)', '3')
     .option('--bindings <path>', 'JSON overlay merged into capability.bindings (S8)')
-    .option('--goal <text>', 'goal used when --auto-retrain discovers', 'Look up member savings balance')
+    .option('--goal <text>', 'goal used when --auto-retrain / --autonomous-repair discovers', 'Look up member savings balance')
     .action(async (artifact: string | undefined, opts) => {
       try {
         configureLog({ verbose: Boolean(opts.verbose) });
@@ -162,10 +165,10 @@ addGlobalConfigFlags(
           >;
         }
 
-        const maxRetrain = Math.min(
-          2,
-          Math.max(1, Number(opts.autoRetrainMax ?? 1) || 1),
-        );
+        const maxRetrain = opts.autonomousRepair
+          ? Math.min(5, Math.max(1, Number(opts.autonomousRepairMax ?? 3) || 3))
+          : Math.min(2, Math.max(1, Number(opts.autoRetrainMax ?? 1) || 1));
+        const repairEnabled = Boolean(opts.autonomousRepair || opts.autoRetrain);
         let autoRetrainAttempts = 0;
 
         const runOnce = async () =>
@@ -179,6 +182,7 @@ addGlobalConfigFlags(
             headed: Boolean(opts.headed || opts.escalate),
             escalateOnPolicy: Boolean(opts.escalate),
             hitlLocatorPatch: Boolean(opts.hitlLocatorPatch),
+            recordActions: Boolean(opts.recordActions),
             bindingsOverlay,
           });
 
@@ -190,15 +194,16 @@ addGlobalConfigFlags(
         let result = await runOnce();
 
         while (
-          opts.autoRetrain &&
+          repairEnabled &&
           !result.ok &&
           result.error?.reason === 'locator_miss' &&
           autoRetrainAttempts < maxRetrain
         ) {
           autoRetrainAttempts += 1;
-          log('warn', 'auto-retrain after locator_miss', {
+          log('warn', 'repair after locator_miss', {
             attempt: autoRetrainAttempts,
             max: maxRetrain,
+            mode: opts.autonomousRepair ? 'autonomous-repair' : 'auto-retrain',
           });
           const retrainDir = join(evidenceDir, 'auto-retrain', String(autoRetrainAttempts));
           ensureDir(retrainDir);
@@ -212,6 +217,7 @@ addGlobalConfigFlags(
             allowOfflineSeed: false,
           });
           writeJson(join(evidenceDir, 'auto-retrain.json'), {
+            mode: opts.autonomousRepair ? 'autonomous-repair' : 'auto-retrain',
             attempts: autoRetrainAttempts,
             max: maxRetrain,
             discoverOk: discovered.ok,
@@ -360,13 +366,16 @@ escalate
   .requiredOption('--run <runId>', 'run id (folder under evidence/runs or full path)')
   .option('--note <text>', 'operator note', '')
   .option('--dir <path>', 'explicit evidence run directory')
+  .option('--recorded', 'mark humanActionsRecorded true (P3 teach resume)')
   .action((opts) => {
     try {
       const root = findProjectRoot();
       const runDir =
         opts.dir ??
         join(root, 'evidence', 'runs', opts.run) ;
-      writeResume(runDir, opts.note || 'operator resumed');
+      writeResume(runDir, opts.note || 'operator resumed', {
+        humanActionsRecorded: Boolean(opts.recorded),
+      });
       console.log(`resumed ${repoRelative(root, runDir)}`);
     } catch (e) {
       console.error((e as Error).message);

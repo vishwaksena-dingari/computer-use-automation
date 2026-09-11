@@ -35,7 +35,11 @@ export function writeIntervention(runDir: string, intervention: Intervention): s
 /**
  * Write resume.json and flip owner to automation.
  */
-export function writeResume(runDir: string, note: string): string {
+export function writeResume(
+  runDir: string,
+  note: string,
+  opts?: { humanActionsRecorded?: boolean },
+): string {
   const dir = join(runDir, 'hitl');
   mkdirSync(dir, { recursive: true });
   const path = join(dir, 'resume.json');
@@ -43,7 +47,7 @@ export function writeResume(runDir: string, note: string): string {
     schemaVersion: 1,
     resumedAt: new Date().toISOString(),
     note,
-    humanActionsRecorded: false,
+    humanActionsRecorded: Boolean(opts?.humanActionsRecorded),
   };
   writeFileSync(path, JSON.stringify(body, null, 2) + '\n');
   const interventionPath = join(dir, 'intervention.json');

@@ -45,8 +45,10 @@ Private golden is for your eyes only. To replay Sauce after deleting live JSON y
 | Discover | Starts **from scratch** each `train` (full observe → emit → save) |
 | Replay fail | Stops with `HARD_FAILURE` (or HITL pause if `--escalate`) |
 | `--auto-retrain` | On `locator_miss` only: re-discover + rewrite artifact + **one** replay retry (cap 1, max 2 via `--auto-retrain-max`) — logged in `auto-retrain.json` |
+| `--autonomous-repair` | P3: same loop with higher cap (default 3, hard max 5) until SUCCESS or budget exhausted |
 | `--hitl-locator-patch` | After `escalate resume --note "…"`, one LLM patch of the **stuck target** candidates (not a click transcript); `humanActionsRecorded: false` |
-| Unbounded loop until success | **Not implemented** (parked) |
+| `--record-actions` | P3: during HITL pause, record operator clicks → merge locator candidates into stuck target (`humanActionsRecorded: true`) |
+| Truly infinite loop | **Not implemented** — hard max always |
 
 So: failure → inspect evidence → retrain / HITL / optional capped flags. No infinite self-edit.
 

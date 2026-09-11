@@ -168,7 +168,7 @@ Names are intentional — rename only with a doc+diagram update.
 | `src/discover/` | **S5+** | No | Observe → LLM locator emit; optional HITL note patch (`patch-locator.ts`) |
 | `src/artifact/bindings.ts` | **S8** | No | `bindings` overlay: entryPath + target remaps |
 | `apps/mock-core/member-lookup-beta/` | **S8** | Yes | Tenant Beta label skin (same API) |
-| `src/session/` | **S6** | Partly | HITL intervention / resume files |
+| `src/session/` | **S6+P3** | Partly | HITL intervention / resume; opt-in action recorder (`record-actions.ts`) |
 | `src/evidence/` | **S7** | No | Chapter helpers |
 | `apps/mock-core/` | **S2** | Yes | Bank-ish UI + JSON-table API |
 | `evidence/` | **S7** | Yes | Graded demo bag + live runs |
@@ -310,7 +310,9 @@ flowchart TD
 | Flag / path | Role |
 |---|---|
 | `--auto-retrain` | Opt-in capped re-discover on `locator_miss` |
-| `--hitl-locator-patch` | Opt-in note→locator patch (still opaque clicks) |
+| `--autonomous-repair` | P3 opt-in repair loop (max 5) |
+| `--hitl-locator-patch` | Opt-in note→locator patch (still opaque clicks by default) |
+| `--record-actions` | P3 opt-in HITL click→locator teach |
 | `capabilities/bindings/tenant-beta.json` | S8 overlay |
 | `/member-lookup-beta/` | Second mock skin |
 | `cua invoke <id>` | S9 thin typed call (params in → replay result out) |

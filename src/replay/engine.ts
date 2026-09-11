@@ -10,6 +10,11 @@ import {
   writeIntervention,
   type PauseReason,
 } from '../session/hitl.js';
+import {
+  startActionRecorder,
+  writeRecordedActions,
+  applyRecordedToTarget,
+} from '../session/record-actions.js';
 import { applyBindings, bindingsEntryPath } from '../artifact/bindings.js';
 import {
   patchTargetFromNote,
@@ -55,6 +60,8 @@ export type ReplayOptions = {
   escalateOnPolicy?: boolean;
   /** Opt-in: after resume note, one LLM locator patch of the stuck target (P1b). */
   hitlLocatorPatch?: boolean;
+  /** Opt-in P3: record operator clicks during HITL pause and merge into stuck target. */
+  recordActions?: boolean;
   /** Optional bindings overlay merged before steps run (S8). */
   bindingsOverlay?: Record<string, unknown> | null;
   existingContext?: BrowserContext;
@@ -426,7 +433,36 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
           console.error(`HITL pause (${runId}): STUCK — ${msg}`);
           console.error(`  screenshot: hitl/pause.png`);
           console.error(`  resume: cua escalate resume --run ${runId}`);
+          let recorder: Awaited<ReturnType<typeof startActionRecorder>> | null = null;
+          if (opts.recordActions) {
+            try {
+              recorder = await startActionRecorder(page);
+              console.error('  recording clicks (--record-actions); click the correct control, then resume');
+            } catch (e) {
+              log('warn', 'action recorder failed to start', { detail: (e as Error).message });
+            }
+          }
           const resumed = await waitForResume(evidenceDir, config.limits.runTimeoutMs);
+          if (recorder) {
+            const actions = await recorder.stop();
+            writeRecordedActions(evidenceDir, actions);
+            const tKey = targetKeyFromStep(capability, step.id);
+            if (tKey && actions.length) {
+              const teach = applyRecordedToTarget(capability, tKey, actions);
+              writeJson(join(evidenceDir, 'hitl', 'teach-apply.json'), {
+                targetKey: tKey,
+                ...teach,
+                humanActionsRecorded: true,
+              });
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'hitl_teach_apply',
+                ok: teach.applied,
+                detail: teach.detail,
+              });
+            }
+          }
           if (!resumed.ok) {
             return finish({
               ok: false,

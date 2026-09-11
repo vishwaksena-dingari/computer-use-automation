@@ -19,9 +19,11 @@ npm run mock                # terminal 1 — http://127.0.0.1:4173/member-lookup
 # S9: calling-agent typed invoke (by capability id)
 npx cua invoke lookup-member-savings-balance --member-id M-10042
 
-# Optional bounded heals (off by default):
+# Optional bounded heals / P3 (off by default):
 #   cua replay … --auto-retrain
+#   cua replay … --autonomous-repair --autonomous-repair-max 3
 #   cua replay … --escalate --hitl-locator-patch
+#   cua replay … --escalate --record-actions
 
 # Optional retarget experiment (Sauce Demo) — not the graded mock-core slice:
 #   ./scripts/try-sauce.sh
