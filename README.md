@@ -16,6 +16,9 @@ npm run mock                # terminal 1 — http://127.0.0.1:4173/member-lookup
 # Stretch: Tenant Beta skin + bindings overlay (same capability)
 ./scripts/demo-tenant-beta.sh
 
+# S9: calling-agent typed invoke (by capability id)
+npx cua invoke lookup-member-savings-balance --member-id M-10042
+
 # Optional bounded heals (off by default):
 #   cua replay … --auto-retrain
 #   cua replay … --escalate --hitl-locator-patch

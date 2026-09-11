@@ -27,7 +27,7 @@ flowchart TB
   subgraph USER["User-facing (Operator + Calling agent)"]
     ENV[".env — API keys"]
     CFG["config.yaml — provider, model, allowlist, target, limits"]
-    CLI["CLI `cua` — discover / replay / escalate / config"]
+    CLI["CLI `cua` — discover / replay / invoke / escalate / config"]
     CAP_IO["Capability invoke — typed params in, result out"]
     BROWSER["Headed browser — only during HITL takeover"]
     EVIDENCE["/evidence — logs, screenshots, artifacts to inspect"]
@@ -157,7 +157,7 @@ Names are intentional — rename only with a doc+diagram update.
 
 | Module / path | Status | User-facing? | Responsibility |
 |---|---|---|---|
-| `src/cli/main.ts` | **S1+** | Yes | `cua` — discover / replay / escalate / config |
+| `src/cli/main.ts` | **S1+** | Yes | `cua` — discover / replay / **invoke** / escalate / config |
 | `config.yaml` + `.env` | **S1** | Yes | Runtime knobs without redeploy |
 | `src/config/` | **S1** | No | Zod schema; load/merge; `config set` |
 | `src/artifact/` | **S3** | Partly | Capability Zod + load/save |
@@ -313,6 +313,7 @@ flowchart TD
 | `--hitl-locator-patch` | Opt-in note→locator patch (still opaque clicks) |
 | `capabilities/bindings/tenant-beta.json` | S8 overlay |
 | `/member-lookup-beta/` | Second mock skin |
+| `cua invoke <id>` | S9 thin typed call (params in → replay result out) |
 
 ---
 
