@@ -24,6 +24,33 @@ function run(args, env = {}) {
   });
 }
 
+/** Repo-relative path for console (CLI still returns absolute evidenceDir). */
+function rel(p) {
+  if (!p) return p;
+  return p.startsWith(root + '/') ? p.slice(root.length + 1) : p;
+}
+
+function printResult(label, out) {
+  const j = JSON.parse(out);
+  console.log(
+    label,
+    JSON.stringify(
+      {
+        ok: j.ok,
+        status: j.status,
+        code: j.code,
+        message: j.message,
+        outputs: j.outputs,
+        evidenceDir: rel(j.evidenceDir),
+        llmCalls: j.llmCalls,
+      },
+      null,
+      2,
+    ),
+  );
+  return j;
+}
+
 const mock = spawn(process.execPath, [join(root, 'scripts/serve-mock.mjs')], {
   cwd: root,
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -37,15 +64,30 @@ try {
     'discover',
     '--goal',
     'Look up member savings balance',
-    '--allow-offline-seed',
+    '--model',
+    process.env.CUA_DEMO_MODEL || 'llama3.2:3b',
     '--evidence',
     join(root, 'evidence/01-discovery'),
   ]);
-  console.log('discover', disc.code, disc.err.slice(0, 200));
   if (disc.code !== 0 && !disc.out.includes('artifactPath')) {
     console.error(disc.out, disc.err);
     throw new Error('discover failed');
   }
+  const discJson = JSON.parse(disc.out);
+  console.log(
+    'discover',
+    JSON.stringify(
+      {
+        ok: discJson.ok,
+        message: discJson.message,
+        artifactPath: rel(discJson.artifactPath),
+        evidenceDir: rel(discJson.evidenceDir),
+        llmCalls: discJson.llmCalls,
+      },
+      null,
+      2,
+    ),
+  );
 
   const happy = await run([
     'replay',
@@ -55,8 +97,7 @@ try {
     '--chapter',
     '02-replay-happy',
   ]);
-  console.log('happy', happy.out.slice(0, 400));
-  const happyJson = JSON.parse(happy.out);
+  const happyJson = printResult('happy', happy.out);
   if (happyJson.status !== 'SUCCESS' || happyJson.outputs?.savingsBalance !== '$12,480.55') {
     throw new Error('happy replay failed: ' + happy.out + happy.err);
   }
@@ -69,8 +110,7 @@ try {
     '--chapter',
     '03-replay-exception',
   ]);
-  console.log('exception', ex.out.slice(0, 400));
-  const exJson = JSON.parse(ex.out);
+  const exJson = printResult('exception', ex.out);
   if (exJson.status !== 'BUSINESS_OUTCOME' || exJson.code !== 'member.NOT_FOUND') {
     throw new Error('exception replay failed: ' + ex.out + ex.err);
   }

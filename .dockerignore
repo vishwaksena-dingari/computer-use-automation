@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.scratch
+.env
+evidence/runs
+*.pdf
+progress.html
+graft
