@@ -1,0 +1,82 @@
+[
+  {
+    "memberId": "M-10042",
+    "cif": "CIF-884201",
+    "name": "Alex Rivera",
+    "status": "ACTIVE",
+    "segment": "Retail",
+    "branchCode": "TUL-014",
+    "openedOn": "2019-03-12",
+    "kycTier": "standard"
+  },
+  {
+    "memberId": "M-10007",
+    "cif": "CIF-771093",
+    "name": "Jordan Blake",
+    "status": "ACTIVE",
+    "segment": "Retail",
+    "branchCode": "TUL-014",
+    "openedOn": "2021-08-02",
+    "kycTier": "standard"
+  },
+  {
+    "memberId": "M-10015",
+    "cif": "CIF-662441",
+    "name": "Sam Okonkwo",
+    "status": "ACTIVE",
+    "segment": "Premier",
+    "branchCode": "OKC-003",
+    "openedOn": "2016-11-20",
+    "kycTier": "enhanced"
+  },
+  {
+    "memberId": "M-20418",
+    "cif": "CIF-551228",
+    "name": "Priya Nair",
+    "status": "ACTIVE",
+    "segment": "Retail",
+    "branchCode": "TUL-022",
+    "openedOn": "2020-01-09",
+    "kycTier": "standard"
+  },
+  {
+    "memberId": "M-33102",
+    "cif": "CIF-440917",
+    "name": "Casey Nguyen",
+    "status": "RESTRICTED",
+    "segment": "Retail",
+    "branchCode": "TUL-014",
+    "openedOn": "2022-05-30",
+    "kycTier": "standard"
+  },
+  {
+    "memberId": "M-44001",
+    "cif": "CIF-339004",
+    "name": "Morgan Ellis",
+    "status": "ACTIVE",
+    "segment": "Small Business",
+    "branchCode": "OKC-011",
+    "openedOn": "2018-07-14",
+    "kycTier": "enhanced"
+  },
+  {
+    "memberId": "M-55018",
+    "cif": "CIF-228661",
+    "name": "Riley Chen",
+    "status": "ACTIVE",
+    "segment": "Retail",
+    "branchCode": "TUL-014",
+    "openedOn": "2023-02-01",
+    "kycTier": "standard"
+  },
+  {
+    "memberId": "M-66044",
+    "cif": "CIF-117550",
+    "name": "Taylor Brooks",
+    "status": "CLOSED",
+    "segment": "Retail",
+    "branchCode": "TUL-022",
+    "openedOn": "2014-09-18",
+    "kycTier": "standard"
+  }
+]

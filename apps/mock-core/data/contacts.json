@@ -1,0 +1,82 @@
+[
+  {
+    "contactId": "CTC-10042",
+    "memberId": "M-10042",
+    "email": "a.rivera@example.com",
+    "phone": "+1 (918) 555-0142",
+    "addressLine1": "1842 E Admiral Blvd",
+    "city": "Tulsa",
+    "region": "OK",
+    "postalCode": "74120"
+  },
+  {
+    "contactId": "CTC-10007",
+    "memberId": "M-10007",
+    "email": "j.blake@example.com",
+    "phone": "+1 (918) 555-0199",
+    "addressLine1": "44 S Detroit Ave",
+    "city": "Tulsa",
+    "region": "OK",
+    "postalCode": "74120"
+  },
+  {
+    "contactId": "CTC-10015",
+    "memberId": "M-10015",
+    "email": "s.okonkwo@example.com",
+    "phone": "+1 (405) 555-0114",
+    "addressLine1": "901 N Broadway Ave",
+    "city": "Oklahoma City",
+    "region": "OK",
+    "postalCode": "73102"
+  },
+  {
+    "contactId": "CTC-20418",
+    "memberId": "M-20418",
+    "email": "p.nair@example.com",
+    "phone": "+1 (918) 555-0177",
+    "addressLine1": "2100 S Utica Ave",
+    "city": "Tulsa",
+    "region": "OK",
+    "postalCode": "74114"
+  },
+  {
+    "contactId": "CTC-33102",
+    "memberId": "M-33102",
+    "email": "c.nguyen@example.com",
+    "phone": "+1 (918) 555-0133",
+    "addressLine1": "12 E 3rd St",
+    "city": "Tulsa",
+    "region": "OK",
+    "postalCode": "74103"
+  },
+  {
+    "contactId": "CTC-44001",
+    "memberId": "M-44001",
+    "email": "ops@ellis-co.example",
+    "phone": "+1 (405) 555-0160",
+    "addressLine1": "500 W Main St Ste 200",
+    "city": "Oklahoma City",
+    "region": "OK",
+    "postalCode": "73102"
+  },
+  {
+    "contactId": "CTC-55018",
+    "memberId": "M-55018",
+    "email": "r.chen@example.com",
+    "phone": "+1 (918) 555-0188",
+    "addressLine1": "7711 E 41st St",
+    "city": "Tulsa",
+    "region": "OK",
+    "postalCode": "74145"
+  },
+  {
+    "contactId": "CTC-66044",
+    "memberId": "M-66044",
+    "email": "t.brooks@example.com",
+    "phone": "+1 (918) 555-0101",
+    "addressLine1": "3900 S Peoria Ave",
+    "city": "Tulsa",
+    "region": "OK",
+    "postalCode": "74105"
+  }
+]
