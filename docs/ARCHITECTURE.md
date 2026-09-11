@@ -165,7 +165,7 @@ Names are intentional — rename only with a doc+diagram update.
 | `src/surface/` | **S4** | No | Ranked Playwright locator resolution |
 | `src/replay/` | **S4** | No | Deterministic step engine |
 | `src/policy/` | **S4** | No | Allowlist + risky gate |
-| `src/discover/` | **S5** | No | Observe + Ollama confirm + compile |
+| `src/discover/` | **S5** | No | Observe page → LLM **emits** Capability JSON (Zod); seed only if `--allow-offline-seed` |
 | `src/session/` | **S6** | Partly | HITL intervention / resume files |
 | `src/evidence/` | **S7** | No | Chapter helpers |
 | `apps/mock-core/` | **S2** | Yes | Bank-ish UI + JSON-table API |
@@ -264,7 +264,35 @@ Precedence: CLI flags > env > `config.yaml` > code defaults.
 
 ---
 
-## 9. Doc ↔ diagram rule
+## 10. Operator packaging + debug logging
+
+**Not** a production platform — thin wrappers so anyone can train (discover) and run (replay).
+
+```mermaid
+flowchart LR
+  SETUP["scripts/setup.sh"] --> MOCK["npm run mock / compose mock"]
+  MOCK --> TRAIN["scripts/train.sh → cua discover"]
+  TRAIN --> ART["capabilities/*.json"]
+  ART --> RUN["scripts/run.sh → cua replay"]
+  RUN --> EV["evidence/*"]
+  LOG["CUA_LOG / --verbose → stderr"] -.-> TRAIN
+  LOG -.-> RUN
+```
+
+| Surface | Command |
+|---|---|
+| Setup once | `./scripts/setup.sh` |
+| Train / save workflow | `./scripts/train.sh` (or `npm run train`) |
+| Run saved workflow | `./scripts/run.sh M-10042` / `M-99999` |
+| Full demo | `npm run demo:slice` |
+| Docker mock | `docker compose up mock` |
+| Docker slice | `docker compose run --rm cua` |
+
+**Debug logging:** `CUA_LOG=debug` or `cua … --verbose` writes step breadcrumbs to **stderr** (stdout stays machine JSON). Evidence `run.json` remains the durable ledger.
+
+---
+
+## 11. Doc ↔ diagram rule
 
 When you add or change a module:
 

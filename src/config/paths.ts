@@ -2,7 +2,7 @@
  * @file Resolve project root and config/env file paths.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PACKAGE_NAME = 'computer-use-automation';
@@ -41,4 +41,13 @@ export function configYamlPath(root: string, override?: string): string {
 /** Absolute path to `.env` under project root. */
 export function envFilePath(root: string): string {
   return join(root, '.env');
+}
+
+/**
+ * Repo-relative POSIX path for CLI/evidence output — never emit absolute home paths.
+ */
+export function repoRelative(root: string, filePath: string): string {
+  const abs = isAbsolute(filePath) ? resolve(filePath) : resolve(root, filePath);
+  const rel = relative(resolve(root), abs);
+  return (rel === '' ? '.' : rel).split('\\').join('/');
 }

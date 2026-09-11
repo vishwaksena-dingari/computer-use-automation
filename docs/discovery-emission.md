@@ -1,22 +1,37 @@
-# Discovery → Capability emission (LOCKED v1)
+# Discovery → Capability emission (LOCKED v1 + emit upgrade)
 
-**Status:** Locked via [Lock discovery → artifact emission rules](../.scratch/computer-use-automation/issues/04-lock-discovery-emission-rules.md) after council.
+**Status:** Locked algorithm remains. **Implementation note:** v1 first shipped as seed+LLM-confirm; upgraded so the LLM **emits** Capability JSON from observation (seed only with `--allow-offline-seed`).
+
+## What the LLM receives (and does not)
+
+| Give | Do not give |
+|---|---|
+| NL goal | Hand-authored `capabilities/*.json` seed file |
+| Compact page observation (text + controls) | Permission to invent steps / full Capability shape |
+| **Strict locator-only JSON contract** (+ Ollama JSON Schema `format`) | Secrets / cookies / screenshots in the prompt |
+
+**Code owns** the Capability skeleton (steps, IO, checkpoints). The model **only** emits `targets.*.candidates`. Zod (`EmitLocatorsSchema`) fail-closed; one repair; observation grounding if still invalid.
 
 ## Algorithm
 
 ```mermaid
 flowchart TD
-  LOOP[Observe a11y → LLM decide → policy gate → act] -->|ok| TRACE[Append successful act to trace]
-  LOOP -->|fail| RETRY[Retry once or HITL]
-  TRACE --> LOOP
-  LOOP -->|successCheckpoint or declared business path| COMPILE[compile trace → Capability JSON]
-  COMPILE --> CAP[capabilities/id.json]
-  COMPILE --> EV[evidence — redacted; not in artifact]
+  OBS[Observe page text + controls] --> LLM[LLM emit Capability JSON]
+  LLM --> ZOD[Zod validate]
+  ZOD -->|fail| REPAIR[One repair pass with errors]
+  REPAIR --> ZOD
+  ZOD -->|ok| CAP[capabilities/id.json]
+  OBS -->|offline flag| SEED[Seed fallback]
+  SEED --> CAP
 ```
 
-1. During discovery, **log only successful** allowlisted acts (`navigate|fill|click|extract|wait|branch`).
-2. On terminal success (or after a run that also observed the not-found path), **compile once**.
-3. Replay never sees the LLM transcript.
+1. Navigate to `config.target` entry; screenshot for evidence.
+2. Build observation (visible text + interactive control inventory).
+3. Ask Ollama to return **only** a Capability JSON object matching the contract.
+4. `CapabilitySchema` fail-closed; one repair retry with Zod issues.
+5. Replay never sees the LLM transcript.
+
+Offline: `--allow-offline-seed` copies the seed file (demo without Ollama).
 
 ## compile rules
 
