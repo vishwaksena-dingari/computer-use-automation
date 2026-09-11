@@ -1,0 +1,21 @@
+# --- never publish ---
+.env
+.env.*
+!.env.example
+
+# Confidential local docs — keep local only
+*.pdf
+*.pdf
+
+# Local-only progress / caches
+/progress.html
+/graft/
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Optional local evidence with screenshots (add scrubbed samples later if needed)
+/evidence/
+!/evidence/.gitkeep
+!/evidence/README.md
