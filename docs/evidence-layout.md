@@ -50,7 +50,7 @@ evidence/runs/<runId>/
 
 - No raw API keys, passwords, or `sensitive: true` values on disk  
 - Redacted placeholders in logs; `redaction.json` lists scrubbed field names  
-- Replay manifests must show `llmCalls: 0`  
+- Replay manifests must show `llmCalls: 0` for graded happy/exception chapters (opt-in `--hitl-locator-patch` / `--auto-retrain` may raise the count on experimental runs)
 
 ## Cuts
 
