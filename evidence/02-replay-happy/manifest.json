@@ -1,0 +1,9 @@
+{
+  "artifactPath": "capabilities/lookup-member-savings-balance.json",
+  "artifactSha256": "853f123a9bcf3bdb35390826af08cf068c764abbdef056b9730fea7791714b26",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "llmCalls": 0,
+  "runId": "replay_mtxac5ds_19i3vr"
+}

@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "status": "SUCCESS",
+  "code": null,
+  "message": "Member savings balance extracted",
+  "outputs": {
+    "savingsBalance": "$12,480.55"
+  },
+  "error": null,
+  "capabilityId": "lookup-member-savings-balance",
+  "capabilityVersion": "1.0.0",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "runId": "replay_mtxac5ds_19i3vr",
+  "evidenceDir": "evidence/02-replay-happy",
+  "durationMs": 4927,
+  "llmCalls": 0
+}
