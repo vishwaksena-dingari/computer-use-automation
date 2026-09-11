@@ -1,40 +1,40 @@
 {
-  "runId": "replay_mtxfcik2_7ddjc2",
+  "runId": "replay_mtxgrbgp_gaxooa",
   "ledger": [
     {
-      "at": "2026-09-11T20:44:20.485Z",
+      "at": "2026-09-11T21:23:51.537Z",
       "stepId": "s1",
       "action": "navigate",
       "ok": true,
       "detail": "http://127.0.0.1:4173/member-lookup/"
     },
     {
-      "at": "2026-09-11T20:44:20.568Z",
+      "at": "2026-09-11T21:23:51.693Z",
       "stepId": "s2",
       "action": "fill",
       "ok": true
     },
     {
-      "at": "2026-09-11T20:44:20.673Z",
+      "at": "2026-09-11T21:23:51.842Z",
       "stepId": "s3",
       "action": "click",
       "ok": true
     },
     {
-      "at": "2026-09-11T20:44:21.486Z",
+      "at": "2026-09-11T21:23:52.647Z",
       "stepId": "s4",
       "action": "wait",
       "ok": true
     },
     {
-      "at": "2026-09-11T20:44:24.102Z",
+      "at": "2026-09-11T21:23:55.165Z",
       "stepId": "s5",
       "action": "branch",
       "ok": true,
       "detail": "next=s6"
     },
     {
-      "at": "2026-09-11T20:44:24.127Z",
+      "at": "2026-09-11T21:23:55.168Z",
       "stepId": "s6",
       "action": "extract",
       "ok": true,
