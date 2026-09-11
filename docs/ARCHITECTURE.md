@@ -157,18 +157,21 @@ Names are intentional — rename only with a doc+diagram update.
 
 | Module / path | Status | User-facing? | Responsibility |
 |---|---|---|---|
-| `src/cli/main.ts` | **S1** | Yes | `cua` — discover / replay / escalate stubs; `config show\|validate\|set` |
+| `src/cli/main.ts` | **S1+** | Yes | `cua` — discover / replay / escalate / config |
 | `config.yaml` + `.env` | **S1** | Yes | Runtime knobs without redeploy |
-| `src/config/` | **S1** | No | Zod schema; load/merge (CLI > env > file > defaults); `config set` writes yaml |
-| `src/discover/` | planned S5 | No | LLM observe→decide→act; emit artifact |
-| `src/replay/` | planned S4 | No | Execute artifact; classify outcomes |
-| `src/artifact/` | planned S3 | Partly (files on disk) | Schema, read/write, version |
-| `src/policy/` | planned | No | Allowlist, risk, redaction |
-| `src/session/` | planned S6 | Partly (HITL) | Owner, pause, resume, intervention payload |
-| `src/surface/` | planned | No | Playwright + a11y locator resolution |
-| `apps/mock-core/` | **S2** | Yes (browser UI under test) | Bank-ish UI + JSON-table API (`/api/members/:id`) |
-| `evidence/` | planned S7 | Yes (inspect) | Logs, screenshots, run traces |
-| `capabilities/` | planned S3 | Yes (review/edit artifacts) | Saved capability JSON |
+| `src/config/` | **S1** | No | Zod schema; load/merge; `config set` |
+| `src/artifact/` | **S3** | Partly | Capability Zod + load/save |
+| `capabilities/` | **S3** | Yes | Saved capability JSON |
+| `src/surface/` | **S4** | No | Ranked Playwright locator resolution |
+| `src/replay/` | **S4** | No | Deterministic step engine |
+| `src/policy/` | **S4** | No | Allowlist + risky gate |
+| `src/discover/` | **S5** | No | Observe + Ollama confirm + compile |
+| `src/session/` | **S6** | Partly | HITL intervention / resume files |
+| `src/evidence/` | **S7** | No | Chapter helpers |
+| `apps/mock-core/` | **S2** | Yes | Bank-ish UI + JSON-table API |
+| `evidence/` | **S7** | Yes | Graded demo bag + live runs |
+| `REPORT.md` | **S7** | Yes | Design write-up |
+
 
 ### S1 config merge (implemented)
 

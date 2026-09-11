@@ -13,8 +13,10 @@
     "dev:cua": "tsx src/cli/main.ts",
     "mock": "node scripts/serve-mock.mjs",
     "check:config": "tsc && node dist/cli/main.js config validate && node dist/config/self-check.js",
+    "check:artifact": "tsc && node dist/artifact/self-check.js",
     "check:mock": "node scripts/check-mock.mjs",
-    "check": "npm run check:config && npm run check:mock"
+    "check": "npm run check:config && npm run check:mock && npm run check:artifact",
+    "demo:slice": "npm run build && node scripts/demo-slice.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -22,6 +24,7 @@
   "dependencies": {
     "commander": "^13.1.0",
     "dotenv": "^16.4.7",
+    "playwright": "^1.63.0",
     "yaml": "^2.7.0",
     "zod": "^3.24.2"
   },
