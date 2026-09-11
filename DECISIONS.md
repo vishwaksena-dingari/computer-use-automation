@@ -31,6 +31,7 @@ Working vertical slice: discover → typed capability artifact → deterministic
 | D8 | Allowlist | Allowed hosts + allowed action types |
 | E1 | Evidence | Discovery + happy replay + exceptional replay + sample artifact |
 | E2 | Stretch | **After core only.** Prefer (1) second-tenant variant + `bindings` overrides; optional (2) callable capability invoke. Skip others unless time. Decide schema details when starting the stretch — not before S1. |
+| E5 | P3 teach / repair | **Unlocked 2026-09-11 (human).** Opt-in only: `--record-actions` (HITL click→locator merge); `--autonomous-repair` (discover+replay loop on `locator_miss`, hard max 5). Default paths unchanged (opaque clicks; no repair loop). |
 | E3 | Time box | ~2–3 focused days |
 | E4 | Verify skill | Skip for now |
 | F1 | Config mutation | `config show` / `validate` / **`config set`** (non-secrets only) |

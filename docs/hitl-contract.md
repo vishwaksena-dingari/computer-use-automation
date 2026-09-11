@@ -7,7 +7,8 @@
 1. Same Playwright `BrowserContext` / pages / cookies — never a second browser for handoff.  
 2. Exclusive ownership: while paused/human, automation issues **zero** actions.  
 3. Operator UI may be minimal: headed window + CLI.  
-4. Human clicks are **opaque** — record resume metadata + note, not a fake click transcript.
+4. **Default:** human clicks are **opaque** (`humanActionsRecorded: false`).  
+5. **P3 opt-in:** `--record-actions` may record clicks into `hitl/actions.json` and merge locator candidates into the stuck target (`humanActionsRecorded: true`). Off by default.
 
 ```mermaid
 stateDiagram-v2
@@ -54,7 +55,7 @@ stateDiagram-v2
 escalate resume --run <runId> [--note "..."]
 ```
 
-Writes `evidence/<runId>/hitl/resume.json` with `resumedAt`, `note`, `humanActionsRecorded: false`.  
+Writes `evidence/<runId>/hitl/resume.json` with `resumedAt`, `note`, `humanActionsRecorded` (false by default; true with `--recorded` or after `--record-actions` teach apply).  
 Then `owner=automation`; next step **re-observes** live DOM (does not assume pre-pause locators still hold).
 
 ## Grader UX
