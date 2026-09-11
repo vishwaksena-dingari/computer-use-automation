@@ -48,4 +48,17 @@ assert.equal(minimal.schemaVersion, 1);
 assert.ok(minimal.steps.some((s) => s.action === 'branch'));
 assert.throws(() => parseCapability({ schemaVersion: 1 }), /Invalid capability/);
 
+import { applyBindings, bindingsEntryPath } from './bindings.js';
+
+const withBind = applyBindings(minimal, {
+  entryPath: '/member-lookup-beta/',
+  targets: {
+    out: {
+      candidates: [{ kind: 'css', rank: 1, selector: '[data-field=x]' }],
+    },
+  },
+});
+assert.equal(bindingsEntryPath(withBind), '/member-lookup-beta/');
+assert.equal(withBind.targets.out?.candidates[0]?.selector, '[data-field=x]');
+
 console.log('artifact self-check ok');

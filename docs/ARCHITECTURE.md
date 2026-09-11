@@ -165,7 +165,9 @@ Names are intentional — rename only with a doc+diagram update.
 | `src/surface/` | **S4** | No | Ranked Playwright locator resolution |
 | `src/replay/` | **S4** | No | Deterministic step engine |
 | `src/policy/` | **S4** | No | Allowlist + risky gate |
-| `src/discover/` | **S5** | No | Observe page → LLM **emits** Capability JSON (Zod); seed only if `--allow-offline-seed` |
+| `src/discover/` | **S5+** | No | Observe → LLM locator emit; optional HITL note patch (`patch-locator.ts`) |
+| `src/artifact/bindings.ts` | **S8** | No | `bindings` overlay: entryPath + target remaps |
+| `apps/mock-core/member-lookup-beta/` | **S8** | Yes | Tenant Beta label skin (same API) |
 | `src/session/` | **S6** | Partly | HITL intervention / resume files |
 | `src/evidence/` | **S7** | No | Chapter helpers |
 | `apps/mock-core/` | **S2** | Yes | Bank-ish UI + JSON-table API |
@@ -289,6 +291,28 @@ flowchart LR
 | Docker slice | `docker compose run --rm cua` |
 
 **Debug logging:** `CUA_LOG=debug` or `cua … --verbose` writes step breadcrumbs to **stderr** (stdout stays machine JSON). Evidence `run.json` remains the durable ledger.
+
+---
+
+## 10b. Bounded self-heal + tenant bindings (post-core)
+
+```mermaid
+flowchart TD
+  R[replay] -->|locator_miss + --auto-retrain| D[discover once]
+  D --> R2[replay retry capped 1-2]
+  R -->|--escalate STUCK| H[HITL pause]
+  H -->|resume --note + --hitl-locator-patch| P[one LLM target patch]
+  P --> R3[retry stuck step]
+  R -->|--bindings overlay| B[remap entryPath + targets]
+  B --> T[Tenant Beta skin]
+```
+
+| Flag / path | Role |
+|---|---|
+| `--auto-retrain` | Opt-in capped re-discover on `locator_miss` |
+| `--hitl-locator-patch` | Opt-in note→locator patch (still opaque clicks) |
+| `capabilities/bindings/tenant-beta.json` | S8 overlay |
+| `/member-lookup-beta/` | Second mock skin |
 
 ---
 

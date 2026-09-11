@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CoreBank Beta — CIF Lookup</title>
+  <!--
+    Hostile by design (docs/mock-core.md): nested layout tables, no test ids,
+    no stable ids on critical controls, weak landmarks, duplicate inert "Search".
+  -->
+  <style>
+    :root {
+      --ink: #1a1a1a;
+      --muted: #555;
+      --line: #8a8a8a;
+      --panel: #e8eef5;
+      --navy: #1e3a5f;
+      --alert: #7a1f1f;
+      --ok: #1f4d2e;
+      --strip: #fff3cd;
+    }
+    body {
+      margin: 0;
+      font: 13px/1.4 Tahoma, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #c5cdd6;
+    }
+    .outer { width: 980px; margin: 10px auto; border: 1px solid #333; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    .banner {
+      background: linear-gradient(#2a4a72, var(--navy));
+      color: #f2f6fb;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .banner strong { font-size: 15px; letter-spacing: 0.02em; }
+    .banner .meta { font-size: 11px; opacity: 0.9; }
+    .demo-strip {
+      background: var(--strip);
+      border-bottom: 1px solid #c9a227;
+      padding: 6px 12px;
+      font: 11px Consolas, monospace;
+    }
+    .layout { width: 100%; border-collapse: collapse; }
+    .layout td { vertical-align: top; padding: 0; }
+    .nav {
+      width: 168px;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 10px 8px;
+      font-size: 12px;
+    }
+    .nav .nav-title { font-weight: bold; color: var(--navy); margin-bottom: 6px; }
+    .nav a { color: #1a4a8a; display: block; margin: 5px 0; text-decoration: none; }
+    .main { padding: 12px 16px 20px; }
+    h1 { font-size: 17px; margin: 0 0 4px; color: var(--navy); }
+    .subhead { color: var(--muted); font-size: 11px; margin-bottom: 10px; }
+    .legacy-box { border: 1px solid var(--line); padding: 10px 12px; background: #f7f9fc; }
+    label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 12px; }
+    input[type="text"] {
+      width: 240px;
+      padding: 4px 6px;
+      border: 1px solid #666;
+      font: 13px Tahoma, sans-serif;
+    }
+    button {
+      margin-top: 8px;
+      padding: 4px 16px;
+      font: 12px Tahoma, sans-serif;
+      cursor: pointer;
+      background: #dce6f2;
+      border: 1px solid #6a7f99;
+    }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    .result { margin-top: 14px; }
+    .section-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--navy);
+      margin: 12px 0 4px;
+      border-bottom: 1px solid #b8c4d4;
+      padding-bottom: 2px;
+    }
+    .result table, .accounts { border-collapse: collapse; width: 100%; }
+    .result th, .result td, .accounts th, .accounts td {
+      border: 1px solid var(--line);
+      padding: 4px 8px;
+      text-align: left;
+      font-size: 12px;
+    }
+    .result th { background: #d9e2ee; width: 32%; }
+    .accounts th { background: #d9e2ee; }
+    .accounts td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    [role="alert"] {
+      color: var(--alert);
+      border: 1px solid #c44;
+      background: #fdeeee;
+      padding: 8px 10px;
+    }
+    [role="status"] {
+      color: var(--navy);
+      border: 1px solid #8aa0bc;
+      background: #eef3f9;
+      padding: 8px 10px;
+    }
+    .ok-note { color: var(--ok); font-size: 12px; margin-bottom: 6px; font-weight: bold; }
+    .footer {
+      border-top: 1px solid var(--line);
+      padding: 8px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      background: #e9edf2;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .hidden { display: none; }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 6px;
+      border: 1px solid #888;
+      background: #eee;
+      margin-left: 6px;
+    }
+    .badge.active { background: #d9f2e1; border-color: #3a8a55; }
+    .badge.restricted, .badge.frozen, .badge.closed { background: #fde8c8; border-color: #b88040; }
+  </style>
+</head>
+<body>
+  <div class="outer">
+    <div class="banner">
+      <div>
+        <strong>CoreBank Beta</strong> · CIF Lookup Desk
+        <div class="meta">Tenant Beta · Region Southwest · Channel: Intranet</div>
+      </div>
+      <div class="meta">Operator queue · teller-desk-07</div>
+    </div>
+    <div class="demo-strip">
+      Demo contract: <b>M-10042</b> = found · <b>M-99999</b> = not found.
+      Also try: M-10007, M-10015, M-20418, M-33102, M-44001, M-55018, M-66044
+    </div>
+
+    <table class="layout" role="presentation">
+      <tr>
+        <td class="nav">
+          <div class="nav-title">Quick links</div>
+          <a href="/member-lookup/">Member lookup</a>
+          <a href="#">Account inquiry (offline)</a>
+          <a href="#">Wire desk (offline)</a>
+          <a href="#">Audit trail (offline)</a>
+          <span>Search</span>
+        </td>
+        <td class="main">
+          <table role="presentation" width="100%">
+            <tr>
+              <td>
+                <h1>CIF Lookup</h1>
+                <div class="subhead">Beta skin — same API, different labels (bindings demo)</div>
+                <div class="legacy-box">
+                  <form id="lookup-form">
+                    <label>
+                      CIF Number
+                      <input type="text" name="cif_number" autocomplete="off" placeholder="e.g. M-10042" />
+                    </label>
+                    <div>
+                      <button type="submit">Find member</button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="result hidden" data-panel="status">
+                  <div role="status">Querying member core… joining accounts &amp; contacts…</div>
+                </div>
+
+                <div class="result hidden" data-panel="found">
+                  <div class="ok-note">Record located <span class="badge" data-field="statusBadge"></span></div>
+
+                  <div class="section-title">Member master</div>
+                  <table>
+                    <tr><th>Member ID</th><td data-field="memberId"></td></tr>
+                    <tr><th>CIF</th><td data-field="cif"></td></tr>
+                    <tr><th>Name</th><td data-field="name"></td></tr>
+                    <tr><th>Status</th><td data-field="status"></td></tr>
+                    <tr><th>Segment</th><td data-field="segment"></td></tr>
+                    <tr><th>Branch</th><td data-field="branchCode"></td></tr>
+                    <tr><th>Opened</th><td data-field="openedOn"></td></tr>
+                    <tr><th>KYC tier</th><td data-field="kycTier"></td></tr>
+                    <tr><th>Share balance</th><td data-field="savingsBalance"></td></tr>
+                  </table>
+
+                  <div class="section-title">Contact profile</div>
+                  <table>
+                    <tr><th>Email</th><td data-field="email"></td></tr>
+                    <tr><th>Phone</th><td data-field="phone"></td></tr>
+                    <tr><th>Address</th><td data-field="address"></td></tr>
+                  </table>
+
+                  <div class="section-title">Linked accounts</div>
+                  <table class="accounts">
+                    <thead>
+                      <tr>
+                        <th>Account ID</th>
+                        <th>Product</th>
+                        <th>Nickname</th>
+                        <th>Status</th>
+                        <th>Balance</th>
+                        <th>Available</th>
+                      </tr>
+                    </thead>
+                    <tbody data-field="accountsBody"></tbody>
+                  </table>
+                </div>
+
+                <div class="result hidden" data-panel="not-found">
+                  <div role="alert">Member not found</div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <div class="footer">
+      <span>© CoreBank · Helpdesk · Search archives · store: json-tables (members ⨝ accounts ⨝ contacts)</span>
+      <span data-field="sessionClock">--:--:--</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import { fetchMemberLookup } from '../member-data.js';
+
+    const form = document.getElementById('lookup-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const statusPanel = document.querySelector('[data-panel="status"]');
+    const foundPanel = document.querySelector('[data-panel="found"]');
+    const notFoundPanel = document.querySelector('[data-panel="not-found"]');
+    const clockEl = document.querySelector('[data-field="sessionClock"]');
+    const accountsBody = document.querySelector('[data-field="accountsBody"]');
+
+    function hideResults() {
+      statusPanel.classList.add('hidden');
+      foundPanel.classList.add('hidden');
+      notFoundPanel.classList.add('hidden');
+    }
+
+    function setText(field, value) {
+      const el = foundPanel.querySelector(`[data-field="${field}"]`);
+      if (el) el.textContent = value ?? '—';
+    }
+
+    function showFound(payload) {
+      hideResults();
+      const m = payload.member;
+      const c = payload.contact;
+      setText('memberId', m.memberId);
+      setText('cif', m.cif);
+      setText('name', m.name);
+      setText('status', m.status);
+      setText('segment', m.segment);
+      setText('branchCode', m.branchCode);
+      setText('openedOn', m.openedOn);
+      setText('kycTier', m.kycTier);
+      setText('savingsBalance', payload.savingsBalance);
+      setText('email', c?.email);
+      setText('phone', c?.phone);
+      setText(
+        'address',
+        c ? `${c.addressLine1}, ${c.city}, ${c.region} ${c.postalCode}` : '—',
+      );
+      const badge = foundPanel.querySelector('[data-field="statusBadge"]');
+      badge.textContent = m.status;
+      badge.className = 'badge ' + String(m.status || '').toLowerCase();
+
+      accountsBody.innerHTML = '';
+      for (const a of payload.accounts || []) {
+        const tr = document.createElement('tr');
+        const cells = [a.accountId, a.product, a.nickname, a.status, a.balance, a.available];
+        cells.forEach((val, i) => {
+          const td = document.createElement('td');
+          if (i >= 4) td.className = 'num';
+          td.textContent = val ?? '';
+          tr.appendChild(td);
+        });
+        accountsBody.appendChild(tr);
+      }
+      foundPanel.classList.remove('hidden');
+    }
+
+    function showNotFound() {
+      hideResults();
+      notFoundPanel.querySelector('[role="alert"]').textContent = 'No matching CIF';
+      notFoundPanel.classList.remove('hidden');
+    }
+
+    function showTransportError(message) {
+      hideResults();
+      statusPanel.querySelector('[role="status"]').textContent =
+        'Member core unavailable — ' + message;
+      statusPanel.classList.remove('hidden');
+    }
+
+    function tickClock() {
+      clockEl.textContent = new Date().toLocaleTimeString();
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      hideResults();
+      statusPanel.querySelector('[role="status"]').textContent =
+        'Querying member core… joining accounts & contacts…';
+      statusPanel.classList.remove('hidden');
+      try {
+        const raw = new FormData(form).get('cif_number');
+        const id = typeof raw === 'string' ? raw : '';
+        const payload = await fetchMemberLookup(id);
+        if (payload.kind === 'found') showFound(payload);
+        else showNotFound();
+      } catch (err) {
+        showTransportError(err && err.message ? err.message : 'error');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

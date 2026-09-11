@@ -6,7 +6,7 @@ Legacy bank-ish UIs are hostile to brittle selectors. This system that turns a n
 
 ## 2. Architecture
 
-CLI `cua` loads runtime config (CLI > env > `config.yaml` > defaults). **Discovery** opens the local mock, observes page text + controls, asks Ollama to emit **locator candidates only** (JSON-Schema constrained), and merges them into a **code-owned Capability skeleton** (Zod fail-closed). **Replay** resolves ranked a11y/css locators with Playwright (`llmCalls: 0`), classifies `SUCCESS` | `BUSINESS_OUTCOME` | `HARD_FAILURE`. **HITL** pauses the same Playwright session on stuck/policy; `cua escalate resume` continues after the operator fixes the live page. Evidence chapters under `/evidence/` mirror the demo story. Operator wrappers: `./scripts/setup.sh`, `train.sh`, `run.sh`; optional Docker Compose for mock + slice.
+CLI `cua` loads runtime config (CLI > env > `config.yaml` > defaults). **Discovery** opens the local mock, observes page text + controls, asks Ollama to emit **locator candidates only** (JSON-Schema constrained), and merges them into a **code-owned Capability skeleton** (Zod fail-closed). **Replay** resolves ranked a11y/css locators with Playwright (`llmCalls: 0` by default), classifies `SUCCESS` | `BUSINESS_OUTCOME` | `HARD_FAILURE`. Opt-in: `--auto-retrain` (capped re-discover on `locator_miss`), `--hitl-locator-patch` (one note→locator patch after HITL resume), `--bindings` (tenant overlay / S8). **HITL** pauses the same Playwright session on stuck/policy; `cua escalate resume` continues after the operator fixes the live page. Evidence chapters under `/evidence/` mirror the demo story. Operator wrappers: `./scripts/setup.sh`, `train.sh`, `run.sh`; optional Docker Compose for mock + slice.
 
 ## 3. Capability artifact
 
@@ -14,7 +14,7 @@ CLI `cua` loads runtime config (CLI > env > `config.yaml` > defaults). **Discove
 
 ## 4. Deterministic replay
 
-Replay never calls an LLM (`llmCalls: 0`). Happy path extracts `$12,480.55` for `M-10042`. Exception path returns `ok: true`, `status: BUSINESS_OUTCOME`, `code: member.NOT_FOUND` for `M-99999` (HTTP 200 from mock API; UI `role=alert`).
+Replay defaults to no LLM (`llmCalls: 0`). Happy path extracts `$12,480.55` for `M-10042`. Exception path returns `ok: true`, `status: BUSINESS_OUTCOME`, `code: member.NOT_FOUND` for `M-99999` (HTTP 200 from mock API; UI `role=alert`). Tenant Beta stretch: same artifact + `capabilities/bindings/tenant-beta.json` against `/member-lookup-beta/`.
 
 ## 5. Exceptional / business outcomes
 
