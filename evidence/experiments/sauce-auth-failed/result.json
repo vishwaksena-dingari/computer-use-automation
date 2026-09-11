@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "status": "BUSINESS_OUTCOME",
+  "code": "auth.FAILED",
+  "message": "Business outcome auth.FAILED",
+  "outputs": {},
+  "error": null,
+  "capabilityId": "sauce-demo-open-inventory",
+  "capabilityVersion": "1.0.0",
+  "params": {
+    "memberId": "ignored",
+    "username": "locked_out_user",
+    "password": "secret_sauce"
+  },
+  "runId": "replay_mtxeex24_dl6d9n",
+  "evidenceDir": "evidence/experiments/sauce-auth-failed",
+  "durationMs": 2382,
+  "llmCalls": 0
+}

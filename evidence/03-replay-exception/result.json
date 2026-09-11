@@ -10,8 +10,8 @@
   "params": {
     "memberId": "M-99999"
   },
-  "runId": "replay_mtxac9m5_ie8s2x",
+  "runId": "replay_mtxfcrhd_j3zap8",
   "evidenceDir": "evidence/03-replay-exception",
-  "durationMs": 1449,
+  "durationMs": 3484,
   "llmCalls": 0
 }
