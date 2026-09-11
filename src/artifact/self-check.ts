@@ -61,4 +61,13 @@ const withBind = applyBindings(minimal, {
 assert.equal(bindingsEntryPath(withBind), '/member-lookup-beta/');
 assert.equal(withBind.targets.out?.candidates[0]?.selector, '[data-field=x]');
 
+import { findCapabilityPathById } from './load.js';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
+const found = findCapabilityPathById(root, 'lookup-member-savings-balance');
+assert.ok(found.endsWith('lookup-member-savings-balance.json'));
+assert.throws(() => findCapabilityPathById(root, 'no-such-capability-id'), /not found/);
+
 console.log('artifact self-check ok');

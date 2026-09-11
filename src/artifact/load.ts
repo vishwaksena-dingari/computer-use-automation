@@ -2,8 +2,8 @@
  * @file Read/write/validate Capability JSON files under capabilities/.
  */
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { CapabilitySchema, type Capability } from './schema.js';
 
 /**
@@ -44,4 +44,34 @@ export function sha256File(path: string): string {
 
 export function capabilityExists(path: string): boolean {
   return existsSync(resolve(path));
+}
+
+/**
+ * Resolve a capability JSON path by `id` under `capabilities/` (top-level only).
+ * Matches file `id.json` first, then scans JSON `id` fields.
+ */
+export function findCapabilityPathById(root: string, id: string): string {
+  const dir = join(root, 'capabilities');
+  if (!existsSync(dir)) {
+    throw new Error(`capabilities/ missing under ${root}`);
+  }
+  const byName = join(dir, `${id}.json`);
+  if (existsSync(byName)) {
+    const cap = loadCapability(byName);
+    if (cap.id !== id) {
+      throw new Error(`capability file ${id}.json has id "${cap.id}", expected "${id}"`);
+    }
+    return byName;
+  }
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith('.json')) continue;
+    const path = join(dir, name);
+    try {
+      const cap = loadCapability(path);
+      if (cap.id === id) return path;
+    } catch {
+      // skip invalid siblings
+    }
+  }
+  throw new Error(`capability id not found: ${id}`);
 }

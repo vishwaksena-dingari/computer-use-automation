@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * @file Operator CLI entry: discover | replay | escalate | config.
+ * @file Operator CLI entry: discover | replay | invoke | escalate | config.
  */
 import { Command } from 'commander';
 import { join } from 'node:path';
 import { flattenForShow, loadConfig, validateConfig, type CliConfigOverrides } from '../config/load.js';
 import { setConfigValue } from '../config/set.js';
 import { findProjectRoot, repoRelative } from '../config/paths.js';
-import { loadCapability, sha256File } from '../artifact/load.js';
+import { loadCapability, sha256File, findCapabilityPathById } from '../artifact/load.js';
 import { replayCapability } from '../replay/engine.js';
 import { discoverCapability } from '../discover/emit.js';
 import { writeResume } from '../session/hitl.js';
@@ -45,7 +45,7 @@ function addGlobalConfigFlags(cmd: Command): Command {
 const program = new Command();
 program
   .name('cua')
-  .description('Computer-use automation — discover, replay, escalate, config')
+  .description('Computer-use automation — discover, replay, invoke, escalate, config')
   .version('0.1.0');
 
 addGlobalConfigFlags(
@@ -243,6 +243,94 @@ addGlobalConfigFlags(
           evidenceDir: result.evidenceDir,
         });
         console.log(JSON.stringify(result, null, 2));
+        if (!result.ok) process.exitCode = 1;
+      } catch (e) {
+        log('error', (e as Error).message);
+        console.error((e as Error).message);
+        process.exitCode = 1;
+      }
+    }),
+);
+
+addGlobalConfigFlags(
+  program
+    .command('invoke')
+    .description('Calling-agent surface: capability id + typed params → replay result (S9)')
+    .argument('<id>', 'capability id (matches capabilities/<id>.json or JSON id)')
+    .option('--member-id <id>', 'memberId input', 'M-10042')
+    .option('--param <key=value>', 'extra input', collectParams, {})
+    .option('--bindings <path>', 'optional bindings overlay JSON')
+    .option('--evidence <dir>', 'evidence directory for this run')
+    .action(async (id: string, opts) => {
+      try {
+        configureLog({ verbose: Boolean(opts.verbose) });
+        const loaded = loadConfig(cliFromOpts(opts));
+        const errs = validateConfig(loaded);
+        if (errs.length) {
+          for (const e of errs) console.error(`error: ${e}`);
+          process.exitCode = 1;
+          return;
+        }
+        const root = loaded.root;
+        const artPath = findCapabilityPathById(root, id);
+        const capability = loadCapability(artPath);
+        const params: Record<string, string> = {
+          memberId: opts.memberId,
+          ...(opts.param as Record<string, string>),
+        };
+        // Validate required inputs exist (thin typed gate)
+        for (const input of capability.inputs) {
+          if (input.required && (params[input.name] === undefined || params[input.name] === '')) {
+            throw new Error(`missing required input: ${input.name}`);
+          }
+        }
+        const runId = newRunId('invoke');
+        const evidenceDir =
+          opts.evidence ?? join(root, loaded.config.evidence.dir, 'runs', runId);
+        ensureEvidence(evidenceDir);
+
+        let bindingsOverlay: Record<string, unknown> | null = null;
+        if (opts.bindings) {
+          const { readFileSync } = await import('node:fs');
+          bindingsOverlay = JSON.parse(readFileSync(opts.bindings, 'utf8')) as Record<
+            string,
+            unknown
+          >;
+        }
+
+        log('info', 'invoke start', { id, memberId: params.memberId, runId });
+        const result = await replayCapability({
+          capability,
+          config: loaded.config,
+          root,
+          params,
+          runId,
+          evidenceDir,
+          headed: Boolean(opts.headed),
+          bindingsOverlay,
+        });
+
+        const agentView = {
+          ok: result.ok,
+          capabilityId: result.capabilityId,
+          capabilityVersion: result.capabilityVersion,
+          status: result.status,
+          code: result.code,
+          outputs: result.outputs,
+          message: result.message,
+          evidenceDir: result.evidenceDir,
+          llmCalls: result.llmCalls,
+        };
+        writeJson(join(evidenceDir, 'result.json'), result);
+        writeJson(join(evidenceDir, 'manifest.json'), {
+          mode: 'invoke',
+          artifactPath: repoRelative(root, artPath),
+          artifactSha256: sha256File(artPath),
+          params: { memberId: params.memberId },
+          llmCalls: result.llmCalls,
+          runId,
+        });
+        console.log(JSON.stringify(agentView, null, 2));
         if (!result.ok) process.exitCode = 1;
       } catch (e) {
         log('error', (e as Error).message);
