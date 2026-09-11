@@ -1,0 +1,123 @@
+[
+  {
+    "accountId": "ACCT-10042-S01",
+    "memberId": "M-10042",
+    "product": "Savings",
+    "nickname": "Primary savings",
+    "currency": "USD",
+    "balance": "$12,480.55",
+    "available": "$12,480.55",
+    "routingLast4": "0214",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-10042-C01",
+    "memberId": "M-10042",
+    "product": "Checking",
+    "nickname": "Everyday checking",
+    "currency": "USD",
+    "balance": "$2,104.12",
+    "available": "$2,004.12",
+    "routingLast4": "0214",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-10007-S01",
+    "memberId": "M-10007",
+    "product": "Savings",
+    "nickname": "Emergency fund",
+    "currency": "USD",
+    "balance": "$4,220.00",
+    "available": "$4,220.00",
+    "routingLast4": "0214",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-10015-S01",
+    "memberId": "M-10015",
+    "product": "Savings",
+    "nickname": "Premier savings",
+    "currency": "USD",
+    "balance": "$48,900.10",
+    "available": "$48,900.10",
+    "routingLast4": "0881",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-10015-C01",
+    "memberId": "M-10015",
+    "product": "Checking",
+    "nickname": "Premier checking",
+    "currency": "USD",
+    "balance": "$9,411.77",
+    "available": "$9,411.77",
+    "routingLast4": "0881",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-20418-S01",
+    "memberId": "M-20418",
+    "product": "Savings",
+    "nickname": "Savings",
+    "currency": "USD",
+    "balance": "$1,050.40",
+    "available": "$1,050.40",
+    "routingLast4": "0330",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-33102-S01",
+    "memberId": "M-33102",
+    "product": "Savings",
+    "nickname": "Savings (restricted)",
+    "currency": "USD",
+    "balance": "$312.00",
+    "available": "$0.00",
+    "routingLast4": "0214",
+    "status": "FROZEN"
+  },
+  {
+    "accountId": "ACCT-44001-S01",
+    "memberId": "M-44001",
+    "product": "Savings",
+    "nickname": "Operating reserve",
+    "currency": "USD",
+    "balance": "$22,675.33",
+    "available": "$22,675.33",
+    "routingLast4": "0881",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-44001-C01",
+    "memberId": "M-44001",
+    "product": "Checking",
+    "nickname": "Business checking",
+    "currency": "USD",
+    "balance": "$6,808.91",
+    "available": "$6,808.91",
+    "routingLast4": "0881",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-55018-S01",
+    "memberId": "M-55018",
+    "product": "Savings",
+    "nickname": "Savings",
+    "currency": "USD",
+    "balance": "$890.15",
+    "available": "$890.15",
+    "routingLast4": "0214",
+    "status": "OPEN"
+  },
+  {
+    "accountId": "ACCT-66044-S01",
+    "memberId": "M-66044",
+    "product": "Savings",
+    "nickname": "Closed savings",
+    "currency": "USD",
+    "balance": "$0.00",
+    "available": "$0.00",
+    "routingLast4": "0330",
+    "status": "CLOSED"
+  }
+]
