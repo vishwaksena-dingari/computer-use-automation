@@ -1,8 +1,8 @@
 {
   "goal": "Look up member savings balance",
   "provider": "ollama",
-  "model": "qwen3.5:9b",
+  "model": "llama3.2:3b",
   "artifactPath": "capabilities/lookup-member-savings-balance.json",
-  "artifactSha256": "853f123a9bcf3bdb35390826af08cf068c764abbdef056b9730fea7791714b26",
-  "llmCalls": 0
+  "artifactSha256": "6a487c9ce23f5ac820a1a140f4fcc818864fc597ab89d0fe7b1221ec5d1549c4",
+  "llmCalls": 1
 }

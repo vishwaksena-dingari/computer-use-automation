@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "status": "SUCCESS",
+  "code": null,
+  "message": "Capability completed successfully",
+  "outputs": {
+    "inventoryTitle": "Products"
+  },
+  "error": null,
+  "capabilityId": "sauce-demo-open-inventory",
+  "capabilityVersion": "1.0.0",
+  "params": {
+    "memberId": "M-10042",
+    "username": "standard_user",
+    "password": "secret_sauce"
+  },
+  "runId": "replay_mtxeh3lj_cvqqs6",
+  "evidenceDir": "evidence/experiments/sauce-happy",
+  "durationMs": 4146,
+  "llmCalls": 0
+}

@@ -6,11 +6,11 @@ Legacy bank-ish UIs are hostile to brittle selectors. This system that turns a n
 
 ## 2. Architecture
 
-CLI `cua` loads runtime config (CLI > env > `config.yaml` > defaults). **Discovery** observes the local mock, optionally confirms via Ollama, and compiles a versioned Capability JSON. **Replay** resolves ranked a11y/css locators with Playwright, executes steps, and classifies `SUCCESS` | `BUSINESS_OUTCOME` | `HARD_FAILURE`. **HITL** pauses the same Playwright session on stuck/policy and resumes via `cua escalate resume`. Evidence chapters under `/evidence/` mirror the demo story.
+CLI `cua` loads runtime config (CLI > env > `config.yaml` > defaults). **Discovery** opens the local mock, observes page text + controls, asks Ollama to emit **locator candidates only** (JSON-Schema constrained), and merges them into a **code-owned Capability skeleton** (Zod fail-closed). **Replay** resolves ranked a11y/css locators with Playwright (`llmCalls: 0`), classifies `SUCCESS` | `BUSINESS_OUTCOME` | `HARD_FAILURE`. **HITL** pauses the same Playwright session on stuck/policy; `cua escalate resume` continues after the operator fixes the live page. Evidence chapters under `/evidence/` mirror the demo story. Operator wrappers: `./scripts/setup.sh`, `train.sh`, `run.sh`; optional Docker Compose for mock + slice.
 
 ## 3. Capability artifact
 
-`capabilities/lookup-member-savings-balance.json` declares inputs (`memberId`), outputs (`savingsBalance`), ranked targets, checkpoints, and a `branch` that maps the not-found alert to `member.NOT_FOUND`. Zod validation is fail-closed (`src/artifact/`).
+`capabilities/lookup-member-savings-balance.json` (written by train) declares inputs (`memberId`), outputs (`savingsBalance`), ranked targets, checkpoints, and a `branch` that maps the not-found alert to `member.NOT_FOUND`. Zod validation is fail-closed (`src/artifact/`). Private human backups may live under gitignored `.private/golden-capabilities/` — the app does not auto-load them.
 
 ## 4. Deterministic replay
 
@@ -22,8 +22,8 @@ Business detection is **branch-only** (not HTTP status). Hard failures cover loc
 
 ## 6. Human-in-the-loop
 
-Risky/stuck paths can pause with `intervention.json` + screenshot; `cua escalate resume --run <id>` writes `resume.json` and automation retries after re-observing the live DOM in the same browser context.
+Risky/stuck paths can pause with `intervention.json` + screenshot; `cua escalate resume --run <id>` writes `resume.json` and automation retries after re-observing the live DOM in the same browser context. Human clicks during pause are opaque (not written into the capability).
 
 ## 7. Evidence & limits
 
-See `/evidence/01-discovery`, `02-replay-happy`, `03-replay-exception`. Limits: discovery v1 compiles from a locked seed after an Ollama confirm when reachable (`--allow-offline-seed` for offline demos); live multi-tenant Workday-class portals and HAR replay are out of scope. Run locally: `npm run mock` + `npm run demo:slice`.
+See `/evidence/01-discovery`, `02-replay-happy`, `03-replay-exception`. Discovery `llmCalls >= 1` when Ollama is reachable; `--allow-offline-seed` requires an **explicit** `--seed` path. Live multi-tenant Workday-class portals and HAR replay are out of scope. Local: `./scripts/setup.sh`, `./scripts/train.sh`, `./scripts/run.sh`, or `npm run demo:slice`. Optional Sauce Demo retarget is an experiment only (`./scripts/try-sauce.sh`) — not the graded slice.

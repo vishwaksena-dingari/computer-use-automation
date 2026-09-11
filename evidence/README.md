@@ -2,6 +2,8 @@
 
 Start with these three chapters.
 
+Paths in manifests / results / CLI JSON are **repo-relative** (never absolute home paths).
+
 | Chapter | Story |
 |---|---|
 | `01-discovery/` | Goal → capability emit (`manifest.json`, `run.json`, screenshots) |

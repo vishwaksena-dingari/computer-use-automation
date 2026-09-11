@@ -1,0 +1,9 @@
+{
+  "artifactPath": "capabilities/sauce-demo-open-inventory.json",
+  "artifactSha256": "d4fedfa42ce003b996d3ee2657ec8136740124518b36a7aaadaa983818106036",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "llmCalls": 0,
+  "runId": "replay_mtxeh3lj_cvqqs6"
+}
