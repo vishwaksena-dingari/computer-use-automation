@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "artifactPath": "capabilities/lookup-member-savings-balance.json",
+  "artifactSha256": "853f123a9bcf3bdb35390826af08cf068c764abbdef056b9730fea7791714b26",
+  "llmCalls": 0,
+  "provider": "ollama",
+  "model": "qwen3.5:9b",
+  "message": "compiled seed capability (offline)",
+  "evidenceDir": "evidence/01-discovery"
+}

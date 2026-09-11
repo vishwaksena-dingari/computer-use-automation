@@ -1,0 +1,38 @@
+{
+  "runId": "replay_mtxac9m5_ie8s2x",
+  "ledger": [
+    {
+      "at": "2026-09-11T18:24:10.670Z",
+      "stepId": "s1",
+      "action": "navigate",
+      "ok": true,
+      "detail": "http://127.0.0.1:4173/member-lookup/"
+    },
+    {
+      "at": "2026-09-11T18:24:10.709Z",
+      "stepId": "s2",
+      "action": "fill",
+      "ok": true
+    },
+    {
+      "at": "2026-09-11T18:24:10.742Z",
+      "stepId": "s3",
+      "action": "click",
+      "ok": true
+    },
+    {
+      "at": "2026-09-11T18:24:11.544Z",
+      "stepId": "s4",
+      "action": "wait",
+      "ok": true
+    },
+    {
+      "at": "2026-09-11T18:24:11.553Z",
+      "stepId": "s5",
+      "action": "branch",
+      "ok": true,
+      "detail": "member.NOT_FOUND"
+    }
+  ],
+  "llmCalls": 0
+}

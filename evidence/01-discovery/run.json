@@ -1,0 +1,21 @@
+{
+  "goal": "Look up member savings balance",
+  "ledger": [
+    {
+      "action": "navigate",
+      "ok": true,
+      "detail": "http://127.0.0.1:4173/member-lookup/"
+    },
+    {
+      "action": "llm_confirm",
+      "ok": false,
+      "detail": "ollama unreachable: The operation was aborted due to timeout"
+    },
+    {
+      "action": "compile",
+      "ok": true,
+      "detail": "capabilities/lookup-member-savings-balance.json"
+    }
+  ],
+  "llmCalls": 0
+}

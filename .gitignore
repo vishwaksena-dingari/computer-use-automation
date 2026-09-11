@@ -15,7 +15,8 @@ dist/
 *.log
 .DS_Store
 
-# Optional local evidence with screenshots (add scrubbed samples later if needed)
-/evidence/
-!/evidence/.gitkeep
-!/evidence/README.md
+# Live ad-hoc runs (keep graded chapters)
+/evidence/runs/
+
+# Optional local noise under chapters
+/evidence/**/hitl/resume.json

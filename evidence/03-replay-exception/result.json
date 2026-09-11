@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "status": "BUSINESS_OUTCOME",
+  "code": "member.NOT_FOUND",
+  "message": "Business outcome member.NOT_FOUND",
+  "outputs": {},
+  "error": null,
+  "capabilityId": "lookup-member-savings-balance",
+  "capabilityVersion": "1.0.0",
+  "params": {
+    "memberId": "M-99999"
+  },
+  "runId": "replay_mtxac9m5_ie8s2x",
+  "evidenceDir": "evidence/03-replay-exception",
+  "durationMs": 1449,
+  "llmCalls": 0
+}
