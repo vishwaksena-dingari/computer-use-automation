@@ -11,6 +11,8 @@ import {
   type PauseReason,
 } from '../session/hitl.js';
 import { ensureDir, writeJson } from '../evidence/store.js';
+import { repoRelative } from '../config/paths.js';
+import { log } from '../util/log.js';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 
@@ -36,6 +38,8 @@ export type ReplayResult = {
 export type ReplayOptions = {
   capability: Capability;
   config: RuntimeConfig;
+  /** Project root — public paths are emitted relative to this (no home dirs). */
+  root: string;
   params: Record<string, string>;
   runId: string;
   evidenceDir: string;
@@ -148,7 +152,7 @@ async function evalCheckpoint(
  */
 export async function replayCapability(opts: ReplayOptions): Promise<ReplayResult> {
   const started = Date.now();
-  const { capability, config, params, runId, evidenceDir } = opts;
+  const { capability, config, params, runId, evidenceDir, root } = opts;
   const ledger: LedgerEntry[] = [];
   const outputs: Record<string, string> = {};
 
@@ -165,16 +169,22 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
   ): Promise<ReplayResult> => {
     writeJson(join(evidenceDir, 'run.json'), { runId, ledger, llmCalls: 0 });
     if (ownsBrowser && browser) await browser.close().catch(() => undefined);
-    return {
+    const result = {
       ...partial,
       capabilityId: capability.id,
       capabilityVersion: capability.version,
       params,
       runId,
-      evidenceDir,
+      evidenceDir: repoRelative(root, evidenceDir),
       durationMs: Date.now() - started,
-      llmCalls: 0,
+      llmCalls: 0 as const,
     };
+    log(partial.ok ? 'info' : 'warn', 'replay finish', {
+      status: partial.status,
+      code: partial.code,
+      steps: ledger.length,
+    });
+    return result;
   };
 
   try {
@@ -212,6 +222,8 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
         });
       }
 
+      log('debug', 'replay step', { stepId: step.id, action: step.action });
+
       const policy = assertActionAllowed(config, step.action);
       if (!policy.ok) {
         if (opts.escalateOnPolicy) {
@@ -226,7 +238,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             capabilityId: capability.id,
             stepId: step.id,
             pageUrl: page.url(),
-            screenshotPath: shot,
+            screenshotPath: 'hitl/pause.png',
             owner: 'paused',
             pausedAt: new Date().toISOString(),
           });
@@ -369,6 +381,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
         }
       } catch (e) {
         const msg = (e as Error).message || String(e);
+        log('warn', 'replay step failed', { stepId: step.id, action: step.action, detail: msg });
         ledger.push({
           at: new Date().toISOString(),
           stepId: step.id,
@@ -389,12 +402,12 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             capabilityId: capability.id,
             stepId: step.id,
             pageUrl: page.url(),
-            screenshotPath: shot,
+            screenshotPath: 'hitl/pause.png',
             owner: 'paused',
             pausedAt: new Date().toISOString(),
           });
           console.error(`HITL pause (${runId}): STUCK — ${msg}`);
-          console.error(`  screenshot: ${shot}`);
+          console.error(`  screenshot: hitl/pause.png`);
           console.error(`  resume: cua escalate resume --run ${runId}`);
           const resumed = await waitForResume(evidenceDir, config.limits.runTimeoutMs);
           if (!resumed) {
@@ -433,7 +446,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
         ok: true,
         status: 'SUCCESS',
         code: null,
-        message: 'Member savings balance extracted',
+        message: 'Capability completed successfully',
         outputs,
         error: null,
       });

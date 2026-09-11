@@ -18,5 +18,11 @@ dist/
 # Live ad-hoc runs (keep graded chapters)
 /evidence/runs/
 
+# Private goldens — human backup only; app/LLM train must not depend on these
+.private/
+
 # Optional local noise under chapters
 /evidence/**/hitl/resume.json
+
+# Local process leftovers
+.scratch/*.pid

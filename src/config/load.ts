@@ -191,6 +191,15 @@ function applyCliLayer(
   if (cli.baseUrl) {
     next.target.baseUrl = cli.baseUrl;
     setSource(sources, 'target.baseUrl', 'cli');
+    try {
+      const host = new URL(cli.baseUrl).hostname;
+      if (host && !next.policy.allowedHosts.includes(host)) {
+        next.policy.allowedHosts = [...next.policy.allowedHosts, host];
+        setSource(sources, 'policy.allowedHosts', 'cli');
+      }
+    } catch {
+      /* validateConfig will catch bad URL */
+    }
   }
   if (cli.headed !== undefined) {
     next.session.headedOnEscalate = cli.headed;

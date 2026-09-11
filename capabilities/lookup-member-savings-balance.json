@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "surface": "web",
   "name": "Lookup member savings balance",
-  "description": "Search member by ID and read savings balance on detail screen. (compiled from discovery 2026-09-11)",
+  "description": "LLM-grounded capability for: Look up member savings balance (llm-emitted 2026-09-11)",
   "goalTemplate": "Look up member {{memberId}} and read their current savings balance",
   "bindings": {},
   "inputs": [
@@ -103,6 +103,12 @@
           "kind": "css",
           "rank": 99,
           "selector": "input[name='member_id']"
+        },
+        {
+          "kind": "label",
+          "rank": 4,
+          "name": "Member ID",
+          "text": "Member ID"
         }
       ]
     },
@@ -121,6 +127,11 @@
           "kind": "css",
           "rank": 99,
           "selector": "form button[type='submit']"
+        },
+        {
+          "kind": "placeholder",
+          "rank": 4,
+          "name": "e.g. M-10042"
         }
       ]
     },
@@ -132,6 +143,11 @@
           "kind": "css",
           "rank": 1,
           "selector": "[data-field='savingsBalance']"
+        },
+        {
+          "kind": "text",
+          "rank": 2,
+          "name": "savingsBalance"
         }
       ]
     },
@@ -149,6 +165,11 @@
           "rank": 2,
           "text": "Member not found",
           "exact": true
+        },
+        {
+          "kind": "text",
+          "rank": 3,
+          "name": "Member not found"
         }
       ]
     }

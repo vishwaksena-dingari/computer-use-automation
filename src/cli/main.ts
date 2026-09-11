@@ -6,12 +6,13 @@ import { Command } from 'commander';
 import { join } from 'node:path';
 import { flattenForShow, loadConfig, validateConfig, type CliConfigOverrides } from '../config/load.js';
 import { setConfigValue } from '../config/set.js';
-import { findProjectRoot } from '../config/paths.js';
+import { findProjectRoot, repoRelative } from '../config/paths.js';
 import { loadCapability, sha256File } from '../artifact/load.js';
 import { replayCapability } from '../replay/engine.js';
 import { discoverCapability } from '../discover/emit.js';
 import { writeResume } from '../session/hitl.js';
 import { newRunId, prepareChapter, writeJson, ensureDir } from '../evidence/store.js';
+import { configureLog, log } from '../util/log.js';
 
 function cliFromOpts(opts: Record<string, unknown>): CliConfigOverrides {
   return {
@@ -34,6 +35,7 @@ function addGlobalConfigFlags(cmd: Command): Command {
     .option('--ollama-url <url>', 'Ollama base URL')
     .option('--base-url <url>', 'target base URL')
     .option('--headed', 'headed browser')
+    .option('--verbose', 'debug logs on stderr (or set CUA_LOG=debug)')
     .option('--max-steps <n>', 'max steps')
     .option('--step-timeout-ms <n>', 'per-step timeout ms')
     .option('--run-timeout-ms <n>', 'whole-run timeout ms')
@@ -52,11 +54,12 @@ addGlobalConfigFlags(
     .description('LLM discovery → capability artifact')
     .option('--goal <text>', 'natural-language goal', 'Look up member savings balance')
     .option('--out <path>', 'artifact output path')
-    .option('--seed <path>', 'seed capability to compile from')
+    .option('--seed <path>', 'OFFLINE ONLY: explicit seed path (never auto-reads .private/)')
     .option('--evidence <dir>', 'evidence chapter dir')
-    .option('--allow-offline-seed', 'emit seed if Ollama unreachable')
+    .option('--allow-offline-seed', 'use --seed file if Ollama unreachable (requires --seed)')
     .action(async (opts) => {
       try {
+        configureLog({ verbose: Boolean(opts.verbose) });
         const loaded = loadConfig(cliFromOpts(opts));
         const errs = validateConfig(loaded);
         if (errs.length) {
@@ -65,17 +68,23 @@ addGlobalConfigFlags(
           return;
         }
         const root = loaded.root;
-        const seed =
-          opts.seed ?? join(root, 'capabilities/lookup-member-savings-balance.json');
+        if (opts.allowOfflineSeed && !opts.seed) {
+          console.error('error: --allow-offline-seed requires explicit --seed <path>');
+          process.exitCode = 1;
+          return;
+        }
+        const seed = opts.seed as string | undefined;
         const out = opts.out ?? join(root, 'capabilities/lookup-member-savings-balance.json');
         const evidenceDir =
           opts.evidence ?? join(root, loaded.config.evidence.dir, '01-discovery');
         prepareChapter(join(root, loaded.config.evidence.dir), '01-discovery');
+        log('info', 'discover start', { goal: opts.goal });
         const result = await discoverCapability({
           config: loaded.config,
+          root,
           goal: opts.goal,
           evidenceDir,
-          seedPath: seed,
+          seedPath: seed ?? '',
           outPath: out,
           allowOfflineSeed: Boolean(opts.allowOfflineSeed),
         });
@@ -88,9 +97,15 @@ addGlobalConfigFlags(
           llmCalls: result.llmCalls,
         });
         writeJson(join(evidenceDir, 'result.json'), result);
+        log('info', 'discover done', {
+          ok: result.ok,
+          artifactPath: result.artifactPath,
+          llmCalls: result.llmCalls,
+        });
         console.log(JSON.stringify(result, null, 2));
         if (!result.ok) process.exitCode = 1;
       } catch (e) {
+        log('error', (e as Error).message);
         console.error((e as Error).message);
         process.exitCode = 1;
       }
@@ -109,6 +124,7 @@ addGlobalConfigFlags(
     .option('--escalate', 'pause same session on stuck/policy for HITL')
     .action(async (artifact: string | undefined, opts) => {
       try {
+        configureLog({ verbose: Boolean(opts.verbose) });
         const loaded = loadConfig(cliFromOpts(opts));
         const errs = validateConfig(loaded);
         if (errs.length) {
@@ -131,9 +147,15 @@ addGlobalConfigFlags(
             ? prepareChapter(join(root, loaded.config.evidence.dir), opts.chapter)
             : join(root, loaded.config.evidence.dir, 'runs', runId));
         ensureEvidence(evidenceDir);
+        log('info', 'replay start', {
+          capabilityId: capability.id,
+          memberId: params.memberId,
+          runId,
+        });
         const result = await replayCapability({
           capability,
           config: loaded.config,
+          root,
           params,
           runId,
           evidenceDir,
@@ -142,15 +164,21 @@ addGlobalConfigFlags(
         });
         writeJson(join(evidenceDir, 'result.json'), result);
         writeJson(join(evidenceDir, 'manifest.json'), {
-          artifactPath: artPath,
+          artifactPath: repoRelative(root, artPath),
           artifactSha256: sha256File(artPath),
           params: { memberId: params.memberId },
           llmCalls: 0,
           runId,
         });
+        log('info', 'replay done', {
+          status: result.status,
+          code: result.code,
+          evidenceDir: result.evidenceDir,
+        });
         console.log(JSON.stringify(result, null, 2));
         if (!result.ok) process.exitCode = 1;
       } catch (e) {
+        log('error', (e as Error).message);
         console.error((e as Error).message);
         process.exitCode = 1;
       }
@@ -184,7 +212,7 @@ escalate
         opts.dir ??
         join(root, 'evidence', 'runs', opts.run) ;
       writeResume(runDir, opts.note || 'operator resumed');
-      console.log(`resumed ${runDir}`);
+      console.log(`resumed ${repoRelative(root, runDir)}`);
     } catch (e) {
       console.error((e as Error).message);
       process.exitCode = 1;
@@ -243,7 +271,7 @@ addGlobalConfigFlags(
           process.exitCode = 1;
           return;
         }
-        console.log(`ok  config=${loaded.configPath}`);
+        console.log(`ok  config=${repoRelative(loaded.root, loaded.configPath)}`);
         console.log(`    provider=${loaded.config.llm.provider} model=${loaded.config.llm.model}`);
       } catch (e) {
         console.error((e as Error).message);
@@ -261,7 +289,8 @@ configCmd
   .action((key: string, value: string, opts: { config?: string }) => {
     try {
       const path = setConfigValue(key, value, opts.config);
-      console.log(`wrote ${key} → ${path}`);
+      const root = findProjectRoot();
+      console.log(`wrote ${key} → ${repoRelative(root, path)}`);
     } catch (e) {
       console.error((e as Error).message);
       process.exitCode = 1;
