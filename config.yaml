@@ -1,0 +1,33 @@
+schemaVersion: 1
+llm:
+  provider: ollama
+  model: qwen3.5:9b
+  ollamaBaseUrl: http://127.0.0.1:11434
+target:
+  name: mock-core
+  baseUrl: http://127.0.0.1:4173
+  entryPath: /member-lookup/
+policy:
+  allowedHosts:
+    - 127.0.0.1
+    - localhost
+  allowedActions:
+    - navigate
+    - click
+    - fill
+    - extract
+    - wait
+    - branch
+  riskyActions:
+    - submit_irreversible
+    - transfer_funds
+limits:
+  maxSteps: 40
+  stepTimeoutMs: 15000
+  runTimeoutMs: 300000
+session:
+  headedOnEscalate: true
+  pauseScreenshot: true
+evidence:
+  dir: evidence
+  redactSensitiveOutputs: true
