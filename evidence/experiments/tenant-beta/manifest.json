@@ -1,0 +1,11 @@
+{
+  "artifactPath": "capabilities/lookup-member-savings-balance.json",
+  "artifactSha256": "6a487c9ce23f5ac820a1a140f4fcc818864fc597ab89d0fe7b1221ec5d1549c4",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "llmCalls": 0,
+  "runId": "replay_mtxfuv15_ooneho",
+  "autoRetrainAttempts": 0,
+  "bindings": "capabilities/bindings/tenant-beta.json"
+}

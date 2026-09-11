@@ -1,0 +1,36 @@
+{
+  "entryPath": "/member-lookup-beta/",
+  "targets": {
+    "memberIdField": {
+      "strict": true,
+      "timeoutMs": 10000,
+      "candidates": [
+        { "kind": "label", "rank": 1, "text": "CIF Number", "exact": true },
+        { "kind": "css", "rank": 99, "selector": "input[name='cif_number']" }
+      ]
+    },
+    "searchButton": {
+      "strict": true,
+      "timeoutMs": 10000,
+      "candidates": [
+        { "kind": "role", "rank": 1, "role": "button", "name": "Find member", "exact": true },
+        { "kind": "css", "rank": 99, "selector": "form button[type='submit']" }
+      ]
+    },
+    "savingsBalanceValue": {
+      "strict": true,
+      "timeoutMs": 10000,
+      "candidates": [
+        { "kind": "css", "rank": 1, "selector": "[data-field='savingsBalance']" }
+      ]
+    },
+    "notFoundBanner": {
+      "strict": true,
+      "timeoutMs": 5000,
+      "candidates": [
+        { "kind": "role", "rank": 1, "role": "alert" },
+        { "kind": "text", "rank": 2, "text": "No matching CIF", "exact": true }
+      ]
+    }
+  }
+}

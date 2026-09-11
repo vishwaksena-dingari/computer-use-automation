@@ -13,6 +13,13 @@ npm run mock                # terminal 1 — http://127.0.0.1:4173/member-lookup
 ./scripts/run.sh M-99999    # not-found → evidence/03-replay-exception
 ./scripts/run.sh M-10042 --headed   # watch Chromium
 
+# Stretch: Tenant Beta skin + bindings overlay (same capability)
+./scripts/demo-tenant-beta.sh
+
+# Optional bounded heals (off by default):
+#   cua replay … --auto-retrain
+#   cua replay … --escalate --hitl-locator-patch
+
 # Optional retarget experiment (Sauce Demo) — not the graded mock-core slice:
 #   ./scripts/try-sauce.sh
 #   ./scripts/try-sauce.sh --bad-login

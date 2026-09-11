@@ -38,13 +38,28 @@ Private golden is for your eyes only. To replay Sauce after deleting live JSON y
 
 ## If replay fails — does the LLM continue / loop?
 
-**No. Not in this build.**
+**Default: no.** Opt-in bounded heals only:
 
 | Behavior | What happens |
 |----------|----------------|
 | Discover | Starts **from scratch** each `train` (full observe → emit → save) |
-| Replay fail | Stops with `HARD_FAILURE` (or HITL pause if `--escalate`) — **does not** auto-fix JSON |
-| “How far did it get?” | Check `evidence/.../run.json` ledger (last ok step) — for **you**, not an auto-repair loop |
-| Loop until success | **Not implemented** — you re-run `./scripts/train.sh` or fix JSON / use HITL |
+| Replay fail | Stops with `HARD_FAILURE` (or HITL pause if `--escalate`) |
+| `--auto-retrain` | On `locator_miss` only: re-discover + rewrite artifact + **one** replay retry (cap 1, max 2 via `--auto-retrain-max`) — logged in `auto-retrain.json` |
+| `--hitl-locator-patch` | After `escalate resume --note "…"`, one LLM patch of the **stuck target** candidates (not a click transcript); `humanActionsRecorded: false` |
+| Unbounded loop until success | **Not implemented** (parked) |
 
-So: failure → inspect evidence → **retrain from scratch** or escalate manually. No “resume training from the broken step” loop yet.
+So: failure → inspect evidence → retrain / HITL / optional capped flags. No infinite self-edit.
+
+## Tenant Beta bindings (S8)
+
+Same capability JSON + overlay remaps entry path and locators:
+
+```bash
+./scripts/demo-tenant-beta.sh
+# or:
+cua replay capabilities/lookup-member-savings-balance.json \
+  --bindings capabilities/bindings/tenant-beta.json \
+  --member-id M-10042
+```
+
+Mock skin: `/member-lookup-beta/` (different labels; same API).

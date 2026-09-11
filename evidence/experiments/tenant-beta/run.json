@@ -1,0 +1,45 @@
+{
+  "runId": "replay_mtxfuv15_ooneho",
+  "ledger": [
+    {
+      "at": "2026-09-11T20:58:36.421Z",
+      "stepId": "s1",
+      "action": "navigate",
+      "ok": true,
+      "detail": "http://127.0.0.1:4173/member-lookup-beta/"
+    },
+    {
+      "at": "2026-09-11T20:58:36.491Z",
+      "stepId": "s2",
+      "action": "fill",
+      "ok": true
+    },
+    {
+      "at": "2026-09-11T20:58:36.572Z",
+      "stepId": "s3",
+      "action": "click",
+      "ok": true
+    },
+    {
+      "at": "2026-09-11T20:58:37.374Z",
+      "stepId": "s4",
+      "action": "wait",
+      "ok": true
+    },
+    {
+      "at": "2026-09-11T20:58:39.895Z",
+      "stepId": "s5",
+      "action": "branch",
+      "ok": true,
+      "detail": "next=s6"
+    },
+    {
+      "at": "2026-09-11T20:58:39.901Z",
+      "stepId": "s6",
+      "action": "extract",
+      "ok": true,
+      "detail": "savingsBalance"
+    }
+  ],
+  "llmCalls": 0
+}

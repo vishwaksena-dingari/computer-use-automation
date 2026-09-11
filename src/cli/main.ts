@@ -122,6 +122,11 @@ addGlobalConfigFlags(
     .option('--evidence <dir>', 'evidence directory for this run')
     .option('--chapter <name>', 'evidence chapter name under evidence/')
     .option('--escalate', 'pause same session on stuck/policy for HITL')
+    .option('--hitl-locator-patch', 'after HITL resume --note, one LLM patch of stuck target')
+    .option('--auto-retrain', 'on locator_miss: discover once then retry replay (capped)')
+    .option('--auto-retrain-max <n>', 'auto-retrain attempts (1–2)', '1')
+    .option('--bindings <path>', 'JSON overlay merged into capability.bindings (S8)')
+    .option('--goal <text>', 'goal used when --auto-retrain discovers', 'Look up member savings balance')
     .action(async (artifact: string | undefined, opts) => {
       try {
         configureLog({ verbose: Boolean(opts.verbose) });
@@ -135,7 +140,7 @@ addGlobalConfigFlags(
         const root = loaded.root;
         const artPath =
           artifact ?? join(root, 'capabilities/lookup-member-savings-balance.json');
-        const capability = loadCapability(artPath);
+        let capability = loadCapability(artPath);
         const params: Record<string, string> = {
           memberId: opts.memberId,
           ...(opts.param as Record<string, string>),
@@ -147,28 +152,90 @@ addGlobalConfigFlags(
             ? prepareChapter(join(root, loaded.config.evidence.dir), opts.chapter)
             : join(root, loaded.config.evidence.dir, 'runs', runId));
         ensureEvidence(evidenceDir);
+
+        let bindingsOverlay: Record<string, unknown> | null = null;
+        if (opts.bindings) {
+          const { readFileSync } = await import('node:fs');
+          bindingsOverlay = JSON.parse(readFileSync(opts.bindings, 'utf8')) as Record<
+            string,
+            unknown
+          >;
+        }
+
+        const maxRetrain = Math.min(
+          2,
+          Math.max(1, Number(opts.autoRetrainMax ?? 1) || 1),
+        );
+        let autoRetrainAttempts = 0;
+
+        const runOnce = async () =>
+          replayCapability({
+            capability,
+            config: loaded.config,
+            root,
+            params,
+            runId,
+            evidenceDir,
+            headed: Boolean(opts.headed || opts.escalate),
+            escalateOnPolicy: Boolean(opts.escalate),
+            hitlLocatorPatch: Boolean(opts.hitlLocatorPatch),
+            bindingsOverlay,
+          });
+
         log('info', 'replay start', {
           capabilityId: capability.id,
           memberId: params.memberId,
           runId,
         });
-        const result = await replayCapability({
-          capability,
-          config: loaded.config,
-          root,
-          params,
-          runId,
-          evidenceDir,
-          headed: Boolean(opts.headed || opts.escalate),
-          escalateOnPolicy: Boolean(opts.escalate),
-        });
+        let result = await runOnce();
+
+        while (
+          opts.autoRetrain &&
+          !result.ok &&
+          result.error?.reason === 'locator_miss' &&
+          autoRetrainAttempts < maxRetrain
+        ) {
+          autoRetrainAttempts += 1;
+          log('warn', 'auto-retrain after locator_miss', {
+            attempt: autoRetrainAttempts,
+            max: maxRetrain,
+          });
+          const retrainDir = join(evidenceDir, 'auto-retrain', String(autoRetrainAttempts));
+          ensureDir(retrainDir);
+          const discovered = await discoverCapability({
+            config: loaded.config,
+            root,
+            goal: opts.goal as string,
+            evidenceDir: retrainDir,
+            seedPath: '',
+            outPath: artPath,
+            allowOfflineSeed: false,
+          });
+          writeJson(join(evidenceDir, 'auto-retrain.json'), {
+            attempts: autoRetrainAttempts,
+            max: maxRetrain,
+            discoverOk: discovered.ok,
+            artifactPath: discovered.artifactPath,
+            llmCalls: discovered.llmCalls,
+          });
+          if (!discovered.ok) break;
+          capability = loadCapability(artPath);
+          result = await runOnce();
+        }
+
+        if (autoRetrainAttempts > 0) {
+          result = { ...result, autoRetrainAttempts };
+        }
+
         writeJson(join(evidenceDir, 'result.json'), result);
         writeJson(join(evidenceDir, 'manifest.json'), {
           artifactPath: repoRelative(root, artPath),
           artifactSha256: sha256File(artPath),
           params: { memberId: params.memberId },
-          llmCalls: 0,
+          llmCalls: result.llmCalls,
           runId,
+          autoRetrainAttempts,
+          bindings: opts.bindings ? repoRelative(root, opts.bindings) : null,
         });
         log('info', 'replay done', {
           status: result.status,

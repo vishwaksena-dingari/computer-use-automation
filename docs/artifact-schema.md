@@ -207,7 +207,7 @@ Notes:
 - `$ref` is a **document-local pointer** into this capability JSON (not JSON Schema remote refs).
 - Map keys are target/checkpoint identity (no redundant `targetId`).
 - `score` on candidates is optional.
-- `bindings` is reserved empty for future per-tenant overrides (unused in v1).
+- `bindings` may carry tenant overlays at replay (`entryPath`, `targets.*` remaps). Discovery still emits `{}`; use `--bindings` or bake into the file.
 - Every `outputs[].name` must be written by exactly one `extract`.
 - Sensitive values never persist raw in evidence.
 

@@ -10,11 +10,16 @@ import {
   writeIntervention,
   type PauseReason,
 } from '../session/hitl.js';
+import { applyBindings, bindingsEntryPath } from '../artifact/bindings.js';
+import {
+  patchTargetFromNote,
+  targetKeyFromStep,
+} from '../discover/patch-locator.js';
 import { ensureDir, writeJson } from '../evidence/store.js';
 import { repoRelative } from '../config/paths.js';
 import { log } from '../util/log.js';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 export type RunStatus = 'SUCCESS' | 'BUSINESS_OUTCOME' | 'RECOVERABLE' | 'HARD_FAILURE';
 
@@ -31,8 +36,10 @@ export type ReplayResult = {
   runId: string;
   evidenceDir: string;
   durationMs: number;
-  llmCalls: 0;
+  /** Always 0 for pure replay; HITL patch may bump via side channel in evidence only. */
+  llmCalls: number;
   paused?: boolean;
+  autoRetrainAttempts?: number;
 };
 
 export type ReplayOptions = {
@@ -46,6 +53,10 @@ export type ReplayOptions = {
   headed?: boolean;
   /** When true, risky/policy blocks pause instead of hard-failing immediately. */
   escalateOnPolicy?: boolean;
+  /** Opt-in: after resume note, one LLM locator patch of the stuck target (P1b). */
+  hitlLocatorPatch?: boolean;
+  /** Optional bindings overlay merged before steps run (S8). */
+  bindingsOverlay?: Record<string, unknown> | null;
   existingContext?: BrowserContext;
   existingPage?: Page;
   existingBrowser?: Browser;
@@ -63,12 +74,16 @@ function targetKey(ref: { $ref: string }): string {
   return ref.$ref.replace('#/targets/', '');
 }
 
-function resolveUrlFrom(config: RuntimeConfig, urlFrom: string): string {
+function resolveUrlFrom(
+  config: RuntimeConfig,
+  urlFrom: string,
+  capability: Capability,
+): string {
   if (urlFrom === 'config.target.entryPath' || urlFrom === 'config.target.baseUrl') {
     const base = config.target.baseUrl.replace(/\/$/, '');
-    const path = config.target.entryPath.startsWith('/')
-      ? config.target.entryPath
-      : `/${config.target.entryPath}`;
+    const bound = bindingsEntryPath(capability);
+    const pathRaw = bound ?? config.target.entryPath;
+    const path = pathRaw.startsWith('/') ? pathRaw : `/${pathRaw}`;
     return `${base}${path}`;
   }
   if (urlFrom.startsWith('http')) return urlFrom;
@@ -148,13 +163,15 @@ async function evalCheckpoint(
 }
 
 /**
- * Execute capability steps with Playwright. llmCalls always 0.
+ * Execute capability steps with Playwright. llmCalls stays 0 unless HITL locator patch runs.
  */
 export async function replayCapability(opts: ReplayOptions): Promise<ReplayResult> {
   const started = Date.now();
-  const { capability, config, params, runId, evidenceDir, root } = opts;
+  const capability = applyBindings(opts.capability, opts.bindingsOverlay);
+  const { config, params, runId, evidenceDir, root } = opts;
   const ledger: LedgerEntry[] = [];
   const outputs: Record<string, string> = {};
+  let llmCalls = 0;
 
   ensureDir(join(evidenceDir, 'screenshots'));
   ensureDir(join(evidenceDir, 'hitl'));
@@ -167,7 +184,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
   const finish = async (
     partial: Omit<ReplayResult, 'durationMs' | 'llmCalls' | 'runId' | 'evidenceDir' | 'capabilityId' | 'capabilityVersion' | 'params'>,
   ): Promise<ReplayResult> => {
-    writeJson(join(evidenceDir, 'run.json'), { runId, ledger, llmCalls: 0 });
+    writeJson(join(evidenceDir, 'run.json'), { runId, ledger, llmCalls });
     if (ownsBrowser && browser) await browser.close().catch(() => undefined);
     const result = {
       ...partial,
@@ -177,7 +194,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
       runId,
       evidenceDir: repoRelative(root, evidenceDir),
       durationMs: Date.now() - started,
-      llmCalls: 0 as const,
+      llmCalls,
     };
     log(partial.ok ? 'info' : 'warn', 'replay finish', {
       status: partial.status,
@@ -264,7 +281,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
 
       try {
         if (step.action === 'navigate') {
-          const url = resolveUrlFrom(config, step.urlFrom);
+          const url = resolveUrlFrom(config, step.urlFrom, capability);
           const hostOk = assertHostAllowed(config, url);
           if (!hostOk.ok) {
             return finish({
@@ -410,7 +427,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
           console.error(`  screenshot: hitl/pause.png`);
           console.error(`  resume: cua escalate resume --run ${runId}`);
           const resumed = await waitForResume(evidenceDir, config.limits.runTimeoutMs);
-          if (!resumed) {
+          if (!resumed.ok) {
             return finish({
               ok: false,
               status: 'HARD_FAILURE',
@@ -420,6 +437,31 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               error: { reason: 'STUCK', stepId: step.id },
               paused: true,
             });
+          }
+          if (opts.hitlLocatorPatch && resumed.note.trim()) {
+            const tKey = targetKeyFromStep(capability, step.id);
+            if (tKey) {
+              const patch = await patchTargetFromNote({
+                page,
+                capability,
+                targetKey: tKey,
+                note: resumed.note,
+                config,
+              });
+              llmCalls += patch.llmCalls;
+              writeJson(join(evidenceDir, 'hitl', 'locator-patch.json'), {
+                targetKey: tKey,
+                ...patch,
+                humanActionsRecorded: false,
+              });
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'hitl_locator_patch',
+                ok: patch.patched,
+                detail: patch.detail,
+              });
+            }
           }
           // re-observe: retry same step once
           continue;
@@ -477,12 +519,22 @@ function nextSequential(capability: Capability, currentId: string): string | und
   return capability.steps[idx + 1]?.id;
 }
 
-async function waitForResume(evidenceDir: string, timeoutMs: number): Promise<boolean> {
+async function waitForResume(
+  evidenceDir: string,
+  timeoutMs: number,
+): Promise<{ ok: boolean; note: string }> {
   const resumeFile = join(evidenceDir, 'hitl', 'resume.json');
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (existsSync(resumeFile)) return true;
+    if (existsSync(resumeFile)) {
+      try {
+        const body = JSON.parse(readFileSync(resumeFile, 'utf8')) as { note?: string };
+        return { ok: true, note: String(body.note ?? '') };
+      } catch {
+        return { ok: true, note: '' };
+      }
+    }
     await new Promise((r) => setTimeout(r, 500));
   }
-  return false;
+  return { ok: false, note: '' };
 }
