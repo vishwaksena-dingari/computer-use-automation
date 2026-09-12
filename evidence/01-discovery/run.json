@@ -11,7 +11,7 @@
     {
       "action": "llm_locator_emit",
       "ok": true,
-      "detail": "{\"targets\":{\"memberIdField\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"text\":\"Member ID\"},{\"kind\":\"text\",\"rank\":2,\"name\":\"M-10042\",\"exact\":true}]},\"searchButton\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"text\":\"Search\"},{\"kind\":\"css\",\"rank\":2,\"name\":\"search\",\"exact\":false}]},\"savingsBalanceValue\":{\"candidates\":[{\"kind\":\"text\",\"rank\":1,\"name\":\"savingsBalance\",\"exact\":true}]},\"notFoundBanner\":{\"candida"
+      "detail": "{\"targets\":{\"memberIdField\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"name\":\"Member ID\"},{\"kind\":\"text\",\"rank\":2,\"text\":\"Member ID\"},{\"kind\":\"role\",\"rank\":3,\"name\":\"member_id\",\"selector\":\"[data-field='member_id']\"}]}, \"searchButton\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"name\":\"Search\"},{\"kind\":\"text\",\"rank\":2,\"text\":\"Search\"},{\"kind\":\"role\",\"rank\":3,\"name\":\"search\",\"selector\":\"[data-field='searc"
     },
     {
       "action": "compile",
@@ -20,5 +20,5 @@
     }
   ],
   "llmCalls": 1,
-  "observationControls": 19
+  "observationControls": 1
 }

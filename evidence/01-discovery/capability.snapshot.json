@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "surface": "web",
   "name": "Lookup member savings balance",
-  "description": "LLM-grounded capability for: Look up member savings balance (llm-emitted 2026-09-11)",
+  "description": "LLM-grounded capability for: Look up member savings balance (llm-emitted 2026-09-12)",
   "goalTemplate": "Look up member {{memberId}} and read their current savings balance",
   "bindings": {},
   "inputs": [
@@ -107,13 +107,19 @@
         {
           "kind": "label",
           "rank": 4,
+          "name": "Member ID",
           "text": "Member ID"
         },
         {
           "kind": "text",
           "rank": 5,
-          "name": "M-10042",
-          "exact": true
+          "text": "Member ID"
+        },
+        {
+          "kind": "role",
+          "rank": 6,
+          "name": "member_id",
+          "selector": "[data-field='member_id']"
         }
       ]
     },
@@ -131,18 +137,24 @@
         {
           "kind": "css",
           "rank": 99,
-          "selector": "form button[type='submit']"
+          "selector": "button[type='submit']"
         },
         {
           "kind": "label",
           "rank": 3,
+          "name": "Search",
           "text": "Search"
         },
         {
-          "kind": "css",
+          "kind": "text",
           "rank": 4,
+          "text": "Search"
+        },
+        {
+          "kind": "role",
+          "rank": 5,
           "name": "search",
-          "exact": false
+          "selector": "[data-field='search']"
         }
       ]
     },
@@ -158,8 +170,7 @@
         {
           "kind": "text",
           "rank": 2,
-          "name": "savingsBalance",
-          "exact": true
+          "text": "savings balance"
         }
       ]
     },
@@ -181,7 +192,7 @@
         {
           "kind": "text",
           "rank": 3,
-          "text": "Member not found"
+          "text": "not found"
         }
       ]
     }
