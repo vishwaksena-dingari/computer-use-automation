@@ -215,7 +215,18 @@ flowchart TD
 
 ### Human in implementation
 
-Ask the human when: preference lock, irreversible schema/HITL change, sprint retarget that **cuts** a promised demo path, or agent is stuck after one recovery attempt. Otherwise keep shipping against the locked map.
+Ask the human when: preference lock, irreversible schema/HITL change, sprint retarget that **cuts** a promised demo path, or agent is stuck after **research dig + one recovery** (see below). Otherwise keep shipping against the locked map.
+
+### Stuck → research dig (aggressive — this project)
+
+When blocked on live ATS widgets / multipage / auth (**≳20–30 min** same bug) **or** human says check public research:
+
+1. Raid local notes/clones under `.scratch/research-clones/` and `.scratch/research-notes/` (gitignored).  
+2. Reuse selectors / auth `storageState` / education+resume sequences / per-page validate — **do not** vendor LLM agent loops.  
+3. Port into capability factory; prove headless.  
+4. Keep steal-vs-reject notes **local only** — do not commit third-party project catalogs to `docs/`.
+
+Universal playbook already has this section — **this overlay makes it mandatory for ATS work**, not optional.
 
 ### Modularity (reuse without library theater)
 

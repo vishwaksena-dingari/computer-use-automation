@@ -167,6 +167,16 @@ Names are intentional — rename only with a doc+diagram update.
 | `src/policy/` | **S4** | No | Allowlist + risky gate |
 | `src/discover/` | **S5+** | No | Observe → LLM locator emit; optional HITL note patch (`patch-locator.ts`) |
 | `src/artifact/bindings.ts` | **S8** | No | `bindings` overlay: entryPath + target remaps |
+| `src/artifact/fill-form.ts` | **G1** | No | Profile → field-map fill + verify + craft wake |
+| `src/artifact/fill-receipt.ts` | **G1** | No | Redacted fill receipt + `valuesMatch` |
+| `src/artifact/repair-field-map.ts` | **G1** | No | Observe → heuristic/LLM field-map repair |
+| `src/artifact/form-outcomes.ts` | **G1** | No | Map fill failure detail → `form.*` codes |
+| `src/artifact/profile.ts` | **G1** | No | Nested profile get/set + path flatten |
+| `src/surface/observe-controls.ts` | **G1** | No | DOM control inventory for repair |
+| `src/surface/detect-ats.ts` | **G1** | No | ATS family sniff (Ashby/GH/Lever/Workday) |
+| `src/surface/greenhouse-boards.ts` | **G1** | No | Greenhouse boards-api enum hints |
+| `src/surface/workday-widgets.ts` | **G1** | No | Workday multiselect / education widgets |
+| `src/surface/page-errors.ts` | **G1** | No | Visible page-error scrape for outcomes |
 | `apps/mock-core/member-lookup-beta/` | **S8** | Yes | Tenant Beta label skin (same API) |
 | `src/session/` | **S6+P3** | Partly | HITL intervention / resume; opt-in action recorder (`record-actions.ts`) |
 | `src/evidence/` | **S7** | No | Chapter helpers |
@@ -316,6 +326,70 @@ flowchart TD
 | `capabilities/bindings/tenant-beta.json` | S8 overlay |
 | `/member-lookup-beta/` | Second mock skin |
 | `cua invoke <id>` | S9 thin typed call (params in → replay result out) |
+
+---
+
+## 10c. G1 hybrid forms (post-`v0.1.0` — locked E6)
+
+Additive. Does **not** replace §3 graded flow.
+
+```mermaid
+flowchart TD
+  FF[fillForm] --> TRY[try existing map / fill]
+  TRY -->|ok| OUT[outcomes + receipt]
+  TRY -->|missing map or stuck| REP[dormant repair loop ≤N: observe + heuristics + optional LLM]
+  REP --> RETRY[retry fill]
+  RETRY -->|still stuck + budget| REP
+  RETRY -->|ok or exhausted / no progress| OUT
+  MODE[mode hybrid] -.->|also| CRAFT[craft empty essay fields]
+  CRAFT --> TRY
+```
+
+| Piece | Contract |
+|---|---|
+| `fillForm` step | Zod arm; `fieldMapRef` + profile; **preflight** all empty required profile paths (except craftable) before touching controls; skip optional; `field.UNMAPPED` / `field.VERIFY` / `form.*` if gap |
+| Select snap | Observe captures option labels → `enumHints`; fill snaps profile value to live `<option>` / hints (exact → casefold → yes/no → contains). Greenhouse: optional boards-api `?questions=true` merges option labels onto empty select/combobox controls |
+| Combobox / react-select | Open `.select__control`, type, pick option; verify via `.select__single-value` (input often stays empty) |
+| Sponsorship polarity | Negated “without requiring sponsorship” → Yes when `flags.sponsorshipNo` truthy; positive “require sponsorship?” → `invertBool` so truthy maps to No |
+| Profile aliases | `fullName` → `firstName`/`lastName` when split fields asked |
+| Field-maps | `capabilities/field-maps/<id>.json` |
+| Dormant repair loop (both modes) | Happy path = **0 LLM**. Stuck → repair+retry up to `--form-repair-max` (default **3**, hard cap **5**). Stops early if the same failure detail repeats (no progress). Persist with `--write-field-map`. Not unbounded G3. |
+| Dormant craft LLM (both modes) | Wakes only for empty dynamic fields (`craft:llm`, required `answers.*` / textarea). Prompt includes **profile context** (secrets skipped). Cap ≈ `--form-repair-max`. Profile values still win when present. |
+| `--mode hybrid` / `deterministic` | Same repair + craft dormancy; mode kept for CLI compat. Use **hybrid** when the map may be stale (Co C) or essays need craft; Co A/B happy path stays deterministic |
+| Verify + receipt | After each fill, read-back verify; write `evidence/fill-receipt.json` (redacted). Optional `blocker` enum: `captcha\|closed\|widget\|missing_required\|verify`. Required mismatch → stuck repair |
+| Repair few-shot | When repair LLM wakes, inject sibling green map fields + receipt keys for same `ats-family` (`docs/golden-forms.md`); hold-out skips self mapId |
+| Location verify | City/location autocomplete expansions match on city token (`New York, NY` ≈ `New York City…`) |
+| Multipage | `fillFormFlow` page 0 may LLM; pages 1+ heuristics; **stuck** may LLM in the repair loop; craft available per page |
+| `--write-field-map` | Opt-in persist repaired map to repo |
+| `--form-repair-max` | Cap stuck repair iterations (1–5; default 3) |
+| `--profile` | Invoke/replay context only; never inside Capability JSON (PII / reuse). `WORKDAY_EMAIL`/`PASSWORD` overlay at invoke time |
+| `--record-har` | Opt-in `network.har` (bodies omit by default; evidence only — not fulfill) |
+| `--har-on-failure` | With `--record-har`: delete HAR after success (retain on failure only) |
+| `--trace-on-failure` | Playwright `trace.zip` under evidence only when the run fails |
+| Live ATS | Ashby + Lever auto proven headless; Workday widgets + `fillFormFlow` validate-retry; auth via `session.storageStatePath`; ATS family → `evidence/ats-family.json` |
+| Self-sufficiency | Dynamic shell + dormant repair/craft — capability factory, not always-on agent |
+| `--escalate` (dormant HITL) | **Needed as last resort** (MFA, captcha, judgment, secrets). Off by default; with `--escalate`, pause after repair budget exhausted / policy block. Captcha/closed page text → `form.CAPTCHA` / `form.CLOSED`. Not every run. |
+| Form outcome codes | `field.UNMAPPED` (missing required), `field.VERIFY`, `form.WIDGET`, `form.CAPTCHA`, `form.CLOSED` — same D3 outcome enum as bank mock |
+| Demo | `npm run demo:reviewer` (graded + Co A/B/C); Co A/B deterministic; Co C stale+extra hybrid |
+| Templates | Optional `template` field — `docs/templates.md` |
+
+Queue: `.scratch/capability-factory-general/ROADMAP.md`.
+
+---
+
+## 10d. G2 author-steps (unlocked)
+
+Opt-in discover mode. Default discover stays **locators-only** into a code-owned skeleton.
+
+```bash
+cua discover --author-steps --goal "…" --out capabilities/experiments/authored-capability.json
+```
+
+LLM emits Zod-capped `steps` + `targets` (+ optional checkpoints/IO); one repair pass; evidence `author-steps.json`. Replay of the authored artifact is still deterministic (`llmCalls: 0` unless hybrid/HITL).
+
+**Apply/ATS shortcut:** if the goal looks like apply and the page is an ATS family, emit a **dynamic shell** (`navigate → wait → fillFormFlow`) with **0 LLM** — field maps stay runtime-dynamic. Prefer this over long fixed fill/click chains.
+
+**Reject:** free tool graphs (G3); LLM on every replay step; hand-maintained per-company step laundry lists.
 
 ---
 
