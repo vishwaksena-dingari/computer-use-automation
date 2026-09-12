@@ -1,7 +1,7 @@
 # Computer-Use Automation
 
-Computer-Use Automation project for computer-use automation.
-Public submission repo. Local planning lives under `.scratch/` (not GitHub Issues).
+Capability-factory CLI: discover → versioned capability → deterministic Playwright replay.
+Local planning lives under `.scratch/` (not GitHub Issues).
 
 ## Agent OS (portable — any project)
 
