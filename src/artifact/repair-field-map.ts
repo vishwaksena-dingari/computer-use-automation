@@ -1,0 +1,1035 @@
+/**
+ * @file Hybrid field-map repair / invent from a11y observation (G1f–G1h).
+ * Heuristic-first (Ashby-class widgets); optional one LLM call to patch gaps.
+ */
+import type { Page } from 'playwright';
+import {
+  FieldMapFieldSchema,
+  FieldMapSchema,
+  type FieldMap,
+  type FieldMapField,
+  type LocatorCandidate,
+} from './schema.js';
+import type { RuntimeConfig } from '../config/schema.js';
+import { observeControls, type ControlHint } from '../surface/observe-controls.js';
+import { enrichControlsFromGreenhouseApi } from '../surface/greenhouse-boards.js';
+import type { AtsFamily } from '../surface/detect-ats.js';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve, relative, isAbsolute } from 'node:path';
+
+const SYSTEM = `You repair application form field-maps. Reply with JSON only:
+{"fields":[{"key":"...","required":true,"profilePath":"...","kind":"text|textarea|select|checkbox|radio|file","targets":[{"kind":"label"|"css"|"role"|"placeholder",...}],"craft":"llm"?}]}
+Rules:
+- profilePath MUST be one of profileKeys (or answers.* / flags.*) — never raw DOM ids.
+- Resume/CV upload → kind file, profilePath resumePath.
+- Yes/No radios → kind radio targeting the specific option (role+name or css).
+- Skip g-recaptcha and submit buttons.
+- Prefer label/role/placeholder; css #id or [id$=stableSuffix] as fallback.`;
+
+export type RepairFieldMapResult = {
+  map: FieldMap;
+  llmCalls: number;
+  note: string;
+  extrasConsidered: number;
+};
+
+/**
+ * Sibling green map + redacted receipt shapes for repair few-shot (docs/golden-forms.md).
+ * Hold-out: skip when repairing the same mapId (generalization).
+ */
+const FEWSHOT: Partial<Record<AtsFamily, { mapId: string; mapRel: string; receiptRel?: string }>> = {
+  ashby: {
+    mapId: 'ashby-sciemo-auto',
+    mapRel: 'capabilities/field-maps/ashby-sciemo-auto.json',
+    receiptRel: 'evidence/g1-ashby-sciemo-det0/fill-receipt.json',
+  },
+  lever: {
+    mapId: 'lever-100ms-auto',
+    mapRel: 'capabilities/field-maps/lever-100ms-auto.json',
+    receiptRel: 'evidence/g1-lever-100ms-det0/fill-receipt.json',
+  },
+  greenhouse: {
+    mapId: 'greenhouse-figma-auto',
+    mapRel: 'capabilities/field-maps/greenhouse-figma-auto.json',
+  },
+  workday: {
+    mapId: 'workday-shaped-auto',
+    mapRel: 'capabilities/field-maps/workday-shaped-auto.json',
+    receiptRel: 'evidence/g1-workday-shaped-autonomy-reprove/fill-receipt.json',
+  },
+  unknown: {
+    mapId: 'demo-co-a',
+    mapRel: 'capabilities/field-maps/demo-co-a.json',
+    receiptRel: 'evidence/g1-co-a-receipt/fill-receipt.json',
+  },
+};
+
+/** Load few-shot sibling map fields + receipt skeleton (no PII values). */
+export function loadRepairFewShot(
+  root: string,
+  family: AtsFamily,
+  excludeMapId: string,
+): { siblingFields?: unknown[]; siblingReceiptKeys?: unknown[] } {
+  const spec = FEWSHOT[family] ?? FEWSHOT.unknown;
+  if (!spec) return {};
+  // Hold-out: don't few-shot the map we're repairing.
+  if (excludeMapId === spec.mapId || excludeMapId.startsWith(`${spec.mapId}-`)) return {};
+  const out: { siblingFields?: unknown[]; siblingReceiptKeys?: unknown[] } = {};
+  const mapPath = resolve(root, spec.mapRel);
+  if (existsSync(mapPath)) {
+    try {
+      const raw = JSON.parse(readFileSync(mapPath, 'utf8')) as { fields?: unknown[] };
+      out.siblingFields = (Array.isArray(raw.fields) ? raw.fields : [])
+        .slice(0, 40)
+        .map((f) => {
+          const o = f as Record<string, unknown>;
+          return {
+            key: o.key,
+            profilePath: o.profilePath,
+            kind: o.kind,
+            required: o.required,
+            craft: o.craft,
+          };
+        });
+    } catch {
+      /* ignore */
+    }
+  }
+  if (spec.receiptRel) {
+    const rPath = resolve(root, spec.receiptRel);
+    if (existsSync(rPath)) {
+      try {
+        const raw = JSON.parse(readFileSync(rPath, 'utf8')) as {
+          entries?: Array<Record<string, unknown>>;
+        };
+        out.siblingReceiptKeys = (raw.entries ?? []).slice(0, 40).map((e) => ({
+          key: e.key,
+          profilePath: e.profilePath,
+          kind: e.kind,
+          verified: e.verified,
+        }));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return out;
+}
+
+/** Controls that look fillable and are not already covered by the map. */
+export function findExtraControls(
+  controls: ControlHint[],
+  fieldMap: FieldMap | null,
+): ControlHint[] {
+  const fillable = controls.filter((c) => {
+    if (c.widget === 'yesno') return true;
+    if (c.tag === 'button') return false;
+    if (c.type === 'submit' || c.type === 'button' || c.type === 'hidden') return false;
+    if (c.id?.includes('g-recaptcha') || c.inputName === 'g-recaptcha-response') return false;
+    return (
+      c.tag === 'input' ||
+      c.tag === 'select' ||
+      c.tag === 'textarea' ||
+      c.widget === 'combobox'
+    );
+  });
+  if (!fieldMap) return fillable;
+  return fillable.filter((c) => !controlCoveredByMap(c, fieldMap));
+}
+
+function controlCoveredByMap(c: ControlHint, map: FieldMap): boolean {
+  const label = (c.label || '').toLowerCase();
+  const name = (c.name || c.inputName || '').toLowerCase();
+  const id = (c.id || '').toLowerCase();
+  for (const f of map.fields) {
+    for (const t of f.targets) {
+      if (t.kind === 'label' && t.name && label && t.name.toLowerCase() === label) return true;
+      if (t.kind === 'css' && t.selector && id && t.selector.replace(/^#/, '') === id) return true;
+      if (t.kind === 'css' && t.selector === `#${c.id}`) return true;
+      if (name && f.key.toLowerCase() === name) return true;
+      if (f.profilePath === 'resumePath' && c.widget === 'file') return true;
+      if (f.profilePath === 'location' && c.widget === 'combobox') return true;
+    }
+  }
+  return false;
+}
+
+/** Merge LLM fields into base by key; bump updatedAt. */
+export function mergeFieldMap(
+  base: FieldMap | null,
+  patchFields: FieldMapField[],
+  id: string,
+): FieldMap {
+  const byKey = new Map<string, FieldMapField>();
+  if (base) for (const f of base.fields) byKey.set(f.key, f);
+  for (const f of patchFields) byKey.set(f.key, f);
+  const fields = [...byKey.values()];
+  return FieldMapSchema.parse({
+    schemaVersion: 1,
+    id: base?.id ?? id,
+    platform: base?.platform,
+    companyKey: base?.companyKey,
+    fields,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function extractJsonObject(text: string): unknown {
+  const trimmed = text.trim();
+  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = fence ? fence[1].trim() : trimmed;
+  try {
+    return JSON.parse(body);
+  } catch {
+    const start = body.indexOf('{');
+    const end = body.lastIndexOf('}');
+    if (start >= 0 && end > start) return JSON.parse(body.slice(start, end + 1));
+    throw new Error('LLM reply was not valid JSON');
+  }
+}
+
+function normalizeField(raw: unknown): FieldMapField | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const f = raw as Record<string, unknown>;
+  const targetsRaw = Array.isArray(f.targets) ? f.targets : [];
+  const targets: LocatorCandidate[] = [];
+  for (let i = 0; i < targetsRaw.length; i++) {
+    const t = targetsRaw[i];
+    if (!t || typeof t !== 'object') continue;
+    const c = t as Record<string, unknown>;
+    const kind = String(c.kind ?? 'css').toLowerCase();
+    if (kind === 'label' && c.name) {
+      targets.push({ kind: 'label', rank: i + 1, name: String(c.name) });
+    } else if (kind === 'placeholder' && (c.name || c.text)) {
+      targets.push({ kind: 'placeholder', rank: i + 1, name: String(c.name ?? c.text) });
+    } else if (kind === 'css' && (c.selector || c.css)) {
+      targets.push({ kind: 'css', rank: i + 1, selector: String(c.selector ?? c.css) });
+    } else if (kind === 'role' && c.role) {
+      targets.push({
+        kind: 'role',
+        rank: i + 1,
+        role: String(c.role),
+        name: c.name ? String(c.name) : undefined,
+        exact: typeof c.exact === 'boolean' ? c.exact : undefined,
+      });
+    }
+  }
+  if (!targets.length) return null;
+  const kindRaw = String(f.kind ?? 'text');
+  const kinds = ['text', 'textarea', 'select', 'checkbox', 'radio', 'file'] as const;
+  const kind = (kinds as readonly string[]).includes(kindRaw)
+    ? (kindRaw as FieldMapField['kind'])
+    : 'text';
+  const parsed = FieldMapFieldSchema.safeParse({
+    key: String(f.key ?? ''),
+    required: Boolean(f.required),
+    profilePath: String(f.profilePath ?? f.key ?? ''),
+    kind,
+    targets,
+    enumHints: Array.isArray(f.enumHints) ? f.enumHints.map(String) : undefined,
+    invertBool: f.invertBool === true ? true : undefined,
+    craft: f.craft === 'llm' ? 'llm' : f.craft === 'none' ? 'none' : undefined,
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+/** “without requiring sponsorship” vs “do you require sponsorship?” */
+export function isNegatedSponsorshipQuestion(text: string): boolean {
+  return /without\s+(requiring\s+)?sponsorship|not\s+require\s+sponsorship|no\s+sponsorship\s+required/i.test(
+    text,
+  );
+}
+
+async function callOllamaJson(
+  config: RuntimeConfig,
+  system: string,
+  user: string,
+): Promise<{ text: string; ok: boolean }> {
+  if (config.llm.provider !== 'ollama') return { text: 'non-ollama', ok: false };
+  const url = `${config.llm.ollamaBaseUrl.replace(/\/$/, '')}/api/chat`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: config.llm.model,
+        stream: false,
+        format: 'json',
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      }),
+      signal: AbortSignal.timeout(180_000),
+    });
+    if (!res.ok) return { text: `HTTP ${res.status}`, ok: false };
+    const body = (await res.json()) as { message?: { content?: string } };
+    return { text: body.message?.content ?? '', ok: true };
+  } catch (e) {
+    return { text: (e as Error).message, ok: false };
+  }
+}
+
+/**
+ * Observe page + heuristics (primary) + optional one LLM call to patch field-map.
+ */
+export async function repairFieldMap(opts: {
+  page: Page;
+  fieldMap: FieldMap | null;
+  mapId: string;
+  config: RuntimeConfig;
+  profileKeys: string[];
+  reason?: string;
+  /** Project root — loads golden sibling few-shot when set. */
+  root?: string;
+  atsFamily?: AtsFamily;
+}): Promise<RepairFieldMapResult> {
+  let controls = await observeControls(opts.page);
+  try {
+    controls = await enrichControlsFromGreenhouseApi(opts.page.url(), controls);
+  } catch {
+    /* boards-api optional */
+  }
+  const requiredExtras = findExtraControls(controls, opts.fieldMap).filter((c) => Boolean(c.required));
+
+  const heuristicFields = buildHeuristicFields(controls, opts.profileKeys);
+  let map = mergeFieldMap(opts.fieldMap, heuristicFields, opts.mapId);
+
+  const fewShot =
+    opts.root && opts.atsFamily
+      ? loadRepairFewShot(opts.root, opts.atsFamily, opts.mapId)
+      : {};
+
+  const user = JSON.stringify({
+    reason: opts.reason ?? (opts.fieldMap ? 'repair' : 'bootstrap'),
+    profileKeys: opts.profileKeys,
+    existingMap: map,
+    controls: controls.slice(0, 80),
+    uncoveredControls: findExtraControls(controls, map).slice(0, 40),
+    ...fewShot,
+    hint: 'Only add/fix gaps. profilePath must be in profileKeys. Resume=file/resumePath. Prefer siblingFields patterns when present.',
+  });
+
+  let llmCalls = 0;
+  // Multipage happy path: LLM only on page 0. Stuck/retry always may use LLM.
+  // Skip LLM when heuristics already cover required extras (avoid 180s timeout on wrong model).
+  const reason = opts.reason ?? '';
+  const uncoveredRequired = findExtraControls(controls, map).filter((c) => c.required);
+  const skipLlm =
+    (/fillFormFlow page [1-9]/i.test(reason) && !/stuck|retry/i.test(reason)) ||
+    uncoveredRequired.length === 0;
+  if (!skipLlm) {
+    const reply = await callOllamaJson(opts.config, SYSTEM, user);
+    if (reply.ok) {
+      llmCalls = 1;
+      try {
+        const parsed = extractJsonObject(reply.text) as { fields?: unknown[] };
+        const llmFields: FieldMapField[] = [];
+        for (const r of Array.isArray(parsed.fields) ? parsed.fields : []) {
+          const n = normalizeField(r);
+          if (!n) continue;
+          if (isOpaqueProfilePath(n.profilePath, opts.profileKeys)) continue;
+          llmFields.push(n);
+        }
+        if (llmFields.length) map = mergeFieldMap(map, llmFields, opts.mapId);
+      } catch {
+        /* keep heuristics */
+      }
+    }
+  }
+
+  map = overlayHeuristicsFromControls(controls, map, opts.profileKeys);
+  map = dropShadowedFields(map, controls, opts.profileKeys);
+  map = await ensureWorkdayCareerFields(opts.page, map, opts.profileKeys);
+  if (!map.fields.length) throw new Error('field-map repair produced no fields');
+  return {
+    map,
+    llmCalls,
+    note: opts.fieldMap ? 'repaired' : 'bootstrapped',
+    extrasConsidered: requiredExtras.length,
+  };
+}
+
+/**
+ * Drop stale map rows that steal another field's DOM node (e.g. sponsorship → #workAuth on Co C).
+ * Heuristic owner of #id / name wins.
+ */
+export function dropShadowedFields(
+  map: FieldMap,
+  controls: ControlHint[],
+  profileKeys: string[],
+): FieldMap {
+  const ownerBySelector = new Map<string, string>();
+  for (const c of controls) {
+    const h = heuristicFieldFromControl(c, profileKeys);
+    if (!h) continue;
+    if (c.id) ownerBySelector.set(`#${c.id}`, h.key);
+    if (c.inputName) {
+      ownerBySelector.set(`input[name='${c.inputName}']`, h.key);
+      ownerBySelector.set(`select[name='${c.inputName}']`, h.key);
+      ownerBySelector.set(`textarea[name='${c.inputName}']`, h.key);
+    }
+  }
+  const fields = map.fields.filter((f) => {
+    for (const t of f.targets) {
+      if (t.kind !== 'css' || !t.selector) continue;
+      const owner = ownerBySelector.get(t.selector);
+      if (owner && owner !== f.key) return false;
+    }
+    return true;
+  });
+  return fields.length === map.fields.length ? map : mergeFieldMap({ ...map, fields }, [], map.id);
+}
+
+/**
+ * Workday My Information widgets often are not plain <input>s (multiselect / select-one).
+ * Inject stable formField-* bindings when those nodes exist on the page.
+ */
+async function ensureWorkdayCareerFields(
+  page: Page,
+  map: FieldMap,
+  profileKeys: string[],
+): Promise<FieldMap> {
+  const ids = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-automation-id^="formField-"]')].map((el) =>
+      el.getAttribute('data-automation-id'),
+    ),
+  );
+  if (!ids.length) return map;
+  const have = new Set(map.fields.map((f) => f.key));
+  const extra: FieldMapField[] = [];
+  const add = (key: string, profilePath: string, kind: FieldMapField['kind'], formField: string) => {
+    if (have.has(key)) return;
+    if (profileKeys.length && isOpaqueProfilePath(profilePath, profileKeys)) return;
+    have.add(key);
+    extra.push({
+      key,
+      required: true,
+      profilePath,
+      kind,
+      targets: [{ kind: 'css', rank: 1, selector: `[data-automation-id='${formField}']` }],
+    });
+  };
+  if (ids.includes('formField-source')) add('howHeard', 'howHeard', 'text', 'formField-source');
+  if (ids.includes('formField-phoneType'))
+    add('phoneDeviceType', 'phoneDeviceType', 'select', 'formField-phoneType');
+  if (ids.includes('formField-phoneNumber')) add('phone', 'phone', 'text', 'formField-phoneNumber');
+  if (ids.includes('formField-countryRegion')) add('state', 'state', 'select', 'formField-countryRegion');
+  if (ids.includes('formField-addressLine1')) add('address1', 'address1', 'text', 'formField-addressLine1');
+  if (ids.includes('formField-city')) add('city', 'city', 'text', 'formField-city');
+  if (ids.includes('formField-postalCode')) add('postalCode', 'postalCode', 'text', 'formField-postalCode');
+  if (ids.includes('formField-legalName--firstName'))
+    add('firstName', 'firstName', 'text', 'formField-legalName--firstName');
+  if (ids.includes('formField-legalName--lastName'))
+    add('lastName', 'lastName', 'text', 'formField-legalName--lastName');
+  if (ids.includes('formField-candidateIsPreviousWorker') && !have.has('previouslyEmployed')) {
+    extra.push({
+      key: 'previouslyEmployed',
+      required: true,
+      profilePath: pickPath(profileKeys, ['flags.previouslyEmployedNo'], 'flags.previouslyEmployedNo'),
+      kind: 'radio',
+      targets: [{ kind: 'role', rank: 1, role: 'radio', name: 'No' }],
+    });
+  }
+  return extra.length ? mergeFieldMap(map, extra, map.id) : map;
+}
+
+function isOpaqueProfilePath(path: string, profileKeys: string[]): boolean {
+  if (profileKeys.includes(path)) return false;
+  if (path.startsWith('answers.') || path.startsWith('flags.')) return false;
+  if (
+    /^(fullName|email|phone|resumePath|linkedin|portfolio|location|startDate|workAuth|firstName|lastName|password|country|company|howHeard|phoneDeviceType|address1|city|state|postalCode|school|degree|fieldOfStudy|eduFromYear|eduToYear|gpa)$/.test(
+      path,
+    )
+  )
+    return false;
+  if (/^[0-9a-f]{8}/i.test(path)) return true;
+  if (/systemfield/i.test(path)) return true;
+  if (path.length > 40) return true;
+  return !profileKeys.some((k) => path === k || path.startsWith(`${k}.`));
+}
+
+/** Refresh/add fields from live controls; collapse duplicate keys (same profilePath OK for verify password). */
+export function overlayHeuristicsFromControls(
+  controls: ControlHint[],
+  map: FieldMap,
+  profileKeys: string[] = [],
+): FieldMap {
+  const more = buildHeuristicFields(controls, profileKeys);
+  let next = more.length ? mergeFieldMap(map, more, map.id) : map;
+  const seen = new Set<string>();
+  const deduped: FieldMapField[] = [];
+  for (const f of next.fields) {
+    if (seen.has(f.key)) continue;
+    if (profileKeys.length && isOpaqueProfilePath(f.profilePath, profileKeys)) continue;
+    seen.add(f.key);
+    deduped.push(f);
+  }
+  return mergeFieldMap({ ...next, fields: deduped }, [], next.id);
+}
+
+function buildHeuristicFields(controls: ControlHint[], profileKeys: string[]): FieldMapField[] {
+  const fields: FieldMapField[] = [];
+  const radioGroups = new Map<string, ControlHint[]>();
+
+  for (const c of controls) {
+    if (c.widget === 'radio' && c.inputName) {
+      const list = radioGroups.get(c.inputName) || [];
+      list.push(c);
+      radioGroups.set(c.inputName, list);
+      continue;
+    }
+    const h = heuristicFieldFromControl(c, profileKeys);
+    if (h) fields.push(h);
+  }
+
+  for (const [, opts] of radioGroups) {
+    const h = heuristicRadioGroup(opts, profileKeys);
+    if (h) fields.push(h);
+  }
+
+  return fields;
+}
+
+function blob(c: ControlHint): string {
+  return [c.label, c.question, c.name, c.placeholder, c.id, c.inputName, c.text]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** Identity-ish text only — excludes nearby question (Ashby/Workday pollution). */
+function coreBlob(c: ControlHint): string {
+  return [c.label, c.name, c.placeholder, c.id, c.inputName, c.type, c.text].filter(Boolean).join(' ');
+}
+
+function pickPath(keys: string[], candidates: string[], fallback: string): string {
+  for (const c of candidates) {
+    if (!keys.length || keys.includes(c) || c.startsWith('flags.') || c.startsWith('answers.'))
+      return c;
+  }
+  return fallback;
+}
+
+function heuristicRadioGroup(opts: ControlHint[], profileKeys: string[]): FieldMapField | null {
+  if (!opts.length) return null;
+  const sample = opts[0];
+  const b = blob(sample) + ' ' + opts.map((o) => o.label || o.text || '').join(' ');
+
+  if (/communicationConsent|text message|consent to receiving/i.test(b)) {
+    const no = opts.find((o) => /notGiven|do not consent/i.test(`${o.value} ${o.label} ${o.text}`));
+    if (!no) return null;
+    const targets: LocatorCandidate[] = [];
+    const nm = (no.label || no.text || '').slice(0, 80);
+    if (nm) targets.push({ kind: 'role', rank: 1, role: 'radio', name: nm });
+    if (no.value && no.inputName)
+      targets.push({
+        kind: 'css',
+        rank: 2,
+        selector: `input[name='${no.inputName}'][value='${no.value}']`,
+      });
+    return {
+      key: 'smsConsent',
+      required: true,
+      profilePath: pickPath(profileKeys, ['flags.smsConsentNo'], 'flags.smsConsentNo'),
+      kind: 'radio',
+      targets,
+    };
+  }
+
+  // Workday: previously employed?
+  if (/previously worked|former employee|employee or contractor/i.test(b)) {
+    const no = opts.find((o) => /^(No)$/i.test((o.label || o.text || '').trim()));
+    if (!no) return null;
+    const targets: LocatorCandidate[] = [];
+    const nm = (no.label || no.text || 'No').slice(0, 80);
+    targets.push({ kind: 'role', rank: 1, role: 'radio', name: nm });
+    if (no.id) targets.push({ kind: 'css', rank: 2, selector: `#${no.id}` });
+    return {
+      key: 'previouslyEmployed',
+      required: true,
+      profilePath: pickPath(profileKeys, ['flags.previouslyEmployedNo'], 'flags.previouslyEmployedNo'),
+      kind: 'radio',
+      targets,
+    };
+  }
+
+  if (
+    /monthly|NYC|in-person|travel/i.test(b) &&
+    opts.some((o) => /^(Yes|No)$/i.test(o.label || o.text || ''))
+  ) {
+    const yes = opts.find((o) => /^(Yes)$/i.test((o.label || o.text || '').trim()));
+    if (!yes) return null;
+    const targets: LocatorCandidate[] = [];
+    if (yes.id?.includes('-labeled-radio-')) {
+      const suffix = yes.id.replace(/^.*?(_[0-9a-f-]{30,}-labeled-radio-\d+)$/i, '$1');
+      if (suffix.startsWith('_'))
+        targets.push({ kind: 'css', rank: 1, selector: `input[id$='${suffix}']` });
+    }
+    if (yes.id) targets.push({ kind: 'css', rank: targets.length + 1, selector: `#${yes.id}` });
+    return {
+      key: 'monthlyTravel',
+      required: true,
+      profilePath: pickPath(profileKeys, ['flags.monthlyTravelYes'], 'flags.monthlyTravelYes'),
+      kind: 'radio',
+      targets,
+    };
+  }
+
+  if (/visa|sponsorhip|sponsorship not required|F-1 OPT|H-1B/i.test(b)) {
+    const none = opts.find((o) => /not required/i.test(o.label || o.text || ''));
+    if (!none) return null;
+    const targets: LocatorCandidate[] = [
+      {
+        kind: 'role',
+        rank: 1,
+        role: 'radio',
+        name: none.label || none.text || 'Visa Sponsorhip Not Required',
+      },
+    ];
+    if (none.id?.includes('-labeled-radio-')) {
+      const suffix = none.id.replace(/^.*?(_[0-9a-f-]{30,}-labeled-radio-\d+)$/i, '$1');
+      if (suffix.startsWith('_'))
+        targets.push({ kind: 'css', rank: 2, selector: `input[id$='${suffix}']` });
+    }
+    return {
+      key: 'visaType',
+      required: true,
+      profilePath: pickPath(profileKeys, ['flags.visaNotRequired'], 'flags.visaNotRequired'),
+      kind: 'radio',
+      targets,
+    };
+  }
+
+  return null;
+}
+
+function heuristicFieldFromControl(c: ControlHint, profileKeys: string[]): FieldMapField | null {
+  if (c.widget === 'yesno') return heuristicYesNo(c, profileKeys);
+  if (c.tag === 'button' || c.type === 'submit') return null;
+  if (c.id?.includes('g-recaptcha') || c.inputName === 'g-recaptcha-response') return null;
+  if (!(c.tag === 'input' || c.tag === 'select' || c.tag === 'textarea' || c.widget === 'combobox'))
+    return null;
+  if (c.widget === 'radio') return null;
+
+  const b = blob(c);
+  const core = coreBlob(c);
+  const targets: LocatorCandidate[] = [];
+  const label = (c.label || '')
+    .replace(/\s*[＊✱*]\s*$/u, '')
+    .replace(/[＊✱*]/gu, '')
+    .trim()
+    .slice(0, 80);
+
+  if (c.widget === 'file' || c.type === 'file') {
+    if (!/resume|cv|curriculum|upload/i.test(core + ' ' + b) && c.id !== '_systemfield_resume' && c.inputName !== 'resume')
+      return null;
+    if (label && label.length < 60) targets.push({ kind: 'label', rank: 1, name: label.split(/\s{2,}/)[0] || 'Resume' });
+    if (c.id) targets.push({ kind: 'css', rank: targets.length + 1, selector: `#${c.id}` });
+    else if (c.inputName)
+      targets.push({
+        kind: 'css',
+        rank: targets.length + 1,
+        selector: `input[type='file'][name='${c.inputName}']`,
+      });
+    else targets.push({ kind: 'css', rank: targets.length + 1, selector: "input[type='file']" });
+    return {
+      key: 'resume',
+      required: true,
+      profilePath: pickPath(profileKeys, ['resumePath'], 'resumePath'),
+      kind: 'file',
+      targets,
+    };
+  }
+
+  // Honeypot / bot traps
+  if (
+    c.inputName === 'website' ||
+    /beecatcher|for robots only|robots only/i.test(b) ||
+    c.dataField === 'beecatcher'
+  )
+    return null;
+
+  if (c.widget === 'checkbox' || c.type === 'checkbox') {
+    if (!/i agree|agree|terms|integrity|candidate account|createAccountCheckbox/i.test(core + ' ' + b + ' ' + (c.dataField || '')))
+      return null;
+    if (c.dataField) targets.push({ kind: 'css', rank: 1, selector: `[data-automation-id='${c.dataField}']` });
+    if (c.id) targets.push({ kind: 'css', rank: targets.length + 1, selector: `#${c.id}` });
+    if (label) targets.push({ kind: 'label', rank: targets.length + 1, name: label });
+    if (!targets.length) return null;
+    return {
+      key: 'agreeTerms',
+      required: true,
+      profilePath: pickPath(profileKeys, ['flags.agreeTerms'], 'flags.agreeTerms'),
+      kind: 'checkbox',
+      targets,
+    };
+  }
+
+  let profilePath: string | null = null;
+  let kind: FieldMapField['kind'] = 'text';
+  let key = 'field';
+  let required = Boolean(c.required);
+  let craft: 'llm' | undefined;
+  let invertBool: boolean | undefined;
+
+  if (
+    /email/i.test(core) ||
+    c.type === 'email' ||
+    c.inputName === 'email' ||
+    c.inputName === '_systemfield_email' ||
+    c.id === '_systemfield_email' ||
+    c.dataField === 'email'
+  ) {
+    profilePath = 'email';
+    key = 'email';
+    required = true;
+  } else if (
+    (profileKeys.includes('password') || profileKeys.includes('passwordConfirm')) &&
+    (c.type === 'password' || /password/i.test(core) || c.dataField === 'password' || c.dataField === 'verifyPassword')
+  ) {
+    profilePath = 'password';
+    key =
+      /confirm|verify|re-?enter|repeat/i.test(core) || c.dataField === 'verifyPassword'
+        ? 'passwordConfirm'
+        : 'password';
+    required = true;
+  } else if (/legal\s*first|first\s*name/i.test(core) || /firstName/i.test(c.id || '')) {
+    profilePath = 'firstName';
+    key = 'firstName';
+    required = true;
+  } else if (/legal\s*last|last\s*name/i.test(core) || /lastName/i.test(c.id || '')) {
+    profilePath = 'lastName';
+    key = 'lastName';
+    required = true;
+  } else if (/how did you hear|source\s*type|hear about us/i.test(core + ' ' + b) || c.dataField === 'formField-source') {
+    profilePath = 'howHeard';
+    key = 'howHeard';
+    required = true;
+    kind = 'text';
+  } else if (/phone\s*device\s*type|device\s*type/i.test(core)) {
+    profilePath = 'phoneDeviceType';
+    key = 'phoneDeviceType';
+    required = true;
+    kind = 'select';
+  } else if (/country\s*phone\s*code|phone\s*code|phone\s*extension/i.test(core)) {
+    return null; // leave Workday defaults
+  } else if (
+    /phone\s*number|^phone\b/i.test(core) ||
+    c.type === 'tel' ||
+    c.inputName === 'phone'
+  ) {
+    profilePath = 'phone';
+    key = 'phone';
+    required = true;
+  } else if (/address\s*line\s*1|^address$/i.test(core)) {
+    profilePath = 'address1';
+    key = 'address1';
+    required = Boolean(c.required);
+  } else if (/^city$/i.test(label || '') || /^city\b/i.test(core)) {
+    profilePath = 'city';
+    key = 'city';
+    required = Boolean(c.required);
+  } else if (/^state$/i.test(label || '') || /state\/province|province/i.test(core)) {
+    profilePath = 'state';
+    key = 'state';
+    required = Boolean(c.required);
+    kind = c.tag === 'select' || c.widget === 'select' || c.widget === 'combobox' ? 'select' : 'text';
+  } else if (/postal|zip\s*code/i.test(core)) {
+    profilePath = 'postalCode';
+    key = 'postalCode';
+    required = Boolean(c.required);
+  } else if (
+    /^(country|country\/region)\b/i.test(core) &&
+    !/phone|authorized|sponsorship/i.test(`${b} ${c.question || ''}`)
+  ) {
+    profilePath = 'country';
+    key = 'country';
+    required = true;
+    kind = c.tag === 'select' || c.widget === 'combobox' || c.widget === 'select' ? 'select' : 'text';
+  } else if (/country/i.test(core) && /phone/i.test(`${c.question || ''} ${c.label || ''}`)) {
+    // Greenhouse phone dial-code "Country" combobox — leave default.
+    return null;
+  } else if (/school or university|^school$|institution|university|college/i.test(core)) {
+    profilePath = pickPath(profileKeys, ['school'], 'school');
+    key = 'school';
+    required = Boolean(c.required) || /✱|\*/.test(c.label || '');
+  } else if (/^degree$/i.test(label || '') || (/degree/i.test(core) && !/field|study/i.test(core))) {
+    profilePath = pickPath(profileKeys, ['degree'], 'degree');
+    key = 'degree';
+    required = Boolean(c.required) || /✱|\*/.test(c.label || '');
+    kind = c.tag === 'select' || c.widget === 'combobox' ? 'select' : 'text';
+  } else if (/field of study|major|area of study/i.test(core)) {
+    profilePath = pickPath(profileKeys, ['fieldOfStudy'], 'fieldOfStudy');
+    key = 'fieldOfStudy';
+    required = Boolean(c.required) || /✱|\*/.test(c.label || '');
+    kind = 'text';
+  } else if (/overall result|\bgpa\b|grade point/i.test(core)) {
+    profilePath = pickPath(profileKeys, ['gpa'], 'gpa');
+    key = 'gpa';
+    required = false;
+  } else if (/^from\b|start year|attendance.*from/i.test(core) && /year|yyyy|date/i.test(b + ' ' + (c.placeholder || ''))) {
+    profilePath = pickPath(profileKeys, ['eduFromYear'], 'eduFromYear');
+    key = 'eduFromYear';
+    required = Boolean(c.required);
+  } else if (/^to\b|end year|expected|graduation year/i.test(core) && /year|yyyy|date|expected/i.test(b + ' ' + (c.placeholder || ''))) {
+    profilePath = pickPath(profileKeys, ['eduToYear'], 'eduToYear');
+    key = 'eduToYear';
+    required = Boolean(c.required);
+  } else if (/linkedin/i.test(core)) {
+    profilePath = 'linkedin';
+    key = 'linkedin';
+    required = /✱|\*/.test(c.label || '') || Boolean(c.required);
+  } else if (/github|portfolio|kaggle|stackoverflow/i.test(core) || (/website/i.test(core) && c.inputName !== 'website')) {
+    profilePath = 'portfolio';
+    key = 'portfolio';
+    required = false;
+  } else if (
+    c.inputName === 'name' ||
+    c.inputName === 'legalName' ||
+    c.inputName === '_systemfield_name' ||
+    c.id === 'legalName' ||
+    /full\s*name|legal\s*name|^name$|_systemfield_name/i.test(core) ||
+    c.id === '_systemfield_name'
+  ) {
+    profilePath = 'fullName';
+    key = 'fullName';
+    required = true;
+  } else if (
+    /current company|\borg\b/i.test(core) ||
+    c.inputName === 'org'
+  ) {
+    profilePath = 'company';
+    key = 'company';
+    required = Boolean(c.required) || /✱|\*/.test(c.label || '');
+  } else if (
+    // Greenhouse / Ashby yes-no style comboboxes (not free-text location)
+    (c.widget === 'combobox' || c.widget === 'select' || c.tag === 'select') &&
+    /authorized to work|legally authorized|work authorization|require sponsorship|without.*sponsorship|need sponsorship/i.test(
+      b,
+    )
+  ) {
+    const opts = (c.options || []).filter((o) => o && !/^select/i.test(o));
+    const onlyYesNo = opts.length > 0 && opts.every((o) => /^(yes|no)$/i.test(o.trim()));
+    const authStyle = opts.some((o) => /authorized|needs sponsorship/i.test(o));
+    if (c.tag === 'select' && authStyle && !onlyYesNo) {
+      // Mock / ATS selects with Authorized vs Needs sponsorship — use string workAuth.
+      profilePath = 'workAuth';
+      key = 'workAuth';
+      kind = 'select';
+      required = true;
+    } else if (isNegatedSponsorshipQuestion(b) || /require sponsorship|need sponsorship/i.test(b)) {
+      profilePath = 'flags.sponsorshipNo';
+      key = `sponsorship-${(c.id || core).slice(0, 24)}`;
+      invertBool = !isNegatedSponsorshipQuestion(b);
+      kind = c.tag === 'select' ? 'select' : 'text';
+      required = true;
+    } else {
+      profilePath = 'flags.workAuthYes';
+      key = `workAuth-${(c.id || core).slice(0, 24)}`;
+      kind = c.tag === 'select' ? 'select' : 'text';
+      required = true;
+    }
+  } else if (
+    (c.widget === 'combobox' || c.tag === 'select') &&
+    /yes\s*\/\s*no|experience in|do you have|are you|will you|have you/i.test(b) &&
+    !/location|country|city/i.test(core)
+  ) {
+    // Required custom Y/N — prefer decline-safe flags; craftable essays stay elsewhere.
+    profilePath = pickPath(profileKeys, ['flags.workAuthYes', 'answers.additional'], 'flags.workAuthYes');
+    key = `custom-${(c.id || core).slice(0, 32)}`;
+    kind = 'text';
+    required = Boolean(c.required) || /✱|\*/.test(c.label || '');
+  } else if (
+    (c.tag === 'select' || c.widget === 'combobox' || c.widget === 'select') &&
+    /gender|sex\b|race|ethnicity|veteran|disability|lgbt|hispanic|demographic|\beeo\b|equal opportunity|self-identify|pronoun/i.test(
+      b,
+    )
+  ) {
+    profilePath = pickPath(profileKeys, ['flags.eeoDecline'], 'flags.eeoDecline');
+    key = `eeo-${(c.id || core).slice(0, 28)}`;
+    kind = c.tag === 'select' ? 'select' : 'text';
+    required = Boolean(c.required) || /✱|\*/.test(c.label || '');
+  } else if (
+    /start typing/i.test(c.placeholder || '') ||
+    c.inputName === 'location' ||
+    /current location|^location|city\)/i.test(core) ||
+    (c.widget === 'combobox' && /location|city/i.test(core))
+  ) {
+    profilePath = 'location';
+    key = 'location';
+    required = Boolean(c.required) || /✱|\*/.test(c.label || '');
+  } else if (/pick date|available to start|start date/i.test(b)) {
+    profilePath = 'startDate';
+    key = 'startDate';
+    required = true;
+  } else if (c.tag === 'textarea' || c.widget === 'textarea') {
+    if (/additional|anything else|love to share|why/i.test(b)) {
+      profilePath = /why/i.test(b) ? 'answers.whyCompany' : 'answers.additional';
+      key = 'additional';
+      kind = 'textarea';
+      required = false;
+      craft = /why/i.test(b) ? 'llm' : undefined;
+    } else return null;
+  } else if (c.tag === 'select') {
+    if (!/auth|sponsor|authorized to work|country/i.test(b)) return null;
+    if (/country/i.test(core)) {
+      profilePath = 'country';
+      kind = 'select';
+      key = 'country';
+    } else if (
+      c.inputName === 'workAuth' ||
+      c.id === 'workAuth' ||
+      /work auth|authorized to work/i.test(label || core)
+    ) {
+      // Option text often includes "Needs sponsorship" — don't let that steal workAuth.
+      profilePath = 'workAuth';
+      kind = 'select';
+      key = 'workAuth';
+    } else if (/sponsor/i.test(label || '')) {
+      profilePath = 'flags.sponsorshipNo';
+      kind = 'select';
+      key = 'sponsorship';
+    } else {
+      profilePath = 'workAuth';
+      kind = 'select';
+      key = 'workAuth';
+    }
+  } else {
+    return null;
+  }
+
+  if (
+    invertBool === undefined &&
+    (kind === 'select' || kind === 'text') &&
+    profilePath === 'flags.sponsorshipNo' &&
+    !isNegatedSponsorshipQuestion(b) &&
+    /sponsor/i.test(b)
+  ) {
+    invertBool = true;
+  }
+  const enumHints =
+    c.options?.length && (kind === 'select' || kind === 'text') ? c.options.slice(0, 40) : undefined;
+
+  // Stable Workday automation ids beat ephemeral #input-N
+  if (c.dataField && !['beecatcher'].includes(c.dataField))
+    targets.push({ kind: 'css', rank: 1, selector: `[data-automation-id='${c.dataField}']` });
+  if (c.id && !/^input-\d+$/i.test(c.id)) targets.push({ kind: 'css', rank: targets.length + 1, selector: `#${c.id}` });
+  if (label && label.length < 60 && !/attach resume|analyzing|success/i.test(label))
+    targets.push({ kind: 'label', rank: targets.length + 1, name: label });
+  if (c.placeholder && (profilePath === 'location' || profilePath === 'startDate'))
+    targets.push({ kind: 'placeholder', rank: targets.length + 1, name: c.placeholder });
+  if (c.inputName && !c.inputName.includes('['))
+    targets.push({
+      kind: 'css',
+      rank: targets.length + 1,
+      selector: `${c.tag}[name='${c.inputName}']`,
+    });
+  else if (c.inputName?.startsWith('urls['))
+    targets.push({
+      kind: 'css',
+      rank: targets.length + 1,
+      selector: `input[name="${c.inputName}"]`,
+    });
+  if (!targets.length && c.id)
+    targets.push({ kind: 'css', rank: 1, selector: `#${c.id}` });
+  if (!targets.length && c.placeholder)
+    targets.push({ kind: 'placeholder', rank: 1, name: c.placeholder });
+  if (!targets.length) return null;
+
+  return {
+    key,
+    required,
+    profilePath: pickPath(profileKeys, [profilePath], profilePath),
+    kind,
+    targets,
+    craft,
+    enumHints,
+    invertBool,
+  };
+}
+
+function heuristicYesNo(c: ControlHint, profileKeys: string[]): FieldMapField | null {
+  const q = `${c.question || ''} ${c.label || ''}`;
+  const idx = Number(c.value || '0');
+  let profilePath: string;
+  let wantYes: boolean;
+  let key: string;
+  if (isNegatedSponsorshipQuestion(q)) {
+    // Truthy sponsorshipNo → Yes (“authorized without requiring sponsorship”)
+    profilePath = 'flags.sponsorshipNo';
+    wantYes = true;
+    key = 'sponsorship';
+  } else if (/legally authorized|authorized to work/i.test(q)) {
+    profilePath = 'flags.workAuthYes';
+    wantYes = true;
+    key = 'workAuth';
+  } else if (/require sponsorship|future require sponsorship|need sponsorship/i.test(q)) {
+    profilePath = 'flags.sponsorshipNo';
+    wantYes = false;
+    key = 'sponsorship';
+  } else if (idx === 0) {
+    profilePath = 'flags.workAuthYes';
+    wantYes = true;
+    key = 'workAuth';
+  } else if (idx === 1) {
+    profilePath = 'flags.sponsorshipNo';
+    wantYes = false;
+    key = 'sponsorship';
+  } else {
+    return null;
+  }
+  const btn = wantYes ? 'Yes' : 'No';
+  return {
+    key,
+    required: true,
+    profilePath: pickPath(profileKeys, [profilePath], profilePath),
+    kind: 'radio',
+    targets: [
+      {
+        kind: 'css',
+        rank: 1,
+        selector: `div.ashby-application-form-input-yesno >> nth=${idx} >> button:has-text("${btn}")`,
+      },
+    ],
+    enumHints: c.options?.length ? c.options.slice(0, 40) : ['Yes', 'No'],
+  };
+}
+
+/** Persist field-map under capabilities/field-maps/ (jail). */
+export function writeFieldMapById(root: string, map: FieldMap): string {
+  if (!/^[A-Za-z0-9._-]+$/.test(map.id)) {
+    throw new Error(`invalid field-map id: ${map.id}`);
+  }
+  const dir = resolve(root, 'capabilities', 'field-maps');
+  const path = resolve(dir, `${map.id}.json`);
+  const rel = relative(root, path);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error(`field-map path escapes root: ${map.id}`);
+  }
+  writeFileSync(path, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
+  return path;
+}
+
+/** Write proposed map into an evidence run dir (latest + id-tagged copy). */
+export function writeProposedFieldMap(evidenceDir: string, map: FieldMap): string {
+  const safeId = map.id.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'map';
+  const tagged = join(evidenceDir, `field-map-proposed-${safeId}.json`);
+  const latest = join(evidenceDir, 'field-map-proposed.json');
+  const body = `${JSON.stringify(map, null, 2)}\n`;
+  writeFileSync(tagged, body, 'utf8');
+  writeFileSync(latest, body, 'utf8');
+  return latest;
+}
+
+/** Self-check: few-shot loads ashby sibling and holds out sciemo mapId. */
+export function selfCheckRepairFewShot(root = process.cwd()): void {
+  const pack = loadRepairFewShot(root, 'ashby', 'prove-ashby-other');
+  if (!pack.siblingFields?.length) throw new Error('few-shot ashby siblingFields empty');
+  const hold = loadRepairFewShot(root, 'ashby', 'ashby-sciemo-auto');
+  if (hold.siblingFields?.length) throw new Error('few-shot hold-out failed');
+}
+
+if (process.argv[1]?.endsWith('repair-field-map.ts') || process.argv[1]?.endsWith('repair-field-map.js')) {
+  selfCheckRepairFewShot();
+  console.log('repair-field-map few-shot self-check ok');
+}

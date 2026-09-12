@@ -16,6 +16,20 @@ import {
   applyRecordedToTarget,
 } from '../session/record-actions.js';
 import { applyBindings, bindingsEntryPath } from '../artifact/bindings.js';
+import { loadFieldMapById } from '../artifact/field-map.js';
+import { runFillForm, type FillFormMode } from '../artifact/fill-form.js';
+import { getProfilePath, setProfilePath } from '../artifact/profile.js';
+import { buildFillReceipt, writeFillReceipt, type FillReceipt } from '../artifact/fill-receipt.js';
+import { formOutcomeFromPageText } from '../artifact/form-outcomes.js';
+import {
+  repairFieldMap,
+  writeFieldMapById,
+  writeProposedFieldMap,
+} from '../artifact/repair-field-map.js';
+import { observeControls } from '../surface/observe-controls.js';
+import { detectAtsFamily } from '../surface/detect-ats.js';
+import { listVisibleRequiredErrors } from '../surface/page-errors.js';
+import type { FieldMap } from '../artifact/schema.js';
 import {
   patchTargetFromNote,
   targetKeyFromStep,
@@ -23,8 +37,55 @@ import {
 import { ensureDir, writeJson } from '../evidence/store.js';
 import { repoRelative } from '../config/paths.js';
 import { log } from '../util/log.js';
-import { join } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
+
+/** Flatten nested profile object keys for field-map binding (flags.x, answers.y). */
+function flattenProfileKeys(obj: Record<string, unknown>, prefix = ''): string[] {
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${k}` : k;
+    out.push(path);
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      out.push(...flattenProfileKeys(v as Record<string, unknown>, path));
+    }
+  }
+  return out;
+}
+
+/** Click Sign In / Next / Continue on multi-page ATS flows. */
+async function clickFormAdvance(page: Page): Promise<boolean> {
+  const candidates = [
+    // Workday SSO chooser → email/password form
+    page.locator('[data-automation-id="SignInWithEmailButton"]'),
+    page.getByRole('button', { name: /Sign in with email/i }),
+    // Create Account submit (Workday overlays a click_filter div over the real submit)
+    page.locator('[data-automation-id="click_filter"][aria-label="Create Account"]'),
+    page.locator('[data-automation-id="createAccountSubmitButton"]'),
+    // Multipage apply navigation (before generic Sign In — header also says Sign In)
+    page.locator('[data-automation-id="bottom-navigation-next-button"]:visible'),
+    page.getByRole('button', { name: /Save and Continue/i }),
+    page.getByRole('button', { name: /^Next$/i }),
+    page.getByRole('button', { name: /^Continue$/i }),
+    page.getByRole('button', { name: /^Finish/i }),
+    // Auth submit only (avoid header utility Sign In)
+    page.locator('#signInBtn'),
+    page.locator('[data-automation-id="signInSubmitButton"]'),
+    page.locator('[data-automation-id="click_filter"][aria-label="Sign In"]'),
+    page.locator('[data-automation-id="click_filter_Sign In"]'),
+  ];
+  for (const loc of candidates) {
+    try {
+      const first = loc.first();
+      await first.waitFor({ state: 'visible', timeout: 1500 });
+      await first.click({ timeout: 4000 });
+      return true;
+    } catch {
+      /* try next */
+    }
+  }
+  return false;
+}
 
 export type RunStatus = 'SUCCESS' | 'BUSINESS_OUTCOME' | 'RECOVERABLE' | 'HARD_FAILURE';
 
@@ -64,6 +125,27 @@ export type ReplayOptions = {
   recordActions?: boolean;
   /** Optional bindings overlay merged before steps run (S8). */
   bindingsOverlay?: Record<string, unknown> | null;
+  /** G1 applicant profile for fillForm (never baked into Capability). */
+  profile?: Record<string, unknown>;
+  /** G1: deterministic (default) | hybrid (rare LLM craft). */
+  mode?: FillFormMode;
+  /** Optional company blurb for hybrid craft. */
+  companyContext?: string;
+  /** Opt-in: persist repaired field-map under capabilities/field-maps/. */
+  writeFieldMap?: boolean;
+  /**
+   * Dormant form repair loop when fill/verify stuck (default 3, cap 5).
+   * Happy path stays 0 LLM; each stuck iteration may call repairFieldMap once.
+   */
+  formRepairMax?: number;
+  /** Opt-in HAR path (written when browser context closes). */
+  recordHarPath?: string;
+  /** Playwright recordHar content mode. */
+  recordHarContent?: 'omit' | 'embed';
+  /** If true with recordHarPath: delete HAR after successful runs (failure-only retain). */
+  harRetainOnFailure?: boolean;
+  /** Start Playwright tracing; keep `trace.zip` under evidence only when the run fails. */
+  traceOnFailure?: boolean;
   existingContext?: BrowserContext;
   existingPage?: Page;
   existingBrowser?: Browser;
@@ -187,12 +269,59 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
   let context = opts.existingContext;
   let page = opts.existingPage;
   let ownsBrowser = false;
+  let tracingStarted = false;
+
+  /** Prefer page-level captcha/closed, else fill detail taxonomy. */
+  const resolveFormCode = async (detail: string): Promise<string> => {
+    const body = await page!
+      .locator('body')
+      .innerText()
+      .then((t) => t.slice(0, 4000))
+      .catch(() => '');
+    return formOutcomeFromPageText(body, detail);
+  };
 
   const finish = async (
     partial: Omit<ReplayResult, 'durationMs' | 'llmCalls' | 'runId' | 'evidenceDir' | 'capabilityId' | 'capabilityVersion' | 'params'>,
   ): Promise<ReplayResult> => {
+    // Persist auth cookies/localStorage for next run (Playwright storageState).
+    if (ownsBrowser && context && config.session.storageStatePath) {
+      try {
+        const abs = resolve(root, config.session.storageStatePath);
+        mkdirSync(dirname(abs), { recursive: true });
+        await context.storageState({ path: abs });
+      } catch {
+        /* best effort */
+      }
+    }
     writeJson(join(evidenceDir, 'run.json'), { runId, ledger, llmCalls });
+    if (tracingStarted && context) {
+      try {
+        if (partial.ok) {
+          await context.tracing.stop();
+        } else {
+          await context.tracing.stop({ path: join(evidenceDir, 'trace.zip') });
+        }
+      } catch {
+        /* best effort */
+      }
+      tracingStarted = false;
+    }
+    if (ownsBrowser && context) await context.close().catch(() => undefined);
     if (ownsBrowser && browser) await browser.close().catch(() => undefined);
+    // Failure-only HAR: Playwright writes on close — drop the file after happy path.
+    if (
+      opts.harRetainOnFailure &&
+      partial.ok &&
+      opts.recordHarPath &&
+      existsSync(opts.recordHarPath)
+    ) {
+      try {
+        unlinkSync(opts.recordHarPath);
+      } catch {
+        /* ignore */
+      }
+    }
     const result = {
       ...partial,
       capabilityId: capability.id,
@@ -215,8 +344,54 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
     if (!page || !context) {
       browser = await chromium.launch({ headless: !(opts.headed ?? false) });
       ownsBrowser = true;
-      context = await browser.newContext();
+      const storageAbs = config.session.storageStatePath
+        ? resolve(root, config.session.storageStatePath)
+        : undefined;
+      const contextOpts: Parameters<Browser['newContext']>[0] = {};
+      if (storageAbs && existsSync(storageAbs)) {
+        contextOpts.storageState = storageAbs;
+      }
+      if (opts.recordHarPath) {
+        contextOpts.recordHar = {
+          path: opts.recordHarPath,
+          content: opts.recordHarContent ?? 'omit',
+        };
+      }
+      context = await browser.newContext(contextOpts);
       page = await context.newPage();
+      if (opts.traceOnFailure) {
+        await context.tracing.start({ screenshots: true, snapshots: true, sources: false });
+        tracingStarted = true;
+      }
+    }
+
+    // Placeholder until first navigate; about:blank must not lock family to unknown.
+    let atsFamily = detectAtsFamily(
+      page.url() && page.url() !== 'about:blank' ? page.url() : config.target.baseUrl,
+    );
+    const refreshAtsFamily = async (): Promise<void> => {
+      const raw = page!.url();
+      const url = raw && raw !== 'about:blank' ? raw : config.target.baseUrl;
+      let body = '';
+      try {
+        body = await page!.locator('body').innerText({ timeout: 2000 });
+      } catch {
+        /* blank / cross-origin */
+      }
+      atsFamily = detectAtsFamily(url, body);
+      try {
+        writeJson(join(evidenceDir, 'ats-family.json'), { family: atsFamily, url });
+      } catch {
+        /* ignore */
+      }
+    };
+    try {
+      writeJson(join(evidenceDir, 'ats-family.json'), {
+        family: atsFamily,
+        url: page.url() && page.url() !== 'about:blank' ? page.url() : config.target.baseUrl,
+      });
+    } catch {
+      /* ignore */
     }
 
     const stepsById = new Map(capability.steps.map((s) => [s.id, s]));
@@ -301,6 +476,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             });
           }
           await page.goto(url, { waitUntil: 'domcontentloaded', timeout: config.limits.stepTimeoutMs });
+          await refreshAtsFamily();
           ledger.push({ at: new Date().toISOString(), stepId: step.id, action: 'navigate', ok: true, detail: url });
           stepId = nextSequential(capability, step.id);
           continue;
@@ -343,6 +519,587 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             action: 'extract',
             ok: true,
             detail: step.output,
+          });
+          stepId = nextSequential(capability, step.id);
+          continue;
+        }
+
+        if (step.action === 'fillForm') {
+          if (atsFamily === 'unknown') await refreshAtsFamily();
+          const profile = opts.profile ?? {};
+          const mode: FillFormMode = opts.mode ?? 'deterministic';
+          const mapId = step.fieldMapRef;
+          let fieldMap: FieldMap | null = null;
+          try {
+            fieldMap = loadFieldMapById(root, mapId);
+          } catch {
+            fieldMap = null;
+          }
+
+          const profileKeys = flattenProfileKeys(profile);
+          const craftTimeoutMs = Math.max(
+            5_000,
+            Math.min(180_000, config.limits.runTimeoutMs - (Date.now() - started)),
+          );
+          // ponytail: craft/repair caps hard-capped at 5 — raise via formRepairMax only up to that; extract shared form executor if arms diverge further.
+          let craftBudget = Math.min(5, Math.max(0, opts.formRepairMax ?? 3));
+          const profileBlurb = (() => {
+            const skip = /password|secret|token|ssn|cvv/i;
+            const bits: string[] = [];
+            for (const k of profileKeys.slice(0, 40)) {
+              if (skip.test(k)) continue;
+              const v = getProfilePath(profile, k);
+              if (v === undefined || v === null || v === '') continue;
+              const s = String(v);
+              if (s.length > 120) continue;
+              bits.push(`${k}=${s}`);
+            }
+            return bits.join('; ').slice(0, 800);
+          })();
+          const craftAnswer = async ({
+            fieldKey,
+            profilePath,
+            companyContext,
+          }: {
+            fieldKey: string;
+            profilePath: string;
+            companyContext?: string;
+          }) => {
+            if (mode !== 'hybrid') return { value: null, llmCalls: 0 };
+            if (craftBudget <= 0) return { value: null, llmCalls: 0 };
+            if (config.llm.provider !== 'ollama') return { value: null, llmCalls: 0 };
+            craftBudget -= 1;
+            const base = (config.llm.ollamaBaseUrl || 'http://127.0.0.1:11434').replace(/\/$/, '');
+            try {
+              const res = await fetch(`${base}/api/generate`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  model: config.llm.model,
+                  stream: false,
+                  prompt: `You fill job-application questions from the applicant profile. Field "${fieldKey}" (${profilePath}). Company: ${companyContext ?? 'n/a'}. Profile: ${profileBlurb || 'n/a'}. Reply with the answer text only — short, truthful, no preamble.`,
+                }),
+                signal: AbortSignal.timeout(craftTimeoutMs),
+              });
+              if (!res.ok) return { value: null, llmCalls: 1 };
+              const j = (await res.json()) as { response?: string };
+              return { value: (j.response || '').trim() || null, llmCalls: 1 };
+            } catch {
+              return { value: null, llmCalls: 1 };
+            }
+          };
+          const maybeCraft = mode === 'hybrid' ? craftAnswer : undefined;
+
+          // Dormant repair loop: try map → on stuck repair+retry until ok or budget.
+          const formRepairMax = Math.min(5, Math.max(1, opts.formRepairMax ?? 3));
+          let repairBudget = formRepairMax;
+          const activePage = page!;
+          const runRepair = async (reason: string): Promise<boolean> => {
+            if (repairBudget <= 0) return false;
+            repairBudget -= 1;
+            const repair = await repairFieldMap({
+              page: activePage,
+              fieldMap,
+              mapId,
+              config,
+              profileKeys,
+              reason,
+              root,
+              atsFamily,
+            });
+            fieldMap = repair.map;
+            llmCalls += repair.llmCalls;
+            writeProposedFieldMap(evidenceDir, fieldMap);
+            if (opts.writeFieldMap) writeFieldMapById(root, fieldMap);
+            ledger.push({
+              at: new Date().toISOString(),
+              stepId: step.id,
+              action: 'field_map_repair',
+              ok: true,
+              detail: `${repair.note}:${reason} (left=${repairBudget})`,
+            });
+            return true;
+          };
+
+          if (!fieldMap) {
+            const ok = await runRepair('bootstrap');
+            if (!ok || !fieldMap) {
+              return finish({
+                ok: false,
+                status: 'HARD_FAILURE',
+                code: null,
+                message: `field-map not found: ${mapId}`,
+                outputs: {},
+                error: { reason: 'field_map_missing', stepId: step.id },
+              });
+            }
+          }
+
+          let fillResult = await runFillForm({
+            page: activePage,
+            fieldMap: fieldMap!,
+            profile,
+            mode,
+            config,
+            root,
+            companyContext: opts.companyContext,
+            craftAnswer: maybeCraft,
+          });
+          llmCalls += fillResult.llmCalls;
+
+          let lastFailDetail = fillResult.ok ? '' : fillResult.detail;
+          while (!fillResult.ok && (await runRepair(`stuck:${fillResult.detail}`))) {
+            ledger.push({
+              at: new Date().toISOString(),
+              stepId: step.id,
+              action: 'fillForm',
+              ok: false,
+              detail: `retry after repair: ${fillResult.detail}`,
+            });
+            fillResult = await runFillForm({
+              page: activePage,
+              fieldMap: fieldMap!,
+              profile,
+              mode,
+              config,
+              root,
+              companyContext: opts.companyContext,
+              craftAnswer: maybeCraft,
+            });
+            llmCalls += fillResult.llmCalls;
+            // No progress → stop burning repairs (same failure after map change).
+            if (!fillResult.ok && fillResult.detail === lastFailDetail) break;
+            lastFailDetail = fillResult.ok ? '' : fillResult.detail;
+          }
+
+          if (!fillResult.ok) {
+            writeFillReceipt(
+              evidenceDir,
+              buildFillReceipt({
+                pageUrl: page.url(),
+                entries: fillResult.receipt,
+                filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
+                unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
+                failDetail: fillResult.detail,
+              }),
+            );
+            ledger.push({
+              at: new Date().toISOString(),
+              stepId: step.id,
+              action: 'fillForm',
+              ok: false,
+              detail: fillResult.detail,
+            });
+            await page
+              .screenshot({ path: join(evidenceDir, 'screenshots', 'terminal.png'), fullPage: true })
+              .catch(() => undefined);
+            if (opts.escalateOnPolicy) {
+              const shot = join(evidenceDir, 'hitl', 'pause.png');
+              await page.screenshot({ path: shot, fullPage: true }).catch(() => undefined);
+              writeIntervention(evidenceDir, {
+                schemaVersion: 1,
+                runId,
+                mode: 'replay',
+                reasonCode: 'STUCK' as PauseReason,
+                reasonDetail: fillResult.detail,
+                capabilityId: capability.id,
+                stepId: step.id,
+                pageUrl: page.url(),
+                screenshotPath: 'hitl/pause.png',
+                owner: 'paused',
+                pausedAt: new Date().toISOString(),
+              });
+              console.error(`HITL pause (${runId}): STUCK — ${fillResult.detail}`);
+              console.error(`  screenshot: hitl/pause.png`);
+              console.error(`  resume: cua escalate resume --run ${runId} [--note "value"]`);
+              const resumed = await waitForResume(evidenceDir, config.limits.runTimeoutMs);
+              if (!resumed.ok) {
+                return finish({
+                  ok: false,
+                  status: 'HARD_FAILURE',
+                  code: fillResult.code,
+                  message: `HITL timeout: ${fillResult.detail}`,
+                  outputs: {},
+                  error: { reason: 'STUCK', stepId: step.id },
+                  paused: true,
+                });
+              }
+              if (resumed.note.trim()) {
+                // Preflight may join several paths with commas — apply note to the first only.
+                const path = fillResult.profilePath.split(',')[0]?.trim();
+                if (path) setProfilePath(profile, path, resumed.note.trim());
+              }
+              fillResult = await runFillForm({
+                page,
+                fieldMap,
+                profile,
+                mode,
+                config,
+                root,
+                companyContext: opts.companyContext,
+                craftAnswer: maybeCraft,
+              });
+              llmCalls += fillResult.llmCalls;
+              if (!fillResult.ok) {
+                writeFillReceipt(
+                  evidenceDir,
+                  buildFillReceipt({
+                    pageUrl: page.url(),
+                    entries: fillResult.receipt,
+                    filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
+                    unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
+                    failDetail: fillResult.detail,
+                  }),
+                );
+                ledger.push({
+                  at: new Date().toISOString(),
+                  stepId: step.id,
+                  action: 'fillForm',
+                  ok: false,
+                  detail: `after HITL: ${fillResult.detail}`,
+                });
+                return finish({
+                  ok: true,
+                  status: 'BUSINESS_OUTCOME',
+                  code: await resolveFormCode(fillResult.detail),
+                  message: fillResult.detail,
+                  outputs: {},
+                  error: null,
+                });
+              }
+            } else {
+              writeFillReceipt(
+                evidenceDir,
+                buildFillReceipt({
+                  pageUrl: page.url(),
+                  entries: fillResult.receipt,
+                  filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
+                  unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
+                  failDetail: fillResult.detail,
+                }),
+              );
+              return finish({
+                ok: true,
+                status: 'BUSINESS_OUTCOME',
+                code: await resolveFormCode(fillResult.detail),
+                message: fillResult.detail,
+                outputs: {},
+                error: null,
+              });
+            }
+          }
+          ledger.push({
+            at: new Date().toISOString(),
+            stepId: step.id,
+            action: 'fillForm',
+            ok: true,
+            detail: fillResult.filled.join(','),
+          });
+          writeFillReceipt(
+            evidenceDir,
+            buildFillReceipt({
+              pageUrl: page.url(),
+              entries: fillResult.receipt,
+              filledKeys: fillResult.filled,
+              unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
+            }),
+          );
+          stepId = nextSequential(capability, step.id);
+          continue;
+        }
+
+        if (step.action === 'fillFormFlow') {
+          // Policy already gated via assertActionAllowed(step.action) above.
+          if (atsFamily === 'unknown') await refreshAtsFamily();
+          const profile = opts.profile ?? {};
+          const mode: FillFormMode = opts.mode ?? 'deterministic';
+          const mapId = step.fieldMapRef;
+          const maxPages = step.maxPages ?? 6;
+          const profileKeys = flattenProfileKeys(profile);
+          const pagesFilled: string[] = [];
+          const allReceiptEntries: FillReceipt['entries'] = [];
+          const allFilledKeys: string[] = [];
+          const craftTimeoutMs = Math.max(
+            5_000,
+            Math.min(180_000, config.limits.runTimeoutMs - (Date.now() - started)),
+          );
+          // ponytail: same craft/repair ceiling as fillForm (max 5); shared executor would collapse the duplicate arm.
+          let craftBudget = Math.min(5, Math.max(0, opts.formRepairMax ?? 3));
+          const profileBlurb = (() => {
+            const skip = /password|secret|token|ssn|cvv/i;
+            const bits: string[] = [];
+            for (const k of profileKeys.slice(0, 40)) {
+              if (skip.test(k)) continue;
+              const v = getProfilePath(profile, k);
+              if (v === undefined || v === null || v === '') continue;
+              const s = String(v);
+              if (s.length > 120) continue;
+              bits.push(`${k}=${s}`);
+            }
+            return bits.join('; ').slice(0, 800);
+          })();
+          const craftAnswer = async ({
+            fieldKey,
+            profilePath,
+            companyContext,
+          }: {
+            fieldKey: string;
+            profilePath: string;
+            companyContext?: string;
+          }) => {
+            if (mode !== 'hybrid') return { value: null, llmCalls: 0 };
+            if (craftBudget <= 0) return { value: null, llmCalls: 0 };
+            if (config.llm.provider !== 'ollama') return { value: null, llmCalls: 0 };
+            craftBudget -= 1;
+            const base = (config.llm.ollamaBaseUrl || 'http://127.0.0.1:11434').replace(/\/$/, '');
+            try {
+              const res = await fetch(`${base}/api/generate`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  model: config.llm.model,
+                  stream: false,
+                  prompt: `You fill job-application questions from the applicant profile. Field "${fieldKey}" (${profilePath}). Company: ${companyContext ?? 'n/a'}. Profile: ${profileBlurb || 'n/a'}. Reply with the answer text only — short, truthful, no preamble.`,
+                }),
+                signal: AbortSignal.timeout(craftTimeoutMs),
+              });
+              if (!res.ok) return { value: null, llmCalls: 1 };
+              const j = (await res.json()) as { response?: string };
+              return { value: (j.response || '').trim() || null, llmCalls: 1 };
+            } catch {
+              return { value: null, llmCalls: 1 };
+            }
+          };
+          const maybeCraft = mode === 'hybrid' ? craftAnswer : undefined;
+
+          for (let pageIdx = 0; pageIdx < maxPages; pageIdx++) {
+            let observed = await observeControls(page);
+            if (!observed.length) {
+              // SSO chooser / review: no inputs — advance (Sign in with email / Finish) then re-observe
+              const advancedEmpty = await clickFormAdvance(page);
+              await page.waitForTimeout(500);
+              if (!advancedEmpty) break;
+              observed = await observeControls(page);
+              if (!observed.length) break;
+            }
+            // Always re-bootstrap from visible controls (multi-page maps must not carry stale requireds)
+            let repair;
+            try {
+              repair = await repairFieldMap({
+                page,
+                fieldMap: null,
+                mapId: `${mapId}-p${pageIdx}`,
+                config,
+                profileKeys,
+                reason: `fillFormFlow page ${pageIdx}`,
+                root,
+                atsFamily,
+              });
+            } catch (e) {
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: false,
+                detail: `page ${pageIdx}: repair failed (${observed.length} controls): ${(e as Error).message}`,
+              });
+              throw e;
+            }
+            llmCalls += repair.llmCalls;
+            writeProposedFieldMap(evidenceDir, repair.map);
+            if (opts.writeFieldMap && pageIdx === 0) writeFieldMapById(root, { ...repair.map, id: mapId });
+
+            let fillResult = await runFillForm({
+              page: page!,
+              fieldMap: repair.map,
+              profile,
+              mode,
+              config,
+              root,
+              companyContext: opts.companyContext,
+              craftAnswer: maybeCraft,
+              skipInvisibleRequired: true,
+            });
+            llmCalls += fillResult.llmCalls;
+            // Dormant stuck loop (allows LLM even on page>0); stop on success, budget, or no progress.
+            const flowRepairMax = Math.min(5, Math.max(1, opts.formRepairMax ?? 3));
+            let flowRepairs = 0;
+            let lastDetail = fillResult.ok ? '' : fillResult.detail;
+            let workingMap = repair.map;
+            while (!fillResult.ok && flowRepairs < flowRepairMax) {
+              flowRepairs += 1;
+              try {
+                const stuckRepair = await repairFieldMap({
+                  page: page!,
+                  fieldMap: workingMap,
+                  mapId: `${mapId}-p${pageIdx}-stuck${flowRepairs}`,
+                  config,
+                  profileKeys,
+                  reason: `fillFormFlow stuck page ${pageIdx}: ${fillResult.detail}`,
+                  root,
+                  atsFamily,
+                });
+                llmCalls += stuckRepair.llmCalls;
+                workingMap = stuckRepair.map;
+                writeProposedFieldMap(evidenceDir, stuckRepair.map);
+                ledger.push({
+                  at: new Date().toISOString(),
+                  stepId: step.id,
+                  action: 'field_map_repair',
+                  ok: true,
+                  detail: `stuck page ${pageIdx} #${flowRepairs}: ${stuckRepair.note}`,
+                });
+                fillResult = await runFillForm({
+                  page: page!,
+                  fieldMap: stuckRepair.map,
+                  profile,
+                  mode,
+                  config,
+                  root,
+                  companyContext: opts.companyContext,
+                  craftAnswer: maybeCraft,
+                  skipInvisibleRequired: true,
+                });
+                llmCalls += fillResult.llmCalls;
+                if (!fillResult.ok && fillResult.detail === lastDetail) break;
+                lastDetail = fillResult.ok ? '' : fillResult.detail;
+              } catch {
+                break;
+              }
+            }
+            if (!fillResult.ok) {
+              writeFillReceipt(
+                evidenceDir,
+                buildFillReceipt({
+                  pageUrl: page.url(),
+                  entries: [...allReceiptEntries, ...fillResult.receipt],
+                  filledKeys: allFilledKeys,
+                  unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
+                  failDetail: fillResult.detail,
+                }),
+              );
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: false,
+                detail: `page ${pageIdx}: ${fillResult.detail}`,
+              });
+              return finish({
+                ok: true,
+                status: 'BUSINESS_OUTCOME',
+                code: await resolveFormCode(fillResult.detail),
+                message: fillResult.detail,
+                outputs: {},
+                error: null,
+              });
+            }
+            pagesFilled.push(`p${pageIdx}:{${fillResult.filled.join(',')}}`);
+            allReceiptEntries.push(...fillResult.receipt);
+            allFilledKeys.push(...fillResult.filled.map((k) => `p${pageIdx}:${k}`));
+
+            // Done markers — ignore hidden DOM text
+            const doneVisible = page.getByText(/Application draft complete|application received/i).filter({
+              visible: true,
+            });
+            if ((await doneVisible.count()) > 0) {
+              break;
+            }
+            const submitOnly = page.getByRole('button', { name: /Submit Application|^Submit$/i }).filter({
+              visible: true,
+            });
+            if ((await submitOnly.count()) > 0) {
+              break;
+            }
+
+            const advanced = await clickFormAdvance(page);
+            if (!advanced) break;
+            await page.waitForTimeout(600);
+
+            // Per-page validate : if required errors remain, one repair+retry.
+            let errs = await listVisibleRequiredErrors(page);
+            if (errs.length) {
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: true,
+                detail: `page ${pageIdx} post-advance errors (${errs.length}): ${errs.slice(0, 3).join(' | ')}`,
+              });
+              try {
+                const retryRepair = await repairFieldMap({
+                  page,
+                  fieldMap: null,
+                  mapId: `${mapId}-p${pageIdx}-retry`,
+                  config,
+                  profileKeys,
+                  reason: `fillFormFlow page ${pageIdx} retry`,
+                  root,
+                  atsFamily,
+                });
+                llmCalls += retryRepair.llmCalls;
+                const retryFill = await runFillForm({
+                  page,
+                  fieldMap: retryRepair.map,
+                  profile,
+                  mode,
+                  config,
+                  root,
+                  companyContext: opts.companyContext,
+                  craftAnswer: maybeCraft,
+                  skipInvisibleRequired: true,
+                });
+                llmCalls += retryFill.llmCalls;
+                if (retryFill.ok) {
+                  pagesFilled.push(`p${pageIdx}-retry:{${retryFill.filled.join(',')}}`);
+                  allReceiptEntries.push(...retryFill.receipt);
+                  allFilledKeys.push(...retryFill.filled.map((k) => `p${pageIdx}-retry:${k}`));
+                  // Stay on this page — outer loop advances once we re-observe next iteration.
+                }
+              } catch {
+                /* keep going; next check may still fail */
+              }
+              errs = await listVisibleRequiredErrors(page);
+              if (errs.length) {
+                ledger.push({
+                  at: new Date().toISOString(),
+                  stepId: step.id,
+                  action: 'fillFormFlow',
+                  ok: false,
+                  detail: `page ${pageIdx} still required: ${errs.slice(0, 5).join(' | ')}`,
+                });
+                return finish({
+                  ok: true,
+                  status: 'BUSINESS_OUTCOME',
+                  code: await resolveFormCode(`required after advance: ${errs.slice(0, 5).join(' | ')}`),
+                  message: `required after advance: ${errs.slice(0, 5).join(' | ')}`,
+                  outputs: {},
+                  error: null,
+                });
+              }
+            }
+
+            if ((await doneVisible.count()) > 0) {
+              break;
+            }
+          }
+
+          writeFillReceipt(
+            evidenceDir,
+            buildFillReceipt({
+              pageUrl: page.url(),
+              entries: allReceiptEntries,
+              filledKeys: allFilledKeys,
+              unverifiedRequired: allReceiptEntries.filter((e) => !e.verified).map((e) => e.key),
+            }),
+          );
+
+          ledger.push({
+            at: new Date().toISOString(),
+            stepId: step.id,
+            action: 'fillFormFlow',
+            ok: true,
+            detail: pagesFilled.join(' → '),
           });
           stepId = nextSequential(capability, step.id);
           continue;
@@ -514,8 +1271,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
     }
 
     const success = await evalCheckpoint(page, capability, capability.successCheckpoint);
-    const requiredOutputs = capability.outputs.filter((o) => true);
-    const missing = requiredOutputs.filter((o) => !outputs[o.name]?.length);
+    const missing = capability.outputs.filter((o) => !outputs[o.name]?.length);
     if (success && missing.length === 0) {
       await page
         .screenshot({ path: join(evidenceDir, 'screenshots', 'success.png'), fullPage: true })
@@ -565,8 +1321,19 @@ async function waitForResume(
     if (existsSync(resumeFile)) {
       try {
         const body = JSON.parse(readFileSync(resumeFile, 'utf8')) as { note?: string };
-        return { ok: true, note: String(body.note ?? '') };
+        const note = String(body.note ?? '');
+        try {
+          unlinkSync(resumeFile);
+        } catch {
+          /* consumed even if unlink fails */
+        }
+        return { ok: true, note };
       } catch {
+        try {
+          unlinkSync(resumeFile);
+        } catch {
+          /* ignore */
+        }
         return { ok: true, note: '' };
       }
     }

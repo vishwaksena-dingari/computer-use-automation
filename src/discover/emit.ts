@@ -15,6 +15,8 @@ import { ensureDir, writeJson, copyCapabilitySnapshot } from '../evidence/store.
 import { repoRelative } from '../config/paths.js';
 import { log } from '../util/log.js';
 import { resolveTarget } from '../surface/resolve-locator.js';
+import { observeControls, type ControlHint } from '../surface/observe-controls.js';
+import { authorStepsFromPage } from './author-steps.js';
 
 export type DiscoverResult = {
   ok: boolean;
@@ -25,18 +27,6 @@ export type DiscoverResult = {
   model: string;
   message: string;
   evidenceDir: string;
-};
-
-type ControlHint = {
-  tag: string;
-  role?: string | null;
-  name?: string | null;
-  label?: string | null;
-  type?: string | null;
-  inputName?: string | null;
-  placeholder?: string | null;
-  dataField?: string | null;
-  text?: string | null;
 };
 
 const TARGET_KEYS = [
@@ -210,35 +200,6 @@ async function callOllama(
   }
 }
 
-async function observeControls(page: Page): Promise<ControlHint[]> {
-  return page.evaluate(() => {
-    const out: ControlHint[] = [];
-    const nodes = document.querySelectorAll(
-      'input, button, select, textarea, [role="button"], [role="alert"], [role="status"], [data-field]',
-    );
-    for (const el of Array.from(nodes).slice(0, 40)) {
-      const html = el as HTMLElement;
-      let label: string | null = null;
-      if (html instanceof HTMLInputElement && html.id) {
-        const lab = document.querySelector(`label[for="${html.id}"]`);
-        label = lab?.textContent?.trim() || null;
-      }
-      out.push({
-        tag: html.tagName.toLowerCase(),
-        role: html.getAttribute('role'),
-        name: html.getAttribute('aria-label') || html.getAttribute('name'),
-        label,
-        type: html.getAttribute('type'),
-        inputName: html.getAttribute('name'),
-        placeholder: html.getAttribute('placeholder'),
-        dataField: html.getAttribute('data-field'),
-        text: (html.innerText || html.textContent || '').trim().slice(0, 80) || null,
-      });
-    }
-    return out;
-  });
-}
-
 function extractJsonObject(text: string): unknown {
   const trimmed = text.trim();
   const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -327,7 +288,7 @@ function mergeLocatorsIntoSkeleton(goal: string, emit: z.infer<typeof EmitLocato
  * Prefer observation-grounded locators, then append LLM suggestions (higher ranks).
  * Then verify fill/click targets resolve on the live page; swap to observation if not.
  */
-async function finalizeLocators(
+export async function finalizeLocators(
   page: Page,
   goal: string,
   controls: ControlHint[],
@@ -425,6 +386,7 @@ function observationLocators(controls: ControlHint[]): z.infer<typeof EmitLocato
 
 /**
  * Discover: observe → LLM emits locator JSON only → merge into code skeleton → save.
+ * Opt-in G2: `--author-steps` → LLM emits Zod-capped steps+targets instead.
  */
 export async function discoverCapability(opts: {
   config: RuntimeConfig;
@@ -434,13 +396,15 @@ export async function discoverCapability(opts: {
   seedPath: string;
   outPath: string;
   allowOfflineSeed?: boolean;
+  /** G2: LLM authors step graph (capped); default false = locators-only. */
+  authorSteps?: boolean;
 }): Promise<DiscoverResult> {
   const { config, root, goal, evidenceDir, seedPath, outPath } = opts;
   ensureDir(join(evidenceDir, 'screenshots'));
   let llmCalls = 0;
   let llmNote = '';
   let compiled: Capability | null = null;
-  let mode: 'llm_emit' | 'offline_seed' = 'llm_emit';
+  let mode: 'llm_emit' | 'offline_seed' | 'author_steps' = 'llm_emit';
 
   const browser = await chromium.launch({ headless: true });
   try {
@@ -453,6 +417,61 @@ export async function discoverCapability(opts: {
     log('debug', 'discover navigate', { url });
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.screenshot({ path: join(evidenceDir, 'screenshots', 'observe.png'), fullPage: true });
+
+    if (opts.authorSteps) {
+      mode = 'author_steps';
+      log('info', 'discover G2 author-steps', { goal });
+      try {
+        const authored = await authorStepsFromPage({ page, goal, config });
+        compiled = authored.capability;
+        llmCalls = authored.llmCalls;
+        llmNote = authored.note;
+        writeJson(join(evidenceDir, 'author-steps.json'), authored.emit);
+      } catch (e) {
+        const err = (e as Error).message;
+        log('warn', 'author-steps failed; falling back to locator skeleton', {
+          detail: err.slice(0, 300),
+        });
+        const controls = await observeControls(page);
+        compiled = await finalizeLocators(page, goal, controls, null);
+        llmCalls = Math.max(llmCalls, 1);
+        llmNote = `author_fallback_skeleton: ${err.slice(0, 200)}`;
+        writeJson(join(evidenceDir, 'author-steps.json'), {
+          fallback: true,
+          error: err.slice(0, 500),
+        });
+      }
+
+      const artifactAbs = saveCapability(outPath, compiled!);
+      const artifactPath = repoRelative(root, artifactAbs);
+      const artifactSha256 = sha256File(artifactAbs);
+      copyCapabilitySnapshot(evidenceDir, artifactAbs);
+      const evidenceRel = repoRelative(root, evidenceDir);
+      writeJson(join(evidenceDir, 'run.json'), {
+        goal,
+        mode,
+        emitMode: 'author_steps',
+        ledger: [
+          { action: 'navigate', ok: true, detail: url },
+          { action: 'llm_author_steps', ok: true, detail: llmNote },
+          { action: 'compile', ok: true, detail: artifactPath },
+        ],
+        llmCalls,
+      });
+      return {
+        ok: true,
+        artifactPath,
+        artifactSha256,
+        llmCalls,
+        provider: config.llm.provider,
+        model: config.llm.model,
+        message: llmNote.startsWith('author_fallback')
+          ? 'G2 author-steps failed Zod; fell back to locator skeleton'
+          : 'G2: LLM authored Zod-capped steps+targets',
+        evidenceDir: evidenceRel,
+      };
+    }
+
     const pageText = (await page.locator('body').innerText()).slice(0, 1800);
     const controls = await observeControls(page);
     log('debug', 'discover observed page', { chars: pageText.length, controls: controls.length });

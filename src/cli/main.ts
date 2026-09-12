@@ -3,7 +3,8 @@
  * @file Operator CLI entry: discover | replay | invoke | escalate | config.
  */
 import { Command } from 'commander';
-import { join } from 'node:path';
+import { join, resolve, relative, isAbsolute } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { flattenForShow, loadConfig, validateConfig, type CliConfigOverrides } from '../config/load.js';
 import { setConfigValue } from '../config/set.js';
 import { findProjectRoot, repoRelative } from '../config/paths.js';
@@ -26,6 +27,43 @@ function cliFromOpts(opts: Record<string, unknown>): CliConfigOverrides {
     stepTimeoutMs: opts.stepTimeoutMs !== undefined ? Number(opts.stepTimeoutMs) : undefined,
     runTimeoutMs: opts.runTimeoutMs !== undefined ? Number(opts.runTimeoutMs) : undefined,
   };
+}
+
+/** Load applicant profile JSON; path must resolve under project root. */
+function loadProfileJson(root: string, profilePath: string): Record<string, unknown> {
+  const abs = resolve(root, profilePath);
+  const rel = relative(root, abs);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error(`--profile must be inside project root: ${profilePath}`);
+  }
+  return JSON.parse(readFileSync(abs, 'utf8')) as Record<string, unknown>;
+}
+
+/**
+ * Overlay ATS login secrets from env (never invent accounts).
+ * WORKDAY_EMAIL / WORKDAY_PASSWORD (or ATS_EMAIL / ATS_PASSWORD).
+ */
+function applyAtsEnvOverrides(profile: Record<string, unknown>): Record<string, unknown> {
+  const email = process.env.WORKDAY_EMAIL || process.env.ATS_EMAIL;
+  const password = process.env.WORKDAY_PASSWORD || process.env.ATS_PASSWORD;
+  if (!email && !password) return profile;
+  const next = { ...profile };
+  // Only overlay keys the profile already declares — avoids stamping secrets onto apply-only profiles.
+  if (email && Object.prototype.hasOwnProperty.call(profile, 'email')) next.email = email;
+  if (password && Object.prototype.hasOwnProperty.call(profile, 'password')) next.password = password;
+  return next;
+}
+
+function parseFillMode(raw: string): 'deterministic' | 'hybrid' {
+  if (raw === 'deterministic' || raw === 'hybrid') return raw;
+  throw new Error(`--mode must be deterministic|hybrid (got ${raw})`);
+}
+
+/** Dormant form repair attempts (1–5). */
+function parseFormRepairMax(raw: unknown): number {
+  const n = Number(raw ?? 3);
+  if (!Number.isFinite(n)) return 3;
+  return Math.min(5, Math.max(1, Math.floor(n)));
 }
 
 function addGlobalConfigFlags(cmd: Command): Command {
@@ -57,6 +95,7 @@ addGlobalConfigFlags(
     .option('--seed <path>', 'OFFLINE ONLY: explicit seed path (never auto-reads .private/)')
     .option('--evidence <dir>', 'evidence chapter dir')
     .option('--allow-offline-seed', 'use --seed file if Ollama unreachable (requires --seed)')
+    .option('--author-steps', 'G2: LLM authors Zod-capped steps+targets (default: locators only)')
     .action(async (opts) => {
       try {
         configureLog({ verbose: Boolean(opts.verbose) });
@@ -74,11 +113,24 @@ addGlobalConfigFlags(
           return;
         }
         const seed = opts.seed as string | undefined;
-        const out = opts.out ?? join(root, 'capabilities/lookup-member-savings-balance.json');
+        const out =
+          opts.out ??
+          (opts.authorSteps
+            ? join(root, 'capabilities/experiments/authored-capability.json')
+            : join(root, 'capabilities/lookup-member-savings-balance.json'));
         const evidenceDir =
-          opts.evidence ?? join(root, loaded.config.evidence.dir, '01-discovery');
-        prepareChapter(join(root, loaded.config.evidence.dir), '01-discovery');
-        log('info', 'discover start', { goal: opts.goal });
+          opts.evidence ??
+          join(
+            root,
+            loaded.config.evidence.dir,
+            opts.authorSteps ? 'g2-author-steps' : '01-discovery',
+          );
+        if (opts.authorSteps) {
+          ensureDir(join(root, 'capabilities/experiments'));
+        } else {
+          prepareChapter(join(root, loaded.config.evidence.dir), '01-discovery');
+        }
+        log('info', 'discover start', { goal: opts.goal, authorSteps: Boolean(opts.authorSteps) });
         const result = await discoverCapability({
           config: loaded.config,
           root,
@@ -87,6 +139,7 @@ addGlobalConfigFlags(
           seedPath: seed ?? '',
           outPath: out,
           allowOfflineSeed: Boolean(opts.allowOfflineSeed),
+          authorSteps: Boolean(opts.authorSteps),
         });
         writeJson(join(evidenceDir, 'manifest.json'), {
           goal: opts.goal,
@@ -130,6 +183,15 @@ addGlobalConfigFlags(
     .option('--autonomous-repair-max <n>', 'autonomous repair attempts (1–5, default 3)', '3')
     .option('--bindings <path>', 'JSON overlay merged into capability.bindings (S8)')
     .option('--goal <text>', 'goal used when --auto-retrain / --autonomous-repair discovers', 'Look up member savings balance')
+    .option('--mode <mode>', 'deterministic | hybrid (G1 fillForm)', 'deterministic')
+    .option('--profile <path>', 'applicant profile JSON for fillForm (G1)')
+    .option('--company-context <text>', 'optional company blurb for hybrid craft')
+    .option('--write-field-map', 'persist repaired field-map under capabilities/field-maps/')
+    .option('--form-repair-max <n>', 'dormant stuck repair loop (1–5, default 3)', '3')
+    .option('--record-har', 'write evidence/<run>/network.har (omit bodies by default)')
+    .option('--har-on-failure', 'with --record-har: keep HAR only when the run fails')
+    .option('--trace-on-failure', 'write evidence/<run>/trace.zip only when the run fails')
+    .option('--har-content <mode>', 'omit | embed', 'omit')
     .action(async (artifact: string | undefined, opts) => {
       try {
         configureLog({ verbose: Boolean(opts.verbose) });
@@ -165,6 +227,15 @@ addGlobalConfigFlags(
           >;
         }
 
+        let profile: Record<string, unknown> | undefined;
+        if (opts.profile) {
+          profile = applyAtsEnvOverrides(loadProfileJson(root, opts.profile as string));
+        } else {
+          profile = applyAtsEnvOverrides({});
+          if (!Object.keys(profile).length) profile = undefined;
+        }
+        const mode = parseFillMode(String(opts.mode ?? 'deterministic'));
+
         const maxRetrain = opts.autonomousRepair
           ? Math.min(5, Math.max(1, Number(opts.autonomousRepairMax ?? 3) || 3))
           : Math.min(2, Math.max(1, Number(opts.autoRetrainMax ?? 1) || 1));
@@ -184,6 +255,18 @@ addGlobalConfigFlags(
             hitlLocatorPatch: Boolean(opts.hitlLocatorPatch),
             recordActions: Boolean(opts.recordActions),
             bindingsOverlay,
+            profile,
+            mode,
+            companyContext: opts.companyContext as string | undefined,
+            writeFieldMap: Boolean(opts.writeFieldMap),
+            formRepairMax: parseFormRepairMax(opts.formRepairMax),
+            recordHarPath: opts.recordHar
+              ? join(evidenceDir, 'network.har')
+              : undefined,
+            recordHarContent:
+              opts.harContent === 'embed' ? ('embed' as const) : ('omit' as const),
+            harRetainOnFailure: Boolean(opts.harOnFailure),
+            traceOnFailure: Boolean(opts.traceOnFailure),
           });
 
         log('info', 'replay start', {
@@ -267,6 +350,16 @@ addGlobalConfigFlags(
     .option('--param <key=value>', 'extra input', collectParams, {})
     .option('--bindings <path>', 'optional bindings overlay JSON')
     .option('--evidence <dir>', 'evidence directory for this run')
+    .option('--mode <mode>', 'deterministic | hybrid (G1 fillForm)', 'deterministic')
+    .option('--profile <path>', 'applicant profile JSON for fillForm (G1)')
+    .option('--company-context <text>', 'optional company blurb for hybrid craft')
+    .option('--escalate', 'pause same session on stuck/policy / field.UNMAPPED for HITL')
+    .option('--write-field-map', 'persist repaired field-map under capabilities/field-maps/')
+    .option('--form-repair-max <n>', 'dormant stuck repair loop (1–5, default 3)', '3')
+    .option('--record-har', 'write evidence/<run>/network.har')
+    .option('--har-on-failure', 'with --record-har: keep HAR only when the run fails')
+    .option('--trace-on-failure', 'write evidence/<run>/trace.zip only when the run fails')
+    .option('--har-content <mode>', 'omit | embed', 'omit')
     .action(async (id: string, opts) => {
       try {
         configureLog({ verbose: Boolean(opts.verbose) });
@@ -304,6 +397,14 @@ addGlobalConfigFlags(
           >;
         }
 
+        let profile: Record<string, unknown> | undefined;
+        if (opts.profile) {
+          profile = applyAtsEnvOverrides(loadProfileJson(root, opts.profile as string));
+        } else {
+          profile = applyAtsEnvOverrides({});
+          if (!Object.keys(profile).length) profile = undefined;
+        }
+
         log('info', 'invoke start', { id, memberId: params.memberId, runId });
         const result = await replayCapability({
           capability,
@@ -312,8 +413,18 @@ addGlobalConfigFlags(
           params,
           runId,
           evidenceDir,
-          headed: Boolean(opts.headed),
+          headed: Boolean(opts.headed || opts.escalate),
+          escalateOnPolicy: Boolean(opts.escalate),
           bindingsOverlay,
+          profile,
+          mode: parseFillMode(String(opts.mode ?? 'deterministic')),
+          companyContext: opts.companyContext as string | undefined,
+          writeFieldMap: Boolean(opts.writeFieldMap),
+          formRepairMax: parseFormRepairMax(opts.formRepairMax),
+          recordHarPath: opts.recordHar ? join(evidenceDir, 'network.har') : undefined,
+          recordHarContent: opts.harContent === 'embed' ? 'embed' : 'omit',
+          harRetainOnFailure: Boolean(opts.harOnFailure),
+          traceOnFailure: Boolean(opts.traceOnFailure),
         });
 
         const agentView = {
