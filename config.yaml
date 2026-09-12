@@ -15,6 +15,8 @@ policy:
     - navigate
     - click
     - fill
+    - fillForm
+    - fillFormFlow
     - extract
     - wait
     - branch

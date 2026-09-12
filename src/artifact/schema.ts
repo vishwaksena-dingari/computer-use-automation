@@ -141,7 +141,52 @@ export const StepSchema = z.discriminatedUnion('action', [
       on: z.array(BranchArmSchema).min(1),
     })
     .strict(),
+  z
+    .object({
+      id: z.string().min(1),
+      action: z.literal('fillForm'),
+      /** Id under capabilities/field-maps/<id>.json */
+      fieldMapRef: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      id: z.string().min(1),
+      /** Multi-page: observe→fill current page→click Next/Continue; re-observe each page. */
+      action: z.literal('fillFormFlow'),
+      fieldMapRef: z.string().min(1),
+      /** Max pages to traverse (default 6). */
+      maxPages: z.number().int().positive().max(20).optional(),
+    })
+    .strict(),
 ]);
+
+/** Per-company / per-tenant variable field set (G1). */
+export const FieldMapFieldSchema = z
+  .object({
+    key: z.string().min(1),
+    required: z.boolean(),
+    profilePath: z.string().min(1),
+    kind: z.enum(['text', 'textarea', 'select', 'checkbox', 'radio', 'file']),
+    targets: z.array(LocatorCandidateSchema).min(1),
+    enumHints: z.array(z.string()).optional(),
+    /** Positive “require sponsorship?” style: truthy profile → pick No / false option. */
+    invertBool: z.boolean().optional(),
+    /** Free-text: LLM craft only under --mode hybrid when profile value empty. */
+    craft: z.enum(['none', 'llm']).optional(),
+  })
+  .strict();
+
+export const FieldMapSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    id: z.string().min(1),
+    platform: z.string().optional(),
+    companyKey: z.string().optional(),
+    fields: z.array(FieldMapFieldSchema).min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict();
 
 export const ParameterSchema = z
   .object({
@@ -176,6 +221,8 @@ export const CapabilitySchema = z
     name: z.string().min(1),
     description: z.string().min(1),
     goalTemplate: z.string().min(1),
+    /** Optional named shell id (registry/docs); not a separate runtime. */
+    template: z.string().min(1).optional(),
     bindings: z.record(z.unknown()),
     inputs: z.array(ParameterSchema),
     outputs: z.array(OutputFieldSchema),
@@ -246,3 +293,5 @@ export const CapabilitySchema = z
 export type Capability = z.infer<typeof CapabilitySchema>;
 export type LocatorCandidate = z.infer<typeof LocatorCandidateSchema>;
 export type Target = z.infer<typeof TargetSchema>;
+export type FieldMap = z.infer<typeof FieldMapSchema>;
+export type FieldMapField = z.infer<typeof FieldMapFieldSchema>;

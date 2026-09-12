@@ -17,12 +17,38 @@ dist/
 
 # Live ad-hoc runs (keep graded chapters)
 /evidence/runs/
+/evidence/private/
+
+# Experiments authored by G2 (optional local)
+/capabilities/experiments/
 
 # Private goldens — human backup only; app/LLM train must not depend on these
 .private/
 
 # Optional local noise under chapters
 /evidence/**/hitl/resume.json
+/evidence/**/network.har
+/evidence/**/*.har
 
 # Local process leftovers
 .scratch/*.pid
+
+# Local research clones (never publish)
+.scratch/research-clones/
+
+# Local research notes (never publish)
+.scratch/research-notes/
+
+# local live ATS secrets / scratch profiles
+.scratch/profile-*.json
+.scratch/craft-profile*.json
+.scratch/*-console.txt
+.scratch/demo-*.txt
+
+# External-project corpora / cross-repo refs (never publish names or paths)
+.scratch/form-autonomy-next/
+.scratch/**/corpus/
+.scratch/config.*.yaml
+
+# Local ad-hoc G1 evidence noise (keep curated chapters only if committing goldens)
+# (operators may still commit selected evidence/g1-* intentionally)

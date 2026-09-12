@@ -21,7 +21,7 @@ export function candidateLocator(page: Page, c: LocatorCandidate): Locator {
     case 'label':
       return page.getByLabel(c.text ?? c.name ?? '', { exact: c.exact ?? false });
     case 'placeholder':
-      return page.getByPlaceholder(c.text ?? '', { exact: c.exact ?? false });
+      return page.getByPlaceholder(c.text ?? c.name ?? '', { exact: c.exact ?? false });
     case 'altText':
       return page.getByAltText(c.text ?? '', { exact: c.exact ?? false });
     case 'title':
@@ -49,27 +49,40 @@ export async function resolveTarget(page: Page, target: Target): Promise<Locator
     const loc = candidateLocator(page, c);
     try {
       if (target.strict) {
-        await loc.first().waitFor({ state: 'visible', timeout: Math.min(remaining, 2000) });
-        const count = await loc.count();
+        const visible = loc.filter({ visible: true });
+        await visible.first().waitFor({ state: 'visible', timeout: Math.min(remaining, 2000) });
+        const count = await visible.count();
         if (count !== 1) {
-          lastErr = `kind=${c.kind} matched ${count}`;
+          lastErr = `kind=${c.kind} matched ${count} visible`;
           continue;
         }
-        return loc;
+        return visible.first();
       }
-      await loc.first().waitFor({ state: 'visible', timeout: Math.min(remaining, 2000) });
-      return loc.first();
+      // Prefer visible when labels collide across hidden SPA steps (Workday/Ashby multipage)
+      const visible = loc.filter({ visible: true });
+      try {
+        await visible.first().waitFor({ state: 'visible', timeout: Math.min(remaining, 2000) });
+        return visible.first();
+      } catch {
+        // ponytail: Ashby hides native radios/file inputs; attached is enough for check/setInputFiles
+        await loc.first().waitFor({ state: 'attached', timeout: Math.min(remaining, 800) });
+        return loc.first();
+      }
     } catch (e) {
       lastErr = `${c.kind}: ${(e as Error).message}`;
     }
   }
-  // one re-resolve pass (docs/replay-outcomes)
+  // one re-resolve pass (docs/replay-outcomes) — still prefer visible
   for (const c of byRank(target.candidates)) {
     const loc = candidateLocator(page, c);
     try {
+      const visible = loc.filter({ visible: true });
+      const vCount = await visible.count();
+      if (target.strict && vCount === 1) return visible.first();
+      if (!target.strict && vCount >= 1) return visible.first();
       const count = await loc.count();
-      if (target.strict && count === 1 && (await loc.isVisible())) return loc;
-      if (!target.strict && count >= 1 && (await loc.first().isVisible())) return loc.first();
+      if (target.strict && count === 1) return loc;
+      if (!target.strict && count >= 1) return loc.first();
     } catch {
       /* continue */
     }

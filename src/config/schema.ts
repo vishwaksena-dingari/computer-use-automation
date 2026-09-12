@@ -31,10 +31,18 @@ export const FileConfigSchema = z
     session: z.object({
       headedOnEscalate: z.boolean(),
       pauseScreenshot: z.boolean(),
+      /** Optional Playwright storageState JSON path (login-once across runs). */
+      storageStatePath: z.string().min(1).optional(),
     }),
     evidence: z.object({
       dir: z.string().min(1),
       redactSensitiveOutputs: z.boolean(),
+      har: z
+        .object({
+          content: z.enum(['omit', 'embed']).default('omit'),
+          mode: z.enum(['full', 'minimal']).default('minimal'),
+        })
+        .optional(),
     }),
   })
   .strict();
@@ -74,7 +82,7 @@ export const CODE_DEFAULTS: FileConfig = {
   },
   policy: {
     allowedHosts: ['127.0.0.1', 'localhost'],
-    allowedActions: ['navigate', 'click', 'fill', 'extract', 'wait', 'branch'],
+    allowedActions: ['navigate', 'click', 'fill', 'fillForm', 'fillFormFlow', 'extract', 'wait', 'branch'],
     riskyActions: ['submit_irreversible', 'transfer_funds'],
   },
   limits: {

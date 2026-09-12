@@ -304,6 +304,7 @@ export function flattenForShow(config: RuntimeConfig): Record<string, unknown> {
     'limits.runTimeoutMs': config.limits.runTimeoutMs,
     'session.headedOnEscalate': config.session.headedOnEscalate,
     'session.pauseScreenshot': config.session.pauseScreenshot,
+    'session.storageStatePath': config.session.storageStatePath ?? '',
     'evidence.dir': config.evidence.dir,
     'evidence.redactSensitiveOutputs': config.evidence.redactSensitiveOutputs,
     'secrets.anthropicApiKey': config.secrets.anthropicApiKey ? '[set]' : '[unset]',
