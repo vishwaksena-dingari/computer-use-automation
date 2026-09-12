@@ -1,9 +1,9 @@
-# Computer-use automation (computer-use automation)
+# Computer-use automation
 
 Capability factory: **discover once (LLM) → versioned artifact → deterministic Playwright replay (no LLM)** against a local hostile bank-ish mock.
 
-**Graded (what reviewers score first):** member-lookup mock — `train` / `run` / evidence `01–03`.  
-**Stretch (extra, does not replace graded):** G1 apply forms — `npm run demo:g1` / `demo:reviewer`.
+**Core path:** member-lookup mock — `train` / `run` / evidence `01–03`.  
+**Forms stretch:** G1 apply demos — `npm run demo:g1` / `demo:reviewer`.
 
 ## Quick start (host)
 
