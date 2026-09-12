@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Workday-shaped apply demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 36rem; margin: 2rem auto; }
+    .panel { border: 1px solid #ddd; padding: 1rem; border-radius: 6px; }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input, select, textarea { width: 100%; margin-top: 0.25rem; padding: 0.4rem; box-sizing: border-box; }
+    button { margin-top: 1rem; margin-right: 0.5rem; padding: 0.5rem 1rem; }
+    .muted { color: #666; font-size: 0.9rem; }
+    .progress { font-size: 0.85rem; color: #444; margin-bottom: 1rem; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1 data-automation-id="jobTitleHeading">Software Engineer — Workday-shaped</h1>
+  <p class="muted">Local multi-page substitute (login → My Information → My Experience → Review).</p>
+  <p class="progress" id="progress">Step 1 of 4 — Sign In</p>
+
+  <div class="panel" id="step-login" data-automation-id="signInContent">
+    <h2>Create Account / Sign In</h2>
+    <label for="loginEmail">Email *</label>
+    <input id="loginEmail" name="email" type="email" required data-automation-id="email" />
+    <label for="loginPassword">Password *</label>
+    <input id="loginPassword" name="password" type="password" required data-automation-id="password" />
+    <button type="button" id="signInBtn" data-automation-id="click_filter_Sign In">Sign In</button>
+  </div>
+
+  <div class="panel" id="step-info" hidden data-automation-id="applyFlowPage">
+    <h2>My Information</h2>
+    <label for="legalFirstName">Legal First Name *</label>
+    <input id="legalFirstName" required data-automation-id="legalNameSection_firstName" />
+    <label for="legalLastName">Legal Last Name *</label>
+    <input id="legalLastName" required data-automation-id="legalNameSection_lastName" />
+    <label for="infoEmail">Email *</label>
+    <input id="infoEmail" type="email" required />
+    <label for="infoPhone">Phone *</label>
+    <input id="infoPhone" name="phone" type="tel" required />
+    <label for="country">Country *</label>
+    <select id="country" name="country" required>
+      <option value="">Select…</option>
+      <option value="United States">United States</option>
+      <option value="Canada">Canada</option>
+    </select>
+    <button type="button" id="nextInfo" data-automation-id="bottom-navigation-next-button">Next</button>
+  </div>
+
+  <div class="panel" id="step-exp" hidden>
+    <h2>My Experience</h2>
+    <label for="resume">Resume *</label>
+    <input id="resume" name="resume" type="file" required />
+    <label for="linkedin">LinkedIn URL</label>
+    <input id="linkedin" name="linkedin" type="url" />
+    <label for="workAuth">Are you legally authorized to work in the US? *</label>
+    <select id="workAuth" name="workAuth" required>
+      <option value="">Select…</option>
+      <option value="Yes">Yes</option>
+      <option value="No">No</option>
+    </select>
+    <button type="button" id="nextExp" data-automation-id="bottom-navigation-next-button">Continue</button>
+  </div>
+
+  <div class="panel" id="step-review" hidden>
+    <h2>Review</h2>
+    <p id="reviewSummary" class="muted"></p>
+    <button type="button" id="doneBtn">Finish (no real submit)</button>
+    <p id="result" hidden><strong>Application draft complete (Workday-shaped)</strong></p>
+  </div>
+
+  <script>
+    const steps = ['login', 'info', 'exp', 'review'];
+    let i = 0;
+    const progress = document.getElementById('progress');
+    const labels = [
+      'Step 1 of 4 — Sign In',
+      'Step 2 of 4 — My Information',
+      'Step 3 of 4 — My Experience',
+      'Step 4 of 4 — Review',
+    ];
+    function show(idx) {
+      i = idx;
+      progress.textContent = labels[i];
+      document.getElementById('step-login').hidden = i !== 0;
+      document.getElementById('step-info').hidden = i !== 1;
+      document.getElementById('step-exp').hidden = i !== 2;
+      document.getElementById('step-review').hidden = i !== 3;
+    }
+    document.getElementById('signInBtn').onclick = () => {
+      const email = document.getElementById('loginEmail').value;
+      const pw = document.getElementById('loginPassword').value;
+      if (!email || !pw) return alert('Email and password required');
+      document.getElementById('infoEmail').value = email;
+      show(1);
+    };
+    document.getElementById('nextInfo').onclick = () => {
+      const f = document.getElementById('legalFirstName').value;
+      const l = document.getElementById('legalLastName').value;
+      const e = document.getElementById('infoEmail').value;
+      const p = document.getElementById('infoPhone').value;
+      const c = document.getElementById('country').value;
+      if (!f || !l || !e || !p || !c) return alert('Fill required My Information fields');
+      show(2);
+    };
+    document.getElementById('nextExp').onclick = () => {
+      const r = document.getElementById('resume').files?.[0];
+      const w = document.getElementById('workAuth').value;
+      if (!r || !w) return alert('Resume and work auth required');
+      document.getElementById('reviewSummary').textContent =
+        document.getElementById('legalFirstName').value + ' ' +
+        document.getElementById('legalLastName').value + ' · ' +
+        document.getElementById('infoEmail').value + ' · auth=' + w;
+      show(3);
+    };
+    document.getElementById('doneBtn').onclick = () => {
+      document.getElementById('result').hidden = false;
+    };
+  </script>
+</body>
+</html>

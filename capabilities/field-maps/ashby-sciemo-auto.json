@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "id": "ashby-sciemo-auto",
+  "fields": [
+    {
+      "key": "fullName",
+      "required": true,
+      "profilePath": "fullName",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#_systemfield_name"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Name"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='_systemfield_name']"
+        }
+      ]
+    },
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#_systemfield_email"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Email"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='_systemfield_email']"
+        }
+      ]
+    },
+    {
+      "key": "phone",
+      "required": true,
+      "profilePath": "phone",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#99fc1cb1-23c2-401c-8e16-425aecfd488b"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Phone Number"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='99fc1cb1-23c2-401c-8e16-425aecfd488b']"
+        }
+      ]
+    },
+    {
+      "key": "resume",
+      "required": true,
+      "profilePath": "resumePath",
+      "kind": "file",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Resume"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#_systemfield_resume"
+        }
+      ]
+    },
+    {
+      "key": "linkedin",
+      "required": true,
+      "profilePath": "linkedin",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#bc45df68-fef2-48d0-ae30-29f807df1594"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "URL (LinkedIn)"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='bc45df68-fef2-48d0-ae30-29f807df1594']"
+        }
+      ]
+    },
+    {
+      "key": "portfolio",
+      "required": false,
+      "profilePath": "portfolio",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#77b3b7ab-6640-4ad4-a8df-6b5bbe50f414"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "URL (Github, Kaggle, Stackoverflow, Website, Portfolio)"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='77b3b7ab-6640-4ad4-a8df-6b5bbe50f414']"
+        }
+      ]
+    },
+    {
+      "key": "location",
+      "required": false,
+      "profilePath": "location",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "placeholder",
+          "rank": 1,
+          "name": "Start typing..."
+        }
+      ]
+    },
+    {
+      "key": "startDate",
+      "required": true,
+      "profilePath": "startDate",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "placeholder",
+          "rank": 1,
+          "name": "Pick date..."
+        }
+      ]
+    },
+    {
+      "key": "additional",
+      "required": false,
+      "profilePath": "answers.additional",
+      "kind": "textarea",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#cce82d76-513d-4baa-83ff-75b74cb3c4e4"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Additional Information"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "textarea[name='cce82d76-513d-4baa-83ff-75b74cb3c4e4']"
+        }
+      ]
+    },
+    {
+      "key": "workAuth",
+      "required": true,
+      "profilePath": "flags.workAuthYes",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "div.ashby-application-form-input-yesno >> nth=0 >> button:has-text(\"Yes\")"
+        }
+      ]
+    },
+    {
+      "key": "sponsorship",
+      "required": true,
+      "profilePath": "flags.sponsorshipNo",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "div.ashby-application-form-input-yesno >> nth=1 >> button:has-text(\"No\")"
+        }
+      ]
+    },
+    {
+      "key": "smsConsent",
+      "required": true,
+      "profilePath": "flags.smsConsentNo",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "role",
+          "rank": 1,
+          "role": "radio",
+          "name": "No - I do not consent to receiving text messages"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='communicationConsent'][value='notGiven']"
+        }
+      ]
+    },
+    {
+      "key": "monthlyTravel",
+      "required": true,
+      "profilePath": "flags.monthlyTravelYes",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "input[id$='_0d6bf1f2-4d5b-4688-9e56-c0cb6497cd13-labeled-radio-0']"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#32ad1a56-84a5-410d-8b98-dcb743542375_0d6bf1f2-4d5b-4688-9e56-c0cb6497cd13-labeled-radio-0"
+        }
+      ]
+    },
+    {
+      "key": "visaType",
+      "required": true,
+      "profilePath": "flags.visaNotRequired",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "role",
+          "rank": 1,
+          "role": "radio",
+          "name": "Visa Sponsorhip Not Required"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[id$='_b7068483-f5f0-4504-8275-1feb22723b21-labeled-radio-0']"
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-12T14:04:50.180Z"
+}

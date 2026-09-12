@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Apply — Company C</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 2rem auto; }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input, select, textarea { width: 100%; margin-top: 0.25rem; padding: 0.4rem; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; }
+    #result { margin-top: 1rem; font-weight: 700; }
+    #err { color: #b00020; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Company C — Apply</h1>
+  <form id="apply" action="#">
+    <label for="legalName">Legal name *</label>
+    <input id="legalName" name="legalName" type="text" required />
+
+    <label for="email">Email *</label>
+    <input id="email" name="email" type="email" required />
+
+    <label for="workAuth">Work authorization *</label>
+    <select id="workAuth" name="workAuth" required>
+      <option value="">Select…</option>
+      <option value="Authorized">Authorized</option>
+      <option value="Needs sponsorship">Needs sponsorship</option>
+    </select>
+
+    <label for="phone">Phone *</label>
+    <input id="phone" name="phone" type="tel" required />
+
+    <label for="whyCompany">Why this company?</label>
+    <textarea id="whyCompany" name="whyCompany" rows="3"></textarea>
+
+    <button type="submit" id="submit">Submit application</button>
+  </form>
+  <p id="err" hidden></p>
+  <p id="result" hidden>Application received (Co C)</p>
+  <script>
+    document.getElementById('apply').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const err = document.getElementById('err');
+      if (!f.legalName.value || !f.email.value || !f.workAuth.value || !f.phone.value) {
+        err.hidden = false;
+        err.textContent = 'Missing required fields';
+        return;
+      }
+      err.hidden = true;
+      document.getElementById('result').hidden = false;
+    });
+  </script>
+</body>
+</html>

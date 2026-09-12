@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-co-b",
+  "platform": "mock-apply",
+  "companyKey": "co-b",
+  "updatedAt": "2026-09-11T00:00:00.000Z",
+  "fields": [
+    {
+      "key": "fullName",
+      "required": true,
+      "profilePath": "fullName",
+      "kind": "text",
+      "targets": [
+        { "kind": "label", "rank": 1, "name": "Legal name" },
+        { "kind": "css", "rank": 2, "selector": "#legalName" }
+      ]
+    },
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        { "kind": "label", "rank": 1, "name": "Email address" },
+        { "kind": "css", "rank": 2, "selector": "#emailAddress" }
+      ]
+    },
+    {
+      "key": "phone",
+      "required": true,
+      "profilePath": "phone",
+      "kind": "text",
+      "targets": [
+        { "kind": "label", "rank": 1, "name": "Phone" },
+        { "kind": "css", "rank": 2, "selector": "#phone" }
+      ]
+    },
+    {
+      "key": "background",
+      "required": true,
+      "profilePath": "answers.background",
+      "kind": "textarea",
+      "craft": "llm",
+      "targets": [
+        { "kind": "label", "rank": 1, "name": "Tell us about your background" },
+        { "kind": "css", "rank": 2, "selector": "#background" }
+      ]
+    }
+  ]
+}

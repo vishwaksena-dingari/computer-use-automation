@@ -1,0 +1,27 @@
+{
+  "fullName": "Alex Applicant",
+  "email": "alex@example.test",
+  "phone": "415-555-0100",
+  "resumePath": "fixtures/resume.txt",
+  "linkedin": "https://www.linkedin.com/in/alex-applicant-demo",
+  "portfolio": "https://github.com/alex-applicant-demo",
+  "location": "New York, NY",
+  "city": "New York",
+  "state": "New York",
+  "country": "United States",
+  "howHeard": "LinkedIn",
+  "degree": "Bachelor's Degree",
+  "company": "Demo Corp",
+  "startDate": "10/15/2026",
+  "flags": {
+    "smsConsentNo": "yes",
+    "monthlyTravelYes": "yes",
+    "workAuthYes": "yes",
+    "sponsorshipNo": "yes",
+    "visaNotRequired": "yes",
+    "eeoDecline": "Decline to self-identify"
+  },
+  "answers": {
+    "additional": "Synthetic demo applicant for computer-use automation — do not treat as a real application."
+  }
+}

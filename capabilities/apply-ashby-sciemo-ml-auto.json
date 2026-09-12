@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "apply-ashby-sciemo-ml-auto",
+  "version": "0.1.0",
+  "surface": "web",
+  "name": "Ashby Sciemo other role auto-bootstrap",
+  "description": "Third live Ashby form — different Sciemo posting, hybrid bootstrap.",
+  "goalTemplate": "Fill another Sciemo Ashby application from profile",
+  "template": "ats-apply-shell",
+  "bindings": {
+    "entryPath": "/Sciemo/5986d215-5492-43df-848f-f1aed7a4afdd/application"
+  },
+  "inputs": [],
+  "outputs": [],
+  "businessOutcomes": [
+    {
+      "code": "field.UNMAPPED",
+      "description": "Required form field missing or profile gap"
+    },
+    {
+      "code": "field.VERIFY",
+      "description": "Filled value did not stick on read-back"
+    },
+    {
+      "code": "form.CAPTCHA",
+      "description": "Captcha / bot wall — HITL with --escalate"
+    },
+    {
+      "code": "form.CLOSED",
+      "description": "Job/application no longer accepting"
+    },
+    {
+      "code": "form.WIDGET",
+      "description": "Unsupported or failing form widget"
+    }
+  ],
+  "steps": [
+    {
+      "id": "s1",
+      "action": "navigate",
+      "urlFrom": "config.target.entryPath"
+    },
+    {
+      "id": "s2",
+      "action": "wait",
+      "timeoutMs": 3000
+    },
+    {
+      "id": "s3",
+      "action": "fillForm",
+      "fieldMapRef": "ashby-sciemo-ml-auto"
+    }
+  ],
+  "targets": {},
+  "checkpoints": {
+    "done": {
+      "kind": "url",
+      "includes": "application"
+    },
+    "success": {
+      "kind": "allOf",
+      "refs": [
+        "done"
+      ]
+    }
+  },
+  "successCheckpoint": "success"
+}

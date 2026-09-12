@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "apply-ashby-monarch-auto",
+  "version": "0.1.0",
+  "surface": "web",
+  "name": "Ashby Monarch Money auto-bootstrap",
+  "description": "Second live Ashby form — hybrid bootstrap, no hand map.",
+  "goalTemplate": "Fill Monarch Money Ashby application from profile",
+  "template": "ats-apply-shell",
+  "bindings": {
+    "entryPath": "/monarchmoney/48de3e49-1298-4c37-affd-a0c2bec822a5/application"
+  },
+  "inputs": [],
+  "outputs": [],
+  "businessOutcomes": [
+    {
+      "code": "field.UNMAPPED",
+      "description": "Required form field missing or profile gap"
+    },
+    {
+      "code": "field.VERIFY",
+      "description": "Filled value did not stick on read-back"
+    },
+    {
+      "code": "form.CAPTCHA",
+      "description": "Captcha / bot wall — HITL with --escalate"
+    },
+    {
+      "code": "form.CLOSED",
+      "description": "Job/application no longer accepting"
+    },
+    {
+      "code": "form.WIDGET",
+      "description": "Unsupported or failing form widget"
+    }
+  ],
+  "steps": [
+    {
+      "id": "s1",
+      "action": "navigate",
+      "urlFrom": "config.target.entryPath"
+    },
+    {
+      "id": "s2",
+      "action": "wait",
+      "timeoutMs": 3000
+    },
+    {
+      "id": "s3",
+      "action": "fillForm",
+      "fieldMapRef": "ashby-monarch-auto"
+    }
+  ],
+  "targets": {},
+  "checkpoints": {
+    "done": {
+      "kind": "url",
+      "includes": "application"
+    },
+    "success": {
+      "kind": "allOf",
+      "refs": [
+        "done"
+      ]
+    }
+  },
+  "successCheckpoint": "success"
+}

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "apply-ashby-sciemo-live",
+  "version": "0.1.0",
+  "surface": "web",
+  "name": "Ashby Sciemo Data Scientist (live headed fill)",
+  "description": "Live Ashby application URL — deterministic field-map fill. No submit.",
+  "goalTemplate": "Open Sciemo Data Scientist application and fill from profile",
+  "template": "ats-apply-shell",
+  "bindings": {
+    "entryPath": "/Sciemo/208da924-4a08-4be7-a20c-a420f08e77d2/application"
+  },
+  "inputs": [],
+  "outputs": [],
+  "businessOutcomes": [
+    {
+      "code": "field.UNMAPPED",
+      "description": "Required form field missing or profile gap"
+    },
+    {
+      "code": "field.VERIFY",
+      "description": "Filled value did not stick on read-back"
+    },
+    {
+      "code": "form.CAPTCHA",
+      "description": "Captcha / bot wall — HITL with --escalate"
+    },
+    {
+      "code": "form.CLOSED",
+      "description": "Job/application no longer accepting"
+    },
+    {
+      "code": "form.WIDGET",
+      "description": "Unsupported or failing form widget"
+    }
+  ],
+  "steps": [
+    {
+      "id": "s1",
+      "action": "navigate",
+      "urlFrom": "config.target.entryPath"
+    },
+    {
+      "id": "s2",
+      "action": "wait",
+      "timeoutMs": 3000
+    },
+    {
+      "id": "s3",
+      "action": "fillForm",
+      "fieldMapRef": "ashby-sciemo-live"
+    },
+    {
+      "id": "s4",
+      "action": "wait",
+      "timeoutMs": 45000
+    }
+  ],
+  "targets": {},
+  "checkpoints": {
+    "done": {
+      "kind": "url",
+      "includes": "application"
+    },
+    "success": {
+      "kind": "allOf",
+      "refs": [
+        "done"
+      ]
+    }
+  },
+  "successCheckpoint": "success"
+}

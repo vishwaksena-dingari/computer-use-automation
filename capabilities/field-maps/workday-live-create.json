@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "workday-live-create",
+  "fields": [
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "[data-automation-id='email']"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Email Address"
+        }
+      ]
+    },
+    {
+      "key": "password",
+      "required": true,
+      "profilePath": "password",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "[data-automation-id='password']"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Password"
+        }
+      ]
+    },
+    {
+      "key": "passwordConfirm",
+      "required": true,
+      "profilePath": "password",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "[data-automation-id='verifyPassword']"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Verify New Password"
+        }
+      ]
+    },
+    {
+      "key": "agreeTerms",
+      "required": true,
+      "profilePath": "flags.agreeTerms",
+      "kind": "checkbox",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "[data-automation-id='createAccountCheckbox']"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#input-19"
+        },
+        {
+          "kind": "label",
+          "rank": 3,
+          "name": "I agree"
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-12T12:53:17.747Z"
+}

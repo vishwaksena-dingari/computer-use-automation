@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "workday-live-scaffold",
+  "fields": [
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#input-6"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Email Address"
+        }
+      ]
+    },
+    {
+      "key": "password",
+      "required": true,
+      "profilePath": "password",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#input-7"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Password"
+        }
+      ]
+    },
+    {
+      "key": "portfolio",
+      "required": false,
+      "profilePath": "portfolio",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#9d383238-1308-4db9-9533-25a5d4f256aa"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='website']"
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-12T04:18:01.271Z"
+}

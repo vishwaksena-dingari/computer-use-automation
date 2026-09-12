@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-co-a",
+  "platform": "mock-apply",
+  "companyKey": "co-a",
+  "updatedAt": "2026-09-11T00:00:00.000Z",
+  "fields": [
+    {
+      "key": "fullName",
+      "required": true,
+      "profilePath": "fullName",
+      "kind": "text",
+      "targets": [
+        { "kind": "label", "rank": 1, "name": "Full name" },
+        { "kind": "css", "rank": 2, "selector": "#fullName" }
+      ]
+    },
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        { "kind": "label", "rank": 1, "name": "Email" },
+        { "kind": "css", "rank": 2, "selector": "#email" }
+      ]
+    },
+    {
+      "key": "workAuth",
+      "required": true,
+      "profilePath": "workAuth",
+      "kind": "select",
+      "targets": [
+        { "kind": "label", "rank": 1, "name": "Work authorization" },
+        { "kind": "css", "rank": 2, "selector": "#workAuth" }
+      ]
+    },
+    {
+      "key": "whyCompany",
+      "required": false,
+      "profilePath": "answers.whyCompany",
+      "kind": "textarea",
+      "craft": "llm",
+      "targets": [
+        { "kind": "label", "rank": 1, "name": "Why this company?" },
+        { "kind": "css", "rank": 2, "selector": "#whyCompany" }
+      ]
+    }
+  ]
+}

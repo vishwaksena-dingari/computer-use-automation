@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "id": "lever-100ms-auto",
+  "fields": [
+    {
+      "key": "resume",
+      "required": true,
+      "profilePath": "resumePath",
+      "kind": "file",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#resume-upload-input"
+        }
+      ]
+    },
+    {
+      "key": "fullName",
+      "required": true,
+      "profilePath": "fullName",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Full name"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='name']"
+        }
+      ]
+    },
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Email"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='email']"
+        }
+      ]
+    },
+    {
+      "key": "phone",
+      "required": true,
+      "profilePath": "phone",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Phone"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='phone']"
+        }
+      ]
+    },
+    {
+      "key": "location",
+      "required": true,
+      "profilePath": "location",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#location-input"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='location']"
+        }
+      ]
+    },
+    {
+      "key": "company",
+      "required": true,
+      "profilePath": "company",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Current company"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='org']"
+        }
+      ]
+    },
+    {
+      "key": "linkedin",
+      "required": true,
+      "profilePath": "linkedin",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "LinkedIn URL"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name=\"urls[LinkedIn]\"]"
+        }
+      ]
+    },
+    {
+      "key": "portfolio",
+      "required": false,
+      "profilePath": "portfolio",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Portfolio URL"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name=\"urls[Portfolio]\"]"
+        }
+      ]
+    },
+    {
+      "key": "resumePath",
+      "required": true,
+      "profilePath": "resumePath",
+      "kind": "file",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#resume-upload-input"
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-12T14:22:45.923Z"
+}
