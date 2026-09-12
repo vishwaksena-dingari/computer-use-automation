@@ -1,0 +1,26 @@
+{
+  "fullName": "Alex Applicant",
+  "firstName": "Alex",
+  "lastName": "Applicant",
+  "email": "alex@example.test",
+  "password": "Demo-Pass-Only-123!",
+  "phone": "415-555-0100",
+  "country": "United States",
+  "resumePath": "fixtures/resume.txt",
+  "linkedin": "https://www.linkedin.com/in/alex-applicant-demo",
+  "portfolio": "https://github.com/alex-applicant-demo",
+  "location": "New York City",
+  "company": "Demo Corp",
+  "startDate": "10/15/2026",
+  "workAuth": "Yes",
+  "flags": {
+    "smsConsentNo": "yes",
+    "monthlyTravelYes": "yes",
+    "workAuthYes": "yes",
+    "sponsorshipNo": "yes",
+    "visaNotRequired": "yes"
+  },
+  "answers": {
+    "additional": "Synthetic demo applicant for computer-use automation — do not treat as a real application."
+  }
+}

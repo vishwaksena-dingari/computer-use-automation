@@ -1,0 +1,498 @@
+{
+  "schemaVersion": 1,
+  "id": "workday-shaped-auto",
+  "fields": [
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "[data-automation-id='email']"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#loginEmail"
+        },
+        {
+          "kind": "label",
+          "rank": 3,
+          "name": "Email"
+        },
+        {
+          "kind": "css",
+          "rank": 4,
+          "selector": "input[name='email']"
+        }
+      ]
+    },
+    {
+      "key": "password",
+      "required": true,
+      "profilePath": "password",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "[data-automation-id='password']"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#loginPassword"
+        },
+        {
+          "kind": "label",
+          "rank": 3,
+          "name": "Password"
+        },
+        {
+          "kind": "css",
+          "rank": 4,
+          "selector": "input[name='password']"
+        }
+      ]
+    },
+    {
+      "key": "fullName",
+      "required": true,
+      "profilePath": "fullName",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Full Name"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#fullNameLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='fullName']"
+        }
+      ]
+    },
+    {
+      "key": "firstName",
+      "required": true,
+      "profilePath": "firstName",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "First Name"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#firstNameLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='firstName']"
+        }
+      ]
+    },
+    {
+      "key": "lastName",
+      "required": true,
+      "profilePath": "lastName",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Last Name"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#lastNameLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='lastName']"
+        }
+      ]
+    },
+    {
+      "key": "phone",
+      "required": true,
+      "profilePath": "phone",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Phone"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#phoneLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='phone']"
+        }
+      ]
+    },
+    {
+      "key": "country",
+      "required": true,
+      "profilePath": "country",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Country"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#countryLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='country']"
+        }
+      ]
+    },
+    {
+      "key": "resumePath",
+      "required": true,
+      "profilePath": "resumePath",
+      "kind": "file",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Resume"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#resumePathLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[type='file']"
+        }
+      ]
+    },
+    {
+      "key": "linkedin",
+      "required": true,
+      "profilePath": "linkedin",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "LinkedIn"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#linkedinLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='linkedin']"
+        }
+      ]
+    },
+    {
+      "key": "portfolio",
+      "required": true,
+      "profilePath": "portfolio",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Portfolio"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#portfolioLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='portfolio']"
+        }
+      ]
+    },
+    {
+      "key": "location",
+      "required": true,
+      "profilePath": "location",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Location"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#locationLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='location']"
+        }
+      ]
+    },
+    {
+      "key": "company",
+      "required": true,
+      "profilePath": "company",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Company"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#companyLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='company']"
+        }
+      ]
+    },
+    {
+      "key": "startDate",
+      "required": true,
+      "profilePath": "startDate",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Start Date"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#startDateLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='startDate']"
+        }
+      ]
+    },
+    {
+      "key": "workAuth",
+      "required": true,
+      "profilePath": "workAuth",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Work Authorization"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#workAuthLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='workAuth']"
+        }
+      ]
+    },
+    {
+      "key": "flags",
+      "required": true,
+      "profilePath": "flags",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Flags"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#flagsLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='flags']"
+        }
+      ]
+    },
+    {
+      "key": "flags.smsConsentNo",
+      "required": true,
+      "profilePath": "flags.smsConsentNo",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#flags-smsConsentYesNo"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='flags.smsConsentNo']"
+        }
+      ]
+    },
+    {
+      "key": "flags.monthlyTravelYes",
+      "required": true,
+      "profilePath": "flags.monthlyTravelYes",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#flags-monthlyTravelYes"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='flags.monthlyTravelYes']"
+        }
+      ]
+    },
+    {
+      "key": "flags.workAuthYes",
+      "required": true,
+      "profilePath": "flags.workAuthYes",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#flags-workAuthYes"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='flags.workAuthYes']"
+        }
+      ]
+    },
+    {
+      "key": "flags.sponsorshipNo",
+      "required": true,
+      "profilePath": "flags.sponsorshipNo",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#flags-sponsorshipNo"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='flags.sponsorshipNo']"
+        }
+      ]
+    },
+    {
+      "key": "flags.visaNotRequired",
+      "required": true,
+      "profilePath": "flags.visaNotRequired",
+      "kind": "radio",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#flags-visaNotRequired"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='flags.visaNotRequired']"
+        }
+      ]
+    },
+    {
+      "key": "answers",
+      "required": true,
+      "profilePath": "answers",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Answers"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#answersLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='answers']"
+        }
+      ]
+    },
+    {
+      "key": "answers.additional",
+      "required": true,
+      "profilePath": "answers.additional",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Additional Answers"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#answersAdditionalLabel"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='answers.additional']"
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-12T14:19:19.048Z"
+}

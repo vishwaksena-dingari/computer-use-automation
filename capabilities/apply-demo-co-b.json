@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "id": "apply-demo-co-b",
+  "version": "0.1.0",
+  "surface": "web",
+  "name": "Apply demo Company B",
+  "description": "G1 fillForm demo — Co B different field set, same profile",
+  "goalTemplate": "Fill Company B application from profile",
+  "bindings": {
+    "entryPath": "/apply-demo/co-b/"
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "name": "confirmation",
+      "type": "string",
+      "sensitive": false
+    }
+  ],
+  "businessOutcomes": [
+    {
+      "code": "field.UNMAPPED",
+      "description": "Required form field missing or profile gap"
+    },
+    {
+      "code": "field.VERIFY",
+      "description": "Filled value did not stick on read-back"
+    },
+    {
+      "code": "form.CAPTCHA",
+      "description": "Captcha / bot wall — HITL with --escalate"
+    },
+    {
+      "code": "form.CLOSED",
+      "description": "Job/application no longer accepting"
+    },
+    {
+      "code": "form.WIDGET",
+      "description": "Unsupported or failing form widget"
+    }
+  ],
+  "steps": [
+    {
+      "id": "s1",
+      "action": "navigate",
+      "urlFrom": "config.target.entryPath"
+    },
+    {
+      "id": "s2",
+      "action": "fillForm",
+      "fieldMapRef": "demo-co-b"
+    },
+    {
+      "id": "s3",
+      "action": "click",
+      "target": {
+        "$ref": "#/targets/submit"
+      }
+    },
+    {
+      "id": "s4",
+      "action": "extract",
+      "target": {
+        "$ref": "#/targets/confirmation"
+      },
+      "output": "confirmation"
+    }
+  ],
+  "targets": {
+    "submit": {
+      "strict": true,
+      "timeoutMs": 8000,
+      "candidates": [
+        {
+          "kind": "role",
+          "rank": 1,
+          "role": "button",
+          "name": "Send"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#submitBtn"
+        }
+      ]
+    },
+    "confirmation": {
+      "strict": true,
+      "timeoutMs": 8000,
+      "candidates": [
+        {
+          "kind": "text",
+          "rank": 1,
+          "text": "Application received (Co B)"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#result"
+        }
+      ]
+    }
+  },
+  "checkpoints": {
+    "done": {
+      "kind": "visible",
+      "target": {
+        "$ref": "#/targets/confirmation"
+      }
+    },
+    "success": {
+      "kind": "allOf",
+      "refs": [
+        "done"
+      ]
+    }
+  },
+  "successCheckpoint": "success"
+}

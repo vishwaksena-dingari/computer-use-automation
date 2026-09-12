@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-co-c-stale",
+  "platform": "mock-apply",
+  "companyKey": "co-c",
+  "fields": [
+    {
+      "key": "fullName",
+      "required": true,
+      "profilePath": "fullName",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Full name"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#fullName"
+        }
+      ]
+    },
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#email"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Email"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='email']"
+        }
+      ]
+    },
+    {
+      "key": "workAuth",
+      "required": true,
+      "profilePath": "workAuth",
+      "kind": "select",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Work authorization"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#workAuth"
+        }
+      ]
+    },
+    {
+      "key": "sponsorship",
+      "required": true,
+      "profilePath": "flags.sponsorshipNo",
+      "kind": "select",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#workAuth"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Work authorization"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "select[name='workAuth']"
+        }
+      ]
+    },
+    {
+      "key": "phone",
+      "required": true,
+      "profilePath": "phone",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#phone"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Phone"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='phone']"
+        }
+      ]
+    },
+    {
+      "key": "additional",
+      "required": false,
+      "profilePath": "answers.whyCompany",
+      "kind": "textarea",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#whyCompany"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Why this company?"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "textarea[name='whyCompany']"
+        }
+      ],
+      "craft": "llm"
+    }
+  ],
+  "updatedAt": "2026-09-12T15:05:01.440Z"
+}

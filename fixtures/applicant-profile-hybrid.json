@@ -1,0 +1,15 @@
+{
+  "fullName": "Alex Applicant",
+  "email": "alex@example.test",
+  "phone": "+1-555-0100",
+  "resumePath": "fixtures/resume.txt",
+  "workAuth": "Authorized",
+  "flags": {
+    "workAuthYes": "yes",
+    "sponsorshipNo": "yes"
+  },
+  "answers": {
+    "whyCompany": "",
+    "background": "Built typed browser workflows and care about evidence."
+  }
+}
