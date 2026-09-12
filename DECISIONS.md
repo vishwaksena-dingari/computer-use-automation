@@ -30,8 +30,12 @@ Working vertical slice: discover → typed capability artifact → deterministic
 | D7 | Secrets/PII | Never persist raw; redact logs/artifacts |
 | D8 | Allowlist | Allowed hosts + allowed action types |
 | E1 | Evidence | Discovery + happy replay + exceptional replay + sample artifact |
-| E2 | Stretch | **After core only.** Prefer (1) second-tenant variant + `bindings` overrides; optional (2) callable capability invoke. Skip others unless time. Decide schema details when starting the stretch — not before S1. |
+| E2 | Stretch (named in brief) | **Done:** (1) second-tenant variant + `bindings` (S8); (2) callable `cua invoke` (S9). Further form generalization is **E6**, not E2. |
 | E5 | P3 teach / repair | **Unlocked 2026-09-11 (human).** Opt-in only: `--record-actions` (HITL click→locator merge); `--autonomous-repair` (discover+replay loop on `locator_miss`, hard max 5). Default paths unchanged (opaque clicks; no repair loop). |
+| E6 | Post-tag generalization | **G1 shipped** (field-maps / hybrid forms — additive to graded mock). **G2 unlocked 2026-09-12** (`discover --author-steps`). G3 rejected. Graded `v0.1.0` baseline frozen. Ashby path: shaped mock + optional `ASHBY_APPLY_URL`. See `.scratch/capability-factory-general/ROADMAP.md`. |
+| E7 | Form evidence | Default: a11y observe + fill-receipt/verify + `ats-family` + run ledger + terminal screenshot (+ proposed map on repair). **Not** default: DOM event firehose, full HTML dumps, happy-path video. HAR/trace via `--record-har --har-on-failure` / `--trace-on-failure` (retain on failure only). **Locked 2026-09-12** (llm-council; grill 01; uncontested → ship). |
+| E8 | Good vs bad | Page is the judge: receipt verify + checkpoints + outcomes. LLM proposes maps/craft only — never self-grades fills. **Locked 2026-09-12** (llm-council; grill 02; uncontested → ship). |
+| E9 | Form LLM default | **Reaffirm C6** — Ollama default; Anthropic/OpenAI switchable for hard repair/craft. **Locked 2026-09-12** (llm-council; grill 03; uncontested → ship). |
 | E3 | Time box | ~2–3 focused days |
 | E4 | Verify skill | Skip for now |
 | F1 | Config mutation | `config show` / `validate` / **`config set`** (non-secrets only) |
@@ -62,6 +66,6 @@ Redeploy only for *code* changes (schema, replay engine), not for key/provider/a
 
 ## Out of scope (for now)
 
-Queues, clusters, multi-tenant plumbing, desktop driver implementation, polished operator console, capability marketplace UI, full settings web UI.
+Queues, clusters, desktop driver implementation, polished operator console, capability marketplace UI, full settings web UI. “Multi-tenant plumbing” here means SaaS tenancy/runtime — **not** the S8 bindings overlay or G1 multi-company form demos.
 
-Stretch goals (tenant variant / callable invoke) are **deferred** until the vertical slice works — see E2.
+Stretch goals (tenant variant / callable invoke) landed as S8/S9; **G1 field-map / hybrid** is post-`v0.1.0` expansion — see E6 + `.scratch/capability-factory-general/ROADMAP.md`. Do not replace the frozen graded mock-core baseline.

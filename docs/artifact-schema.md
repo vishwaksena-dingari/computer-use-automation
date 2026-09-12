@@ -77,7 +77,8 @@ erDiagram
 ## Closed enums
 
 - **surface:** `web` (reserved later: `desktop`)
-- **action:** `navigate` | `fill` | `click` | `extract` | `branch` | `wait`
+- **action:** `navigate` | `fill` | `fillForm` | `click` | `extract` | `branch` | `wait`  
+  - `fillForm` (G1): `{ fieldMapRef }` → `capabilities/field-maps/<id>.json` + `--profile`; see `docs/ARCHITECTURE.md` §10c
 - **locator kind:** `role` | `label` | `placeholder` | `altText` | `title` | `text` | `testId` | `css`
 - **checkpoint kind:** `visible` | `hidden` | `url` | `textIncludes` | `allOf` | `anyOf`
 - **branch when:** `{ "checkpoint": "<checkpointKey>" }` only — no free-string DSL
