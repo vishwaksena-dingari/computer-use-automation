@@ -1,11 +1,11 @@
 {
   "artifactPath": "capabilities/apply-demo-co-a.json",
-  "artifactSha256": "b63e87f805cdc6d394d37b591f2610d09dded188cca14eea51d16c430617a2f0",
+  "artifactSha256": "01fcb4fdbbb2f161cea979d9ea19ef32d79f2287ea8c190a25e3dfef86290bfc",
   "params": {
     "memberId": "M-10042"
   },
   "llmCalls": 0,
-  "runId": "replay_mtyw6hvf_5w2ufl",
+  "runId": "replay_mtz0ul63_lav691",
   "autoRetrainAttempts": 0,
   "bindings": null
 }

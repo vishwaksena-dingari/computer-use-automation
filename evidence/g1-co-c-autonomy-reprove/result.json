@@ -12,8 +12,8 @@
   "params": {
     "memberId": "M-10042"
   },
-  "runId": "replay_mtyw7bgm_3um94z",
+  "runId": "replay_mtz0unrs_thoomu",
   "evidenceDir": "evidence/g1-co-c-autonomy-reprove",
-  "durationMs": 30034,
+  "durationMs": 5918,
   "llmCalls": 0
 }

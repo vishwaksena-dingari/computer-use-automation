@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "at": "2026-09-12T21:23:31.004Z",
+  "at": "2026-09-12T23:34:01.662Z",
   "pageUrl": "http://127.0.0.1:4173/apply-demo/co-a/",
   "entries": [
     {
@@ -15,8 +15,8 @@
       "key": "email",
       "profilePath": "email",
       "kind": "text",
-      "expected": "al***@example.test",
-      "actual": "al***@example.test",
+      "expected": "a***@example.test",
+      "actual": "a***@example.test",
       "verified": true
     },
     {
