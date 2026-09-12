@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "workday-shaped-auto-p2",
+  "fields": [
+    {
+      "key": "resume",
+      "required": true,
+      "profilePath": "resumePath",
+      "kind": "file",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Resume"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "#resume"
+        }
+      ]
+    },
+    {
+      "key": "linkedin",
+      "required": false,
+      "profilePath": "linkedin",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#linkedin"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "LinkedIn URL"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "input[name='linkedin']"
+        }
+      ]
+    },
+    {
+      "key": "workAuth",
+      "required": true,
+      "profilePath": "workAuth",
+      "kind": "select",
+      "targets": [
+        {
+          "kind": "css",
+          "rank": 1,
+          "selector": "#workAuth"
+        },
+        {
+          "kind": "label",
+          "rank": 2,
+          "name": "Are you legally authorized to work in the US?"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "select[name='workAuth']"
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-12T14:21:03.800Z"
+}

@@ -1,0 +1,8 @@
+{
+  "goal": "Look up member savings balance",
+  "provider": "ollama",
+  "model": "qwen2.5:1.5b-instruct",
+  "artifactPath": "capabilities/experiments/authored-capability.json",
+  "artifactSha256": "417dc11b41e88b1a439d20fbfd6952691d2a4bbf90ce1c63ef33243bb47e13e8",
+  "llmCalls": 1
+}

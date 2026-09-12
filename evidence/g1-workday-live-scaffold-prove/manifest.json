@@ -1,0 +1,11 @@
+{
+  "artifactPath": "capabilities/apply-workday-live-scaffold.json",
+  "artifactSha256": "b71b55374a045874a0cc3eb215351905243d997c269e53467b0d4367b4d74c08",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "llmCalls": 0,
+  "runId": "replay_mtysgxy8_57hcf6",
+  "autoRetrainAttempts": 0,
+  "bindings": null
+}

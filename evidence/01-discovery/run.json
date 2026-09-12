@@ -11,7 +11,7 @@
     {
       "action": "llm_locator_emit",
       "ok": true,
-      "detail": "{\"targets\":{\"memberIdField\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"name\":\"Member ID\"}]},\"searchButton\":{\"candidates\":[{\"kind\":\"placeholder\",\"rank\":2,\"name\":\"e.g. M-10042\"}]},\"savingsBalanceValue\":{\"candidates\":[{\"kind\":\"text\",\"rank\":1,\"name\":\"savingsBalance\"}]},\"notFoundBanner\":{\"candidates\":[{\"kind\":\"text\",\"rank\":1,\"name\":\"Member not found\"}]}}}"
+      "detail": "{\"targets\":{\"memberIdField\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"text\":\"Member ID\"},{\"kind\":\"text\",\"rank\":2,\"name\":\"M-10042\",\"exact\":true}]},\"searchButton\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"text\":\"Search\"},{\"kind\":\"css\",\"rank\":2,\"name\":\"search\",\"exact\":false}]},\"savingsBalanceValue\":{\"candidates\":[{\"kind\":\"text\",\"rank\":1,\"name\":\"savingsBalance\",\"exact\":true}]},\"notFoundBanner\":{\"candida"
     },
     {
       "action": "compile",

@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "status": "SUCCESS",
+  "code": null,
+  "message": "Capability completed successfully",
+  "outputs": {},
+  "error": null,
+  "capabilityId": "apply-workday-shaped-auto",
+  "capabilityVersion": "0.1.0",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "runId": "invoke_mtygxrz9_ez9oo2",
+  "evidenceDir": "evidence/g1-workday-shaped-receipt",
+  "durationMs": 286587,
+  "llmCalls": 1
+}

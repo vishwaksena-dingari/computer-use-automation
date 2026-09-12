@@ -1,0 +1,40 @@
+{
+  "runId": "replay_mtyrp7ip_qn779i",
+  "ledger": [
+    {
+      "at": "2026-09-12T19:17:54.269Z",
+      "stepId": "s1",
+      "action": "navigate",
+      "ok": true,
+      "detail": "http://127.0.0.1:4173/apply-demo/workday-shaped/"
+    },
+    {
+      "at": "2026-09-12T19:17:54.775Z",
+      "stepId": "s2",
+      "action": "wait",
+      "ok": true
+    },
+    {
+      "at": "2026-09-12T19:18:09.151Z",
+      "stepId": "s3",
+      "action": "fillFormFlow",
+      "ok": true,
+      "detail": "page 0 post-advance errors (4): Legal First Name *: Please fill out this field. | Legal Last Name *: Please fill out this field. | Phone *: Please fill out this field."
+    },
+    {
+      "at": "2026-09-12T19:18:18.326Z",
+      "stepId": "s3",
+      "action": "fillFormFlow",
+      "ok": true,
+      "detail": "page 1 post-advance errors (2): Resume *: Please select a file. | Are you legally authorized to work in the US? *: Please select an item in the list."
+    },
+    {
+      "at": "2026-09-12T19:18:40.164Z",
+      "stepId": "s3",
+      "action": "fillFormFlow",
+      "ok": true,
+      "detail": "p0:{email,password} → p0-retry:{firstName,lastName,email,phone,country} → p1:{firstName,lastName,email,phone,country} → p1-retry:{resume,linkedin,workAuth-workAuth} → p2:{resume,linkedin,workAuth-workAuth}"
+    }
+  ],
+  "llmCalls": 0
+}

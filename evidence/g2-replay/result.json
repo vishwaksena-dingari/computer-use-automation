@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "status": "SUCCESS",
+  "code": null,
+  "message": "Capability completed successfully",
+  "outputs": {
+    "savingsBalance": "$12,480.55"
+  },
+  "error": null,
+  "capabilityId": "lookup-member-savings-balance",
+  "capabilityVersion": "1.0.0",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "runId": "replay_mtxnu8fc_uoy5jj",
+  "evidenceDir": "evidence/g2-replay",
+  "durationMs": 7463,
+  "llmCalls": 0
+}

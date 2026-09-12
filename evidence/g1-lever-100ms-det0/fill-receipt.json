@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-09-12T14:58:45.125Z",
+  "pageUrl": "https://jobs.lever.co/100ms/2548ba0b-7690-4c7d-aad7-86bd1501fefd/apply",
+  "entries": [
+    {
+      "key": "resume",
+      "profilePath": "resumePath",
+      "kind": "file",
+      "expected": "fixtures/resume.txt",
+      "actual": "[file-set]",
+      "verified": true
+    },
+    {
+      "key": "fullName",
+      "profilePath": "fullName",
+      "kind": "text",
+      "expected": "Alex Applicant",
+      "actual": "Alex Applicant",
+      "verified": true
+    },
+    {
+      "key": "email",
+      "profilePath": "email",
+      "kind": "text",
+      "expected": "we***@a***.test",
+      "actual": "we***@a***.test",
+      "verified": true
+    },
+    {
+      "key": "phone",
+      "profilePath": "phone",
+      "kind": "text",
+      "expected": "415-555-0100",
+      "actual": "415-555-0100",
+      "verified": true
+    },
+    {
+      "key": "location",
+      "profilePath": "location",
+      "kind": "text",
+      "expected": "New York City",
+      "actual": "New York City",
+      "verified": true
+    },
+    {
+      "key": "company",
+      "profilePath": "company",
+      "kind": "text",
+      "expected": "Demo Corp",
+      "actual": "Demo Corp",
+      "verified": true
+    },
+    {
+      "key": "linkedin",
+      "profilePath": "linkedin",
+      "kind": "text",
+      "expected": "https://a***.test/in/alex-applicant-demo",
+      "actual": "https://a***.test/in/alex-applicant-demo",
+      "verified": true
+    },
+    {
+      "key": "portfolio",
+      "profilePath": "portfolio",
+      "kind": "text",
+      "expected": "https://a***.test/alex-applicant-demo",
+      "actual": "https://a***.test/alex-applicant-demo",
+      "verified": true
+    },
+    {
+      "key": "resumePath",
+      "profilePath": "resumePath",
+      "kind": "file",
+      "expected": "fixtures/resume.txt",
+      "actual": "[file-set]",
+      "verified": true
+    }
+  ],
+  "filledKeys": [
+    "resume",
+    "fullName",
+    "email",
+    "phone",
+    "location",
+    "company",
+    "linkedin",
+    "portfolio",
+    "resumePath"
+  ],
+  "unverifiedRequired": []
+}
