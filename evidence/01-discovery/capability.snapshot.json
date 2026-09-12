@@ -107,8 +107,13 @@
         {
           "kind": "label",
           "rank": 4,
-          "name": "Member ID",
           "text": "Member ID"
+        },
+        {
+          "kind": "text",
+          "rank": 5,
+          "name": "M-10042",
+          "exact": true
         }
       ]
     },
@@ -129,9 +134,15 @@
           "selector": "form button[type='submit']"
         },
         {
-          "kind": "placeholder",
+          "kind": "label",
+          "rank": 3,
+          "text": "Search"
+        },
+        {
+          "kind": "css",
           "rank": 4,
-          "name": "e.g. M-10042"
+          "name": "search",
+          "exact": false
         }
       ]
     },
@@ -147,7 +158,8 @@
         {
           "kind": "text",
           "rank": 2,
-          "name": "savingsBalance"
+          "name": "savingsBalance",
+          "exact": true
         }
       ]
     },
@@ -169,7 +181,7 @@
         {
           "kind": "text",
           "rank": 3,
-          "name": "Member not found"
+          "text": "Member not found"
         }
       ]
     }

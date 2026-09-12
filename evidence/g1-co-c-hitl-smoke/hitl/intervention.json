@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "runId": "replay_mtyrryb0_o72apt",
+  "mode": "replay",
+  "reasonCode": "STUCK",
+  "reasonDetail": "missing required profile paths: phone",
+  "capabilityId": "apply-demo-co-c",
+  "stepId": "s2",
+  "pageUrl": "http://127.0.0.1:4173/apply-demo/co-c/",
+  "screenshotPath": "hitl/pause.png",
+  "owner": "automation",
+  "pausedAt": "2026-09-12T19:20:05.148Z"
+}

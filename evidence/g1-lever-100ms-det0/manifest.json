@@ -1,0 +1,10 @@
+{
+  "mode": "invoke",
+  "artifactPath": "capabilities/apply-lever-100ms-auto.json",
+  "artifactSha256": "65db7c3c1ca8cd6b4d4043abfc31e4d4513025ab208392e599b904a64dcb9b42",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "llmCalls": 0,
+  "runId": "invoke_mtyifun6_xnady5"
+}

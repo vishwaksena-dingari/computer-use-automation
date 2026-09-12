@@ -1,0 +1,33 @@
+{
+  "runId": "replay_mtyw6ut4_14alet",
+  "ledger": [
+    {
+      "at": "2026-09-12T21:23:41.250Z",
+      "stepId": "s1",
+      "action": "navigate",
+      "ok": true,
+      "detail": "http://127.0.0.1:4173/apply-demo/co-b/"
+    },
+    {
+      "at": "2026-09-12T21:23:42.506Z",
+      "stepId": "s2",
+      "action": "fillForm",
+      "ok": true,
+      "detail": "fullName,email,phone,background"
+    },
+    {
+      "at": "2026-09-12T21:23:42.849Z",
+      "stepId": "s3",
+      "action": "click",
+      "ok": true
+    },
+    {
+      "at": "2026-09-12T21:23:42.872Z",
+      "stepId": "s4",
+      "action": "extract",
+      "ok": true,
+      "detail": "confirmation"
+    }
+  ],
+  "llmCalls": 0
+}

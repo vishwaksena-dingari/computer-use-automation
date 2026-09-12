@@ -1,0 +1,4 @@
+{
+  "fallback": true,
+  "error": "Invalid authored steps: steps.5.output: Required; checkpoints.success.refs.0: Expected string, received object"
+}

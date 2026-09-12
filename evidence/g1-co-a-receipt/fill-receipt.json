@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-09-12T21:23:31.004Z",
+  "pageUrl": "http://127.0.0.1:4173/apply-demo/co-a/",
+  "entries": [
+    {
+      "key": "fullName",
+      "profilePath": "fullName",
+      "kind": "text",
+      "expected": "Alex Applicant",
+      "actual": "Alex Applicant",
+      "verified": true
+    },
+    {
+      "key": "email",
+      "profilePath": "email",
+      "kind": "text",
+      "expected": "al***@example.test",
+      "actual": "al***@example.test",
+      "verified": true
+    },
+    {
+      "key": "workAuth",
+      "profilePath": "workAuth",
+      "kind": "select",
+      "expected": "Authorized",
+      "actual": "Authorized",
+      "verified": true
+    },
+    {
+      "key": "whyCompany",
+      "profilePath": "answers.whyCompany",
+      "kind": "textarea",
+      "expected": "I want to help ship reliable automation.",
+      "actual": "I want to help ship reliable automation.",
+      "verified": true
+    }
+  ],
+  "filledKeys": [
+    "fullName",
+    "email",
+    "workAuth",
+    "whyCompany"
+  ],
+  "unverifiedRequired": [],
+  "blocker": null
+}

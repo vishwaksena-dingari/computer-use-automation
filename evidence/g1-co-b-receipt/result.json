@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "status": "SUCCESS",
+  "code": null,
+  "message": "Capability completed successfully",
+  "outputs": {
+    "confirmation": "Application received (Co B)"
+  },
+  "error": null,
+  "capabilityId": "apply-demo-co-b",
+  "capabilityVersion": "0.1.0",
+  "params": {
+    "memberId": "M-10042"
+  },
+  "runId": "replay_mtyw6ut4_14alet",
+  "evidenceDir": "evidence/g1-co-b-receipt",
+  "durationMs": 8031,
+  "llmCalls": 0
+}

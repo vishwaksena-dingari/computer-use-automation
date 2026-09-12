@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-09-12T14:06:27.890Z",
+  "pageUrl": "https://a***.test/Sciemo/208da924-4a08-4be7-a20c-a420f08e77d2/application",
+  "entries": [
+    {
+      "key": "fullName",
+      "profilePath": "fullName",
+      "kind": "text",
+      "expected": "Alex Applicant",
+      "actual": "Alex Applicant",
+      "verified": true
+    },
+    {
+      "key": "email",
+      "profilePath": "email",
+      "kind": "text",
+      "expected": "we***@a***.test",
+      "actual": "we***@a***.test",
+      "verified": true
+    },
+    {
+      "key": "phone",
+      "profilePath": "phone",
+      "kind": "text",
+      "expected": "415-555-0100",
+      "actual": "415-555-0100",
+      "verified": true
+    },
+    {
+      "key": "resume",
+      "profilePath": "resumePath",
+      "kind": "file",
+      "expected": "fixtures/resume.txt",
+      "actual": "[file-set]",
+      "verified": true
+    },
+    {
+      "key": "linkedin",
+      "profilePath": "linkedin",
+      "kind": "text",
+      "expected": "https://a***.test/in/alex-applicant-demo",
+      "actual": "https://a***.test/in/alex-applicant-demo",
+      "verified": true
+    },
+    {
+      "key": "portfolio",
+      "profilePath": "portfolio",
+      "kind": "text",
+      "expected": "https://a***.test/alex-applicant-demo",
+      "actual": "https://a***.test/alex-applicant-demo",
+      "verified": true
+    },
+    {
+      "key": "location",
+      "profilePath": "location",
+      "kind": "text",
+      "expected": "New York City",
+      "actual": "New York City, New York, United States",
+      "verified": true
+    },
+    {
+      "key": "startDate",
+      "profilePath": "startDate",
+      "kind": "text",
+      "expected": "10/15/2026",
+      "actual": "10/15/2026",
+      "verified": true
+    },
+    {
+      "key": "additional",
+      "profilePath": "answers.additional",
+      "kind": "textarea",
+      "expected": "Synthetic demo applicant for computer-use automation — do not treat as a real appli…",
+      "actual": "Synthetic demo applicant for computer-use automation — do not treat as a real appli…",
+      "verified": true
+    },
+    {
+      "key": "workAuth",
+      "profilePath": "flags.workAuthYes",
+      "kind": "radio",
+      "expected": "yes",
+      "actual": "yes",
+      "verified": true
+    },
+    {
+      "key": "sponsorship",
+      "profilePath": "flags.sponsorshipNo",
+      "kind": "radio",
+      "expected": "yes",
+      "actual": "yes",
+      "verified": true
+    },
+    {
+      "key": "smsConsent",
+      "profilePath": "flags.smsConsentNo",
+      "kind": "radio",
+      "expected": "yes",
+      "actual": "yes",
+      "verified": true
+    },
+    {
+      "key": "monthlyTravel",
+      "profilePath": "flags.monthlyTravelYes",
+      "kind": "radio",
+      "expected": "yes",
+      "actual": "yes",
+      "verified": true
+    },
+    {
+      "key": "visaType",
+      "profilePath": "flags.visaNotRequired",
+      "kind": "radio",
+      "expected": "yes",
+      "actual": "yes",
+      "verified": true
+    }
+  ],
+  "filledKeys": [
+    "fullName",
+    "email",
+    "phone",
+    "resume",
+    "linkedin",
+    "portfolio",
+    "location",
+    "startDate",
+    "additional",
+    "workAuth",
+    "sponsorship",
+    "smsConsent",
+    "monthlyTravel",
+    "visaType"
+  ],
+  "unverifiedRequired": []
+}

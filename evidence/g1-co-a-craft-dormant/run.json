@@ -1,0 +1,33 @@
+{
+  "runId": "replay_mtyw8yiv_h3cd4l",
+  "ledger": [
+    {
+      "at": "2026-09-12T21:25:14.225Z",
+      "stepId": "s1",
+      "action": "navigate",
+      "ok": true,
+      "detail": "http://127.0.0.1:4173/apply-demo/co-a/"
+    },
+    {
+      "at": "2026-09-12T21:28:16.053Z",
+      "stepId": "s2",
+      "action": "fillForm",
+      "ok": true,
+      "detail": "fullName,email,workAuth,whyCompany"
+    },
+    {
+      "at": "2026-09-12T21:28:16.646Z",
+      "stepId": "s3",
+      "action": "click",
+      "ok": true
+    },
+    {
+      "at": "2026-09-12T21:28:16.668Z",
+      "stepId": "s4",
+      "action": "extract",
+      "ok": true,
+      "detail": "confirmation"
+    }
+  ],
+  "llmCalls": 1
+}
