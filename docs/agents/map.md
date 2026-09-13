@@ -3,7 +3,7 @@
 **Destination:** Apply UI engine on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md` (G1–G12).
 
 **Operator contract:** `docs/APPLY.md`  
-**Active sprint:** **Worker harden** (live ATS honesty after T-B-7). Bridge close-out done.
+**Active sprint:** none — Bridge + Worker harden complete (see PRODUCTIZE). Next work needs a new ticket or G2 unlock.
 
 ## Tickets
 
@@ -67,6 +67,7 @@
 | T-W-10 | Auto-ats cache private/per-slug; no tracked family poison | `done` | Worker |
 | T-W-11 | Empty-fill guard on single-page fillForm | `done` | Worker |
 | T-W-12 | apply-live.sh --resume rewrites resumePath | `done` | Worker |
+| T-W-13 | openApplyFormSurface: parallel/short miss path | `done` | Worker |
 | T-W-14 | Re-assert origin after Apply click | `done` | Worker |
 | T-W-15 | apply-live.sh invoke local CLI not bare npx cua | `done` | Worker |
 

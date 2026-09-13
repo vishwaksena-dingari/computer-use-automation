@@ -97,6 +97,7 @@
 | T-W-12 | **Fixed** — apply-live + copy-vault always rewrite resumePath when PDF present |
 | T-W-14 | **Fixed** — `openApplyFormSurface` returns blocked on host escape |
 | T-W-15 | **Fixed** — `node dist/cli/main.js` (requires build) |
-| T-W-11 | Still **ready** (fillForm empty guard) |
+| T-W-11 | **Fixed** (later) — empty-fill guard on single-page `fillForm` |
+| T-W-13 | **Fixed** (later) — ≤~2s multi-candidate poll instead of 6×1.5s serial |
 
 Docs: ARCHITECTURE Worker harden + APPLY submit/location/seed updated first.

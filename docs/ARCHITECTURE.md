@@ -448,7 +448,7 @@ flowchart TD
 | Location display | `getProfilePath('location')` formats `{city,region,country}` → `"City, Region, Country"` |
 | Location typeahead | Needle `City, ST`; **require** whole-city token match (+ region when present); else skip/fail — no blind Enter |
 | Empty fill | Never SUCCESS when `filledKeys` is empty (`fillForm` **and** `fillFormFlow`); receipt includes `failDetail` |
-| Overview → form | Click Application / Apply; **re-assert host** against allowlist |
+| Overview → form | Click Application / Apply (≤~2s poll, T-W-13); **re-assert host** against allowlist |
 | Seed cache | Missing seed → write **`.private/field-maps/<id>.json`** only; `--write-field-map` → tracked `capabilities/field-maps/` |
 | Submit claim | `outcome: submitted` only when confirmation text/banner observed (`submitConfirmed`) |
 | Live wrapper | `apply-live.sh` → `node dist/cli/main.js`; always rewrite `resumePath` when resume copied |
