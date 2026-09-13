@@ -51,7 +51,7 @@ npm run check
 npm run check:golden
 ```
 
-## Bridge sprint — plan → fill (active)
+## Bridge sprint — plan → fill — **done**
 
 Unblocks workers dropping parallel UI assist: imported FieldMaps must drive fill.
 
@@ -65,11 +65,11 @@ Unblocks workers dropping parallel UI assist: imported FieldMaps must drive fill
 - [x] Survey literals survive heuristic shadowing (`whyCompany` vs `additional`)
 - [x] Zod `PlanJson` at import + file fields force `resumePath` / profile realpath
 - [x] Review harden: merge file+literal, required-owner shadow, plan path allowlist, upload ext, shared realpath jail
-- [ ] Live fill-only prove on real Ashby board
+- [x] Live fill-only prove on real Ashby (Maximor — map T-B-7 / T-W-5; re-prove anytime with `.private/`)
 
-**Done when (mock):** golden `bridge-alias` apply receipt shows plan keys/literal filled (incl. survey). **Done when (live):** T-B-7 Ashby fill-only with flattened `.private` profile.
+**Done when (mock):** golden `bridge-alias` apply receipt shows plan keys/literal filled (incl. survey). **Done when (live):** T-B-7 Ashby fill-only with flattened `.private` profile — **met**.
 
-### Bridge review follow-ups (2026-09-12)
+### Bridge review follow-ups (2026-09-12) — **done**
 
 - [x] T-B-8 page-filter seeded maps (perf)
 - [x] T-B-11 golden imports `fixtures/bridge-alias-plan.json`
@@ -78,4 +78,8 @@ Unblocks workers dropping parallel UI assist: imported FieldMaps must drive fill
 - [x] T-B-14 file `resumePath` + profile realpath
 - [x] T-B-15–22 review harden (merge/shadow/jail/allowlist/ext/checks/docs)
 - [x] T-B-23 career-data vault adapters (`work_authorization`, location, discipline)
-- [ ] T-B-7 live Ashby fill-only (blocked — needs URL)
+- [x] T-B-7 live Ashby fill-only (Maximor `/application`)
+
+### Worker harden + review follow-ups — **done**
+
+See `docs/agents/map.md` T-W-* / T-B-24–30. Optional re-prove is ops only (not a code gate).

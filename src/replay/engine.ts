@@ -1,7 +1,7 @@
 /**
  * @file Deterministic capability replay — zero LLM (docs/replay-outcomes.md).
  */
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { chromium, type Browser, type BrowserContext, type Locator, type Page } from 'playwright';
 import type { Capability, FieldMap } from '../artifact/schema.js';
 import type { RuntimeConfig } from '../config/schema.js';
 import { resolveTarget } from '../surface/resolve-locator.js';
@@ -92,6 +92,7 @@ async function clickFormAdvance(page: Page): Promise<boolean> {
  * Job Overview / JD pages have zero form controls — open the Application surface.
  * Ashby: Application tab or "Apply for this Job". Greenhouse-ish Apply buttons too.
  * Rejects navigation off the allowed host list (T-W-14).
+ * T-W-13: poll all candidates in one ~2s window (not 6×1.5s serial waits on miss).
  */
 async function openApplyFormSurface(
   page: Page,
@@ -121,19 +122,27 @@ async function openApplyFormSurface(
     page.getByRole('button', { name: /^Apply now$/i }),
     page.getByRole('link', { name: /^Apply now$/i }),
   ];
-  for (const loc of candidates) {
-    try {
+  const deadline = Date.now() + 2000;
+  let target: Locator | null = null;
+  while (!target && Date.now() < deadline) {
+    for (const loc of candidates) {
       const first = loc.first();
-      await first.waitFor({ state: 'visible', timeout: 1500 });
-      await first.click({ timeout: 4000 });
-      await page.waitForTimeout(600);
-      if (!hostOk(page.url())) return 'blocked';
-      return 'opened';
-    } catch {
-      /* try next */
+      if (await first.isVisible().catch(() => false)) {
+        target = first;
+        break;
+      }
     }
+    if (!target) await page.waitForTimeout(100);
   }
-  return 'none';
+  if (!target) return 'none';
+  try {
+    await target.click({ timeout: 4000 });
+    await page.waitForTimeout(600);
+    if (!hostOk(page.url())) return 'blocked';
+    return 'opened';
+  } catch {
+    return 'none';
+  }
 }
 
 export type RunStatus = 'SUCCESS' | 'BUSINESS_OUTCOME' | 'RECOVERABLE' | 'HARD_FAILURE';
