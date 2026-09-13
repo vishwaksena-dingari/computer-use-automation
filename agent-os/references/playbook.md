@@ -119,16 +119,16 @@ Mid-sprint retarget only if: assumptions broke, blocked ≳1h, or human changed 
 
 ## Stuck → research dig (aggressive)
 
-Trigger when **blocked ≳20–30 min** on the same surface bug (widget won’t stick, auth gate, multipage advance, locator thrash) **or** the human says “check GitHub / public research / be aggressive.”
+Trigger when **blocked ≳20–30 min** on the same surface bug (widget won’t stick, auth gate, multipage advance, locator thrash) **or** the human says dig into public examples.
 
 **Do this before inventing a third local heuristic:**
 
 1. **Search** public sources for the *exact* surface (e.g. Workday nested select / education block).  
-2. **Shallow-clone** research repos into `.scratch/research-clones/<name>/` (gitignored). Never vendor AGPL/runtime agents into the product.  
-3. **Reuse patterns only** — selectors, auth persistence (`storageState`), overlay dismiss, page-validate-then-advance, upload sequences. Keep notes local under `.scratch/` (steal vs reject).  
+2. **Shallow-clone** into `.scratch/research-clones/<name>/` (gitignored). Never vendor AGPL/runtime agents into the product.  
+3. **Reuse patterns only** — selectors, auth persistence (`storageState`), overlay dismiss, page-validate-then-advance, upload sequences. Keep notes local under `.scratch/` (keep vs reject).  
 4. **Port the smallest working idea** into *our* capability factory (observe → map → `llmCalls:0` replay). Reject always-on LLM tool loops.  
 5. **Prove** with a headless (default) evidence run on ≥1 live or mock target.
 
 Do **not** commit third-party project names, clone lists, or research notes to the public tree — keep that under `.scratch/`.
 
-If the project overlay defines a stricter raid list, **follow the overlay**.
+If the project overlay defines a stricter dig list, **follow the overlay**.

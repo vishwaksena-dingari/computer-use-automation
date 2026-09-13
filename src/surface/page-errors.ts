@@ -1,7 +1,6 @@
 /**
  * @file Detect live form validation / required-field errors after Save and Continue.
- * ***REMOVED***
-Uses visible alerts, HTML5 validity, and aria-invalid markers.
+ * Uses visible alerts, HTML5 validity, and aria-invalid markers.
  */
 import type { Page } from 'playwright';
 

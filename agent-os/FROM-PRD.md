@@ -6,7 +6,7 @@ If the repo is not adopted yet (no `agent-os/` / no `docs/agents/`), run **setup
 
 **No PRD? Fine.** Treat the idea as the brief. Run a short **idea grilling** (below) to produce a one-page destination, then the same wayfinder fog loop. Do not invent a fake PRD document.
 
-This is the same intake used for assignments and greenfield ideas (orient → decide with skills → design → build). It is **scale-adaptive**: tiny projects exit early; large ones keep more tickets.
+This is the same intake used for greenfield ideas and short builds (orient → decide with skills → design → build). It is **scale-adaptive**: tiny projects exit early; large ones keep more tickets.
 
 ---
 

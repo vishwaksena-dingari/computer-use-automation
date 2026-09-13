@@ -219,12 +219,12 @@ Ask the human when: preference lock, irreversible schema/HITL change, sprint ret
 
 ### Stuck → research dig (aggressive — this project)
 
-When blocked on live ATS widgets / multipage / auth (**≳20–30 min** same bug) **or** human says check public research:
+When blocked on live ATS widgets / multipage / auth (**≳20–30 min** same bug) **or** human says dig into public examples:
 
-1. Raid local notes/clones under `.scratch/research-clones/` and `.scratch/research-notes/` (gitignored).  
+1. Raid local notes/clones under `.scratch/research-clones/` / `.scratch/research-notes/` (gitignored).  
 2. Reuse selectors / auth `storageState` / education+resume sequences / per-page validate — **do not** vendor LLM agent loops.  
 3. Port into capability factory; prove headless.  
-4. Keep steal-vs-reject notes **local only** — do not commit third-party project catalogs to `docs/`.
+4. Keep keep-vs-reject notes **local only** — do not commit third-party project catalogs to `docs/`.
 
 Universal playbook already has this section — **this overlay makes it mandatory for ATS work**, not optional.
 
@@ -232,7 +232,7 @@ Universal playbook already has this section — **this overlay makes it mandator
 
 **Yes — modular inside the repo.** Keep clear seams that already appear in `docs/ARCHITECTURE.md`: config, policy, surface/Playwright, discovery, artifact, replay, session/HITL, mock-core. Prefer pure functions at those seams (especially cost/outcome math) so we can reuse *within* this project.
 
-**No — do not design for other projects yet.** Extracting publishable packages, shared monorepos, or “generic computer-use SDK” is overengineering for this project (ponytail + time box). If a boundary is clean, a future project can copy or extract later; that is not a v1 goal.
+**No premature SDK extraction.** Extracting publishable packages or a “generic computer-use SDK” is overengineering for current scope (ponytail + time box). If a boundary is clean, extract later; that is not a v1 goal.
 
 Rule of thumb: **module folders/files with boring imports** > **premature npm packages**. Reuse = clear names + one job per module, not max abstraction.
 

@@ -34,7 +34,7 @@ Project overlays may narrow this. Intensity caps in `playbook.md` always win (no
 | **doc-coauthoring** / gstack `/document-*` | REPORT / README |
 | **graphify** | After substantial `src/` |
 | **Graft** | After code exists; prefer `--no-global` init; not for Decide phase |
-| **Research dig** | Stuck ≳20–30m on surface/ATS bugs — see `playbook.md` Stuck section; clone GitHub refs, reuse patterns, don’t vendor G3 loops |
+| **Research dig** | Stuck ≳20–30m on surface/ATS bugs — see `playbook.md` Stuck section; study public examples, reuse patterns, don’t vendor agent loops |
 
 ## Usually skip for core delivery
 
