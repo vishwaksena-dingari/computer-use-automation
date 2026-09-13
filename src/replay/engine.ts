@@ -87,6 +87,33 @@ async function clickFormAdvance(page: Page): Promise<boolean> {
   return false;
 }
 
+/**
+ * Job Overview / JD pages have zero form controls — open the Application surface.
+ * Ashby: Application tab or "Apply for this Job". Greenhouse-ish Apply buttons too.
+ */
+async function openApplyFormSurface(page: Page): Promise<boolean> {
+  const candidates = [
+    page.getByRole('tab', { name: /^Application$/i }),
+    page.getByRole('link', { name: /^Application$/i }),
+    page.getByRole('button', { name: /Apply for this [Jj]ob/i }),
+    page.getByRole('link', { name: /Apply for this [Jj]ob/i }),
+    page.getByRole('button', { name: /^Apply now$/i }),
+    page.getByRole('link', { name: /^Apply now$/i }),
+  ];
+  for (const loc of candidates) {
+    try {
+      const first = loc.first();
+      await first.waitFor({ state: 'visible', timeout: 1500 });
+      await first.click({ timeout: 4000 });
+      await page.waitForTimeout(600);
+      return true;
+    } catch {
+      /* try next */
+    }
+  }
+  return false;
+}
+
 export type RunStatus = 'SUCCESS' | 'BUSINESS_OUTCOME' | 'RECOVERABLE' | 'HARD_FAILURE';
 
 export type ReplayResult = {
@@ -927,24 +954,42 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
 
           // Bridge: honor imported / --field-map-id FieldMap; repair only fills gaps.
           let seedMap: FieldMap | null = null;
-          try {
-            seedMap = loadFieldMapById(root, mapId);
-          } catch (e) {
-            seedMap = null;
-            ledger.push({
-              at: new Date().toISOString(),
-              stepId: step.id,
-              action: 'fillFormFlow',
-              ok: false,
-              detail: `seed FieldMap ${mapId} missing (${(e as Error).message}) — bootstrapping from DOM`,
-            });
-          }
+          const seedWasMissing = (() => {
+            try {
+              seedMap = loadFieldMapById(root, mapId);
+              return false;
+            } catch (e) {
+              seedMap = null;
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: false,
+                detail: `seed FieldMap ${mapId} missing (${(e as Error).message}) — bootstrapping from DOM`,
+              });
+              return true;
+            }
+          })();
           const rawBanner = seedMap?.successBanner?.trim() || '';
           // Ignore short banners (hostile/accidental early match); keep built-in defaults.
           const successBanner = rawBanner.length >= 12 ? rawBanner : '';
 
           for (let pageIdx = 0; pageIdx < maxPages; pageIdx++) {
             let observed = await observeControls(page);
+            if (!observed.length) {
+              // Overview / JD: open Application before treating as SSO/advance.
+              const openedForm = await openApplyFormSurface(page);
+              if (openedForm) {
+                ledger.push({
+                  at: new Date().toISOString(),
+                  stepId: step.id,
+                  action: 'fillFormFlow',
+                  ok: true,
+                  detail: `page ${pageIdx}: opened apply form surface`,
+                });
+                observed = await observeControls(page);
+              }
+            }
             if (!observed.length) {
               // SSO chooser / review: no inputs — advance (Sign in with email / Finish) then re-observe
               const advancedEmpty = await clickFormAdvance(page);
@@ -996,7 +1041,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             }
             llmCalls += repair.llmCalls;
             writeProposedFieldMap(evidenceDir, repair.map);
-            if (opts.writeFieldMap && pageIdx === 0) writeFieldMapById(root, { ...repair.map, id: mapId });
+            // Persist after fill success (below); don't cache a map that never filled.
 
             let fillResult = await runFillForm({
               page: page!,
@@ -1079,6 +1124,22 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             pagesFilled.push(`p${pageIdx}:{${fillResult.filled.join(',')}}`);
             allReceiptEntries.push(...fillResult.receipt);
             allFilledKeys.push(...fillResult.filled.map((k) => `p${pageIdx}:${k}`));
+
+            // Cache family map: explicit --write-field-map, or first DOM bootstrap when seed missing.
+            if (
+              pageIdx === 0 &&
+              fillResult.filled.length > 0 &&
+              (opts.writeFieldMap || seedWasMissing)
+            ) {
+              writeFieldMapById(root, { ...workingMap, id: mapId });
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: true,
+                detail: `persisted FieldMap ${mapId} (${seedWasMissing ? 'seed cache' : 'write-field-map'})`,
+              });
+            }
 
             // Done markers — custom banner exact; built-in defaults as substring regex.
             const defaultDone = page.getByText(/Application draft complete|application received/i).filter({
@@ -1190,6 +1251,18 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               unverifiedRequired: allReceiptEntries.filter((e) => !e.verified).map((e) => e.key),
             }),
           );
+
+          // Overview false-green: never SUCCESS with zero fills.
+          if (allFilledKeys.length === 0) {
+            ledger.push({
+              at: new Date().toISOString(),
+              stepId: step.id,
+              action: 'fillFormFlow',
+              ok: false,
+              detail: 'empty fill: no fields filled',
+            });
+            return finishFormOutcome('empty fill: no fields filled', step.id);
+          }
 
           ledger.push({
             at: new Date().toISOString(),

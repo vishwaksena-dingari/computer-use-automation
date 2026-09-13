@@ -62,6 +62,7 @@ async function fillCombobox(
   page: Page,
   loc: Awaited<ReturnType<typeof resolveTarget>>,
   value: string,
+  opts: { typeNeedle?: string } = {},
 ): Promise<void> {
   const control = loc.locator('xpath=ancestor::div[contains(@class,"select__control")]').first();
   if (await control.count()) {
@@ -73,14 +74,21 @@ async function fillCombobox(
   }
   await page.waitForTimeout(200);
   // Decline / prefer-not: short needle — full phrase can filter react-select to empty.
-  const typeNeedle = /decline|prefer not|do not wish|don't wish/i.test(value)
-    ? 'Decline'
-    : value;
+  // Location: type city only so Ashby/Places returns options, then snap to full match.
+  const typeNeedle =
+    opts.typeNeedle ??
+    (/decline|prefer not|do not wish|don't wish/i.test(value) ? 'Decline' : value);
   await loc.fill('').catch(() => undefined);
   await loc.pressSequentially(typeNeedle, { delay: 25 }).catch(async () => loc.fill(typeNeedle));
   await page.waitForTimeout(400);
-  const liveOpts = await page.locator('.select__option:visible, [role="option"]:visible').allTextContents();
-  const snapped = snapSelectValue(value, liveOpts.map((t) => t.trim()).filter(Boolean));
+  const liveOpts = await page
+    .locator('.select__option:visible, [role="option"]:visible')
+    .allTextContents()
+    .then((rows) => rows.map((t) => t.trim()).filter(Boolean));
+  let snapped = snapSelectValue(value, liveOpts);
+  if (!liveOpts.some((o) => o.toLowerCase() === snapped.toLowerCase()) && typeNeedle !== value) {
+    snapped = snapSelectValue(typeNeedle, liveOpts);
+  }
   const escaped = snapped.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const candidates = [
     page.locator('.select__option').filter({ hasText: new RegExp(`^${escaped}$`, 'i') }).first(),
@@ -98,6 +106,21 @@ async function fillCombobox(
   await loc.press('ArrowDown').catch(() => undefined);
   await loc.press('Enter').catch(() => undefined);
   await page.waitForTimeout(200);
+}
+
+/**
+ * Typeahead needle for location widgets: "City, ST, Country" → type "City", then select.
+ */
+export function locationTypeNeedle(value: string): string {
+  const t = value.trim();
+  if (!t) return t;
+  if (/decline|prefer not|do not wish|don't wish/i.test(t)) return 'Decline';
+  const city = t.split(',')[0]?.trim() ?? t;
+  return city.length >= 2 ? city : t;
+}
+
+function isLocationField(field: { key: string; profilePath: string }): boolean {
+  return /location/i.test(field.key) || /location/i.test(field.profilePath);
 }
 
 async function readComboboxDisplay(loc: Awaited<ReturnType<typeof resolveTarget>>): Promise<string> {
@@ -158,7 +181,13 @@ export function snapSelectValue(value: string, options: string[]): string {
     );
     if (decline) return decline;
   }
+  // "City, ST, Country" → option that contains the city (Ashby/Places).
   const lower = v.toLowerCase();
+  const city = v.split(',')[0]?.trim();
+  if (city && city.length >= 2 && city.toLowerCase() !== lower) {
+    const cityHit = options.find((o) => o.toLowerCase().includes(city.toLowerCase()));
+    if (cityHit) return cityHit;
+  }
   const contains = options.find(
     (o) => o.toLowerCase().includes(lower) || lower.includes(o.toLowerCase()),
   );
@@ -360,6 +389,13 @@ export async function runFillForm(opts: {
     }
 
     let value = String(raw);
+    // Defensive: object leaked past getProfilePath must not fill as "[object Object]".
+    if (value === '[object Object]' || (typeof raw === 'object' && raw !== null && !Array.isArray(raw))) {
+      if (field.required) {
+        return fail(field.key, valuePath, `required profile path not a scalar: ${valuePath}`);
+      }
+      continue;
+    }
     if (field.invertBool) value = applyInvertBool(value);
 
     // Workday careers forms: nested multiselect / select-one / formField inputs
@@ -475,7 +511,12 @@ export async function runFillForm(opts: {
           });
         } else if ((await loc.getAttribute('role').catch(() => null)) === 'combobox') {
           value = snapSelectValue(value, field.enumHints ?? []);
-          await fillCombobox(page, loc, value);
+          await fillCombobox(
+            page,
+            loc,
+            value,
+            isLocationField(field) ? { typeNeedle: locationTypeNeedle(value) } : {},
+          );
         } else {
           const snapped = snapSelectValue(value, field.enumHints ?? []);
           value = snapped;
@@ -496,7 +537,12 @@ export async function runFillForm(opts: {
         const role = await loc.getAttribute('role').catch(() => null);
         if (role === 'combobox') {
           value = snapSelectValue(value, field.enumHints ?? []);
-          await fillCombobox(page, loc, value);
+          await fillCombobox(
+            page,
+            loc,
+            value,
+            isLocationField(field) ? { typeNeedle: locationTypeNeedle(value) } : {},
+          );
         } else {
           await loc.fill(value);
         }
@@ -507,12 +553,26 @@ export async function runFillForm(opts: {
         }
         // Lever location: Places may leave input empty until a suggestion is chosen;
         // re-fill once if cleared (no Escape — that wipes the value).
-        if (/location/i.test(field.key) || /location/i.test(field.profilePath)) {
+        if (isLocationField(field)) {
           const stuck = await loc.inputValue().catch(() => '');
           if (!stuck) {
+            const needle = locationTypeNeedle(value);
             await loc.click({ force: true }).catch(() => undefined);
-            await loc.fill(value);
-            await page.getByRole('option').first().click({ timeout: 1500 }).catch(() => undefined);
+            await loc.fill(needle);
+            await page.waitForTimeout(400);
+            const liveOpts = await page
+              .getByRole('option')
+              .allTextContents()
+              .then((rows) => rows.map((t) => t.trim()).filter(Boolean))
+              .catch(() => [] as string[]);
+            const snapped = snapSelectValue(value, liveOpts);
+            await page
+              .getByRole('option', { name: new RegExp(escapeRe(snapped), 'i') })
+              .first()
+              .click({ timeout: 1500 })
+              .catch(async () => {
+                await page.getByRole('option').first().click({ timeout: 1500 }).catch(() => undefined);
+              });
             await page.locator('.pac-item').first().click({ timeout: 1500 }).catch(() => undefined);
           }
         }

@@ -421,13 +421,38 @@ flowchart LR
   fill --> banner[successBanner done-check]
 ```
 
+### Worker harden — live ATS honesty (post T-B-7)
+
+Live Ashby Overview URLs returned SUCCESS with an empty receipt; vault `location` objects filled as `[object Object]`.
+
+```mermaid
+flowchart TD
+  nav[navigate URL] --> open["openApplyFormSurface if no controls"]
+  open --> obs[observeControls]
+  obs -->|still empty| fail4["BUSINESS_OUTCOME empty fill → exit 4"]
+  obs -->|has controls| fill[runFillForm]
+  fill --> keys{filledKeys length?}
+  keys -->|0| fail4
+  keys -->|gt 0| ok[SUCCESS exit 0]
+  fill --> cache["write auto-ats FieldMap when seed missing"]
+```
+
+| Guard | Behavior |
+|---|---|
+| Location display | `getProfilePath('location')` formats `{city,region,country}` → `"City, Region, Country"` |
+| Location typeahead | Combobox: type **city** needle → `snapSelectValue` → click option |
+| Empty fill | Never SUCCESS when `filledKeys` is empty |
+| Overview → form | Click Application tab / Apply for this Job before giving up |
+| Seed cache | Missing `auto-<ats>` → persist repaired map after page-0 fill success |
+| Live wrapper | `scripts/apply-live.sh` copies vault/resume → `cua apply` |
+
 | Surface | Module / CLI |
 |---|---|
 | Config overlay | `config.local.yaml` → `loadConfig` layer `local` |
 | Profile | `normalizeApplyProfile` (vault hoist) + `--storage-state` |
 | Import plan | `cua import-plan` → Zod PlanJson, aliases, `literal`, `surveyPlan`, `successBanner` |
 | Page-filter | `filterFieldMapToControls` before repair (multipage perf) |
-| Worker apply | `cua apply` + `worker-exit` codes; seed ≠ wipe |
+| Worker apply | `cua apply` + `worker-exit` codes; seed ≠ wipe; empty-fill fail |
 | Golden CI | `npm run check:golden` (incl. bridge-alias fixture) |
 | HAR | Kept only under `evidence/private/` (or `CUA_ALLOW_PUBLIC_HAR=1`) |
 

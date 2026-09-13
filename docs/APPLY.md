@@ -158,9 +158,23 @@ Stdout is a single JSON object (also written to `evidence/.../worker.json`):
 | **0** | `filled` or `submitted` | `SUCCESS`; `submitted` only if `--submit` and success |
 | **2** | `captcha` or `paused` | HITL pause / `form.CAPTCHA` (use `--escalate`) |
 | **3** | `closed` | `form.CLOSED` |
-| **4** | `unmapped` / `verify` / `failed` | `field.UNMAPPED`, `field.VERIFY`, other failures, or thrown errors |
+| **4** | `unmapped` / `verify` / `failed` | `field.UNMAPPED`, `field.VERIFY`, **empty fill** (Overview with no form), other failures |
 
-Caller pattern: branch on `exitCode`; read `code` for taxonomy; open `evidenceDir` for receipts / HITL.
+`worker.json` includes `"mode": "fill-only" | "submit"` so fill-only runs are never mistaken for submits.
+
+Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now opens Application / Apply, or exits **4** if still empty.
+
+**Daily live helper** (fill-only unless `--submit`):
+
+```bash
+./scripts/apply-live.sh \
+  --url "$ASHBY_APPLICATION_URL" \
+  --profile-from ~/path/to/apply-profile.json \
+  --resume ~/path/to/role.pdf \
+  --headed --escalate
+```
+
+Location widgets: type **city**, then select the matching dropdown option (not paste `[object Object]`).
 
 ### `--submit` matrix
 
@@ -198,7 +212,7 @@ Loaded via `--profile`; **never** written into Capability JSON.
 | `fullName` / `firstName`+`lastName` | Name (split derived from `fullName` if needed) |
 | `email`, `phone` | Contact |
 | `linkedin` | Profile URL |
-| `location` string **or** `{ city, region\|state, country }` | Address helpers |
+| `location` string **or** `{ city, region\|state, country }` | Address helpers; text/`location` path formats as `"City, Region, Country"` |
 | `resumePath` | Upload path (repo-relative) |
 | `workAuth` | Select / flags (`flags.workAuthYes`, `flags.sponsorshipNo` derived) |
 | `answers.*` | Essay / custom questions |

@@ -615,7 +615,10 @@ addGlobalConfigFlags(
           allowSubmit: Boolean(opts.submit),
         });
         writeJson(join(evidenceDir, 'result.json'), result);
-        const summary = workerSummaryFromReplay(result, { submitted: Boolean(opts.submit) && result.ok });
+        const summary = workerSummaryFromReplay(result, {
+          submitted: Boolean(opts.submit) && result.ok,
+          allowSubmit: Boolean(opts.submit),
+        });
         writeJson(join(evidenceDir, 'worker.json'), summary);
         console.log(JSON.stringify(summary, null, 2));
         process.exitCode = summary.exitCode;

@@ -19,8 +19,17 @@ if [[ -n "$RESUME_SRC" ]]; then
   fi
   cp "$RESUME_SRC" "$ROOT/.private/resume.pdf"
   echo "Copied resume → .private/resume.pdf"
-  if ! grep -q '"resumePath"' "$ROOT/.private/profile.json" 2>/dev/null; then
-    echo 'Add to profile JSON:  "resumePath": ".private/resume.pdf"'
-  fi
+  # Rewrite resumePath so fill never points outside the repo jail.
+  python3 - "$ROOT/.private/profile.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+data["resumePath"] = ".private/resume.pdf"
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+print('Set resumePath → .private/resume.pdf')
+PY
 fi
-echo "Next: npx cua apply --url \"\$APPLY_URL\" --profile .private/profile.json --plan-json .private/plan.json --headed --escalate"
+echo "Next: ./scripts/apply-live.sh --url \"\$APPLY_URL\" --headed --escalate"

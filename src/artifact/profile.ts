@@ -185,8 +185,41 @@ export function isOpaqueProfilePath(path: string, profileKeys: string[]): boolea
   return !profileKeys.some((k) => path === k || path.startsWith(`${k}.`));
 }
 
+/**
+ * Format vault location object (or string) for text/combobox fields.
+ * Keeps city/state/country readable via getProfilePath('city'|…).
+ */
+export function formatLocationDisplay(loc: unknown): string | undefined {
+  if (loc === undefined || loc === null || loc === '') return undefined;
+  if (typeof loc === 'string') {
+    const t = loc.trim();
+    if (!t || t === '[object Object]') return undefined;
+    return t;
+  }
+  if (typeof loc === 'object' && !Array.isArray(loc)) {
+    const o = loc as Record<string, unknown>;
+    const parts = [o.city, o.region ?? o.state, o.country]
+      .map((x) => (typeof x === 'string' ? x.trim() : x != null && x !== '' ? String(x).trim() : ''))
+      .filter((s) => s && s !== '[object Object]');
+    return parts.length ? parts.join(', ') : undefined;
+  }
+  return undefined;
+}
+
 /** Read a dotted path from a plain object (e.g. answers.whyCompany). */
 export function getProfilePath(profile: Record<string, unknown>, path: string): unknown {
+  // Text fields bind profilePath "location" — never return a raw object (→ "[object Object]").
+  if (path === 'location') {
+    const fromLoc = formatLocationDisplay(readPath(profile, 'location'));
+    if (fromLoc) return fromLoc;
+    const syn = formatLocationDisplay({
+      city: readPath(profile, 'city'),
+      region: readPath(profile, 'region') ?? readPath(profile, 'state'),
+      country: readPath(profile, 'country'),
+    });
+    if (syn) return syn;
+  }
+
   const direct = readPath(profile, path);
   if (direct !== undefined && direct !== null && direct !== '') return direct;
 
