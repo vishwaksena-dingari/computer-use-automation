@@ -501,7 +501,7 @@ addGlobalConfigFlags(
           (opts.out as string | undefined) ??
           writeImportedFieldMap(root, map);
         if (opts.out) {
-          const outAbs = resolveUnderRoot(root, opts.out as string, { realpath: false });
+          const outAbs = resolveUnderRoot(root, opts.out as string, { realpath: true });
           mkdirSync(dirname(outAbs), { recursive: true });
           writeFileSync(outAbs, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
         }

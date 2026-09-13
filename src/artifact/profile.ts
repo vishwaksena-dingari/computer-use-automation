@@ -115,6 +115,12 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
         : 'yes';
     }
   }
+  // T-B-28: vault form_defaults often say "Yes" — FieldMaps expect Authorized vocabulary.
+  if (typeof out.workAuth === 'string') {
+    const t = out.workAuth.trim();
+    if (/^(yes|true|1)$/i.test(t)) out.workAuth = 'Authorized';
+    else if (/^(no|false|0)$/i.test(t)) out.workAuth = 'Not authorized';
+  }
   const sponsorship = out.sponsorship;
   if (sponsorship && typeof sponsorship === 'object' && !Array.isArray(sponsorship)) {
     const s = sponsorship as Record<string, unknown>;
@@ -174,7 +180,7 @@ export function isOpaqueProfilePath(path: string, profileKeys: string[]): boolea
   if (path.startsWith('answers.') || path.startsWith('flags.') || path.startsWith('_plan.'))
     return false;
   if (
-    /^(fullName|email|phone|resumePath|linkedin|portfolio|location|startDate|workAuth|firstName|lastName|password|country|company|howHeard|phoneDeviceType|address1|city|state|postalCode|school|degree|fieldOfStudy|eduFromYear|eduToYear|gpa)$/.test(
+    /^(fullName|email|phone|resumePath|linkedin|portfolio|location|startDate|workAuth|firstName|lastName|password|country|company|howHeard|phoneDeviceType|address1|city|state|region|postalCode|school|degree|fieldOfStudy|eduFromYear|eduToYear|gpa)$/.test(
       path,
     )
   )
@@ -316,6 +322,8 @@ export function selfCheckProfileFlags(): void {
   if (vault.fullName !== 'Sam Vault') throw new Error('vault identity.full_name');
   if (vault.email !== 'sam@example.com') throw new Error('vault identity.email');
   if (vault.workAuth !== 'Authorized') throw new Error('vault work_auth');
+  const yesAuth = normalizeApplyProfile({ workAuth: 'Yes' });
+  if (yesAuth.workAuth !== 'Authorized') throw new Error('Yes→Authorized');
   const flags = vault.flags as Record<string, unknown> | undefined;
   if (flags?.sponsorshipNo !== 'yes') throw new Error('vault sponsorship.required→sponsorshipNo');
 
@@ -352,7 +360,7 @@ export function selfCheckProfileFlags(): void {
   if (career.fullName !== 'Dana Career') throw new Error('career identity.full_name');
   if (getProfilePath(career, 'city') !== 'City') throw new Error('career identity.location.city');
   if (getProfilePath(career, 'state') !== 'MD') throw new Error('career identity.location.state');
-  if (career.workAuth !== 'Yes') throw new Error('career form_defaults.authorized→workAuth');
+  if (career.workAuth !== 'Authorized') throw new Error('career form_defaults.authorized→workAuth');
   const cf = career.flags as Record<string, unknown> | undefined;
   if (cf?.workAuthYes !== 'yes') throw new Error('career legally_authorized→workAuthYes');
   if (cf?.sponsorshipNo !== 'no') throw new Error('career require_sponsorship→sponsorshipNo');

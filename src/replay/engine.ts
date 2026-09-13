@@ -894,13 +894,6 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               return finishFormOutcome(fillResult.detail, step.id);
             }
           }
-          ledger.push({
-            at: new Date().toISOString(),
-            stepId: step.id,
-            action: 'fillForm',
-            ok: true,
-            detail: fillResult.filled.join(','),
-          });
           writeFillReceipt(
             evidenceDir,
             buildFillReceipt({
@@ -910,6 +903,24 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
             }),
           );
+          // T-W-11: same honesty as fillFormFlow — never SUCCESS with zero fills.
+          if (fillResult.filled.length === 0) {
+            ledger.push({
+              at: new Date().toISOString(),
+              stepId: step.id,
+              action: 'fillForm',
+              ok: false,
+              detail: 'empty fill: no fields filled',
+            });
+            return finishFormOutcome('empty fill: no fields filled', step.id);
+          }
+          ledger.push({
+            at: new Date().toISOString(),
+            stepId: step.id,
+            action: 'fillForm',
+            ok: true,
+            detail: fillResult.filled.join(','),
+          });
           stepId = nextSequential(capability, step.id);
           continue;
         }

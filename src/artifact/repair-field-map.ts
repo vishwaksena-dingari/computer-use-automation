@@ -467,6 +467,8 @@ export function dropShadowedFields(
   if (literalSelectors.size) {
     fields = fields.filter((f) => {
       if (fieldHasLiteral(f)) return true;
+      // T-B-27: never drop required:true map rows in pass 2 (requiredness may be undetected on owner).
+      if (f.required) return true;
       for (const t of f.targets) {
         if (t.kind === 'css' && t.selector && literalSelectors.has(t.selector)) return false;
       }
@@ -1309,6 +1311,37 @@ export function selfCheckDropShadowedBlocksHostileLiteral(): void {
   if (!kept.fields.some((f) => f.key === 'workAuth')) throw new Error('required owner must remain');
 }
 
+/** Self-check: T-B-27 pass-2 never drops required:true when a literal shares the selector. */
+export function selfCheckDropShadowedKeepsRequiredPass2(): void {
+  const map: FieldMap = {
+    schemaVersion: 1,
+    id: 'shadow-req',
+    updatedAt: new Date().toISOString(),
+    fields: [
+      {
+        key: 'surveyExtra',
+        required: false,
+        profilePath: '_plan.surveyExtra',
+        kind: 'text',
+        literal: 'N/A',
+        targets: [{ kind: 'css', rank: 1, selector: '#city' }],
+      },
+      {
+        key: 'city',
+        required: true,
+        profilePath: 'city',
+        kind: 'text',
+        targets: [{ kind: 'css', rank: 1, selector: '#city' }],
+      },
+    ],
+  };
+  // No control owner for #city → ownerRequired unset; pass-2 must still keep required city.
+  const kept = dropShadowedFields(map, [], ['city']);
+  if (!kept.fields.some((f) => f.key === 'city')) {
+    throw new Error('pass-2 must keep required:true even when literal shadows selector');
+  }
+}
+
 /** Self-check: replace merge must not re-attach literal onto kind:file. */
 export function selfCheckMergeFileDropsLiteral(): void {
   const base: FieldMap = {
@@ -1352,6 +1385,7 @@ if (process.argv[1]?.endsWith('repair-field-map.ts') || process.argv[1]?.endsWit
   selfCheckMergeLiteralPreserve();
   selfCheckDropShadowedKeepsLiteral();
   selfCheckDropShadowedBlocksHostileLiteral();
+  selfCheckDropShadowedKeepsRequiredPass2();
   selfCheckMergeFileDropsLiteral();
   console.log('repair-field-map few-shot self-check ok');
 }

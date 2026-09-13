@@ -409,7 +409,7 @@ Operator guide: **`docs/APPLY.md`**. Status: `docs/PRODUCTIZE.md` / `docs/agents
 
 Imported FieldMaps seed `fillFormFlow`; repair only adds gaps. Plan answers may live on FieldMap `literal` (treat maps with literals as private).
 
-**Literal vs heuristic:** plan literals may win over *optional* survey owners sharing a CSS control; they never displace a *required* heuristic owner (hostile/stale plan). File fields always use profile `resumePath` (no plan literals; uploads are document extensions only under the repo realpath jail).
+**Literal vs heuristic:** plan literals may win over *optional* survey owners sharing a CSS control; they never displace a *required* heuristic owner (hostile/stale plan). Pass-2 shadow drop never removes `required:true` map rows even when requiredness was undetected on the control owner (T-B-27). Opaque unanswered plan keys coerce to `_plan.*` instead of aborting import (T-B-24). File fields always use profile `resumePath` (no plan literals; uploads are document extensions only under the repo realpath jail). `--out` write paths realpath the nearest existing ancestor (T-B-25). `workAuth: "Yes"` normalizes to `Authorized` (T-B-28).
 
 ```mermaid
 flowchart LR
@@ -447,7 +447,7 @@ flowchart TD
 |---|---|
 | Location display | `getProfilePath('location')` formats `{city,region,country}` → `"City, Region, Country"` |
 | Location typeahead | Needle `City, ST`; **require** whole-city token match (+ region when present); else skip/fail — no blind Enter |
-| Empty fill | Never SUCCESS when `filledKeys` is empty (`fillFormFlow`) |
+| Empty fill | Never SUCCESS when `filledKeys` is empty (`fillForm` **and** `fillFormFlow`) |
 | Overview → form | Click Application / Apply; **re-assert host** against allowlist |
 | Seed cache | Missing seed → write **`.private/field-maps/<id>.json`** only; `--write-field-map` → tracked `capabilities/field-maps/` |
 | Submit claim | `outcome: submitted` only when confirmation text/banner observed (`submitConfirmed`) |

@@ -114,7 +114,8 @@ export function importPlanToFieldMap(
               ? `_plan.${step.path}`
               : step.path;
     if (kind !== 'file' && isOpaqueProfilePath(profilePath, [])) {
-      throw new Error(`plan profilePath not allowed: ${profilePath}`);
+      // T-B-24: unanswered EEO / custom keys → _plan.* (never abort whole import).
+      profilePath = `_plan.${step.path}`;
     }
     return {
       key: step.path.replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 64) || `field_${i}`,
@@ -194,16 +195,31 @@ export function selfCheckImportPlan(): void {
   }
   const eeo = map.fields.find((f) => f.key === 'eeo');
   if (!eeo?.literal || eeo.literal !== 'Decline') throw new Error('surveyPlan merge');
-  let opaqueThrew = false;
+  let opaqueCoerced = false;
   try {
+    const coerced = importPlanToFieldMap(
+      { plan: [{ path: 'gender', type: 'select', profilePath: 'gender', value: 'Decline' }] },
+      { id: 'opaque-coerce' },
+    );
+    const g = coerced.fields.find((f) => f.key === 'gender');
+    if (!g || g.profilePath !== '_plan.gender') throw new Error('opaque must coerce to _plan');
+    opaqueCoerced = true;
+  } catch {
+    opaqueCoerced = false;
+  }
+  if (!opaqueCoerced) throw new Error('opaque plan profilePath must coerce to _plan');
+  let stillThrows = false;
+  try {
+    // ssn without literal still gets _plan; ensure truly hostile long uuid path still works via _plan
     importPlanToFieldMap(
-      { plan: [{ path: 'q1', type: 'text', profilePath: 'ssn', value: 'x' }] },
+      { plan: [{ path: 'ssn', type: 'text', profilePath: 'ssn' }] },
       { id: 'opaque-check' },
     );
   } catch {
-    opaqueThrew = true;
+    stillThrows = true;
   }
-  if (!opaqueThrew) throw new Error('opaque plan profilePath must throw');
+  // After T-B-24, bare opaque paths coerce — must not throw.
+  if (stillThrows) throw new Error('opaque empty path should coerce not throw');
   const fileForced = importPlanToFieldMap(
     { plan: [{ path: 'resume', type: 'file', profilePath: 'email', isRequired: true }] },
     { id: 'file-path-force' },
