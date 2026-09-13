@@ -23,16 +23,19 @@ export type WorkerSummary = {
   evidenceDir: string;
   runId: string;
   exitCode: WorkerExitCode;
+  /** Explicit so operators/reviewers never confuse fill-only with submit. */
+  mode: 'fill-only' | 'submit';
 };
 
 /** Map replay result → operator/worker summary + process exit code. */
 export function workerSummaryFromReplay(
   result: ReplayResult,
-  opts: { submitted?: boolean } = {},
+  opts: { submitted?: boolean; allowSubmit?: boolean } = {},
 ): WorkerSummary {
   const code = result.code ?? null;
   let outcome: WorkerOutcome = 'failed';
   let exitCode: WorkerExitCode = 4;
+  const mode: 'fill-only' | 'submit' = opts.allowSubmit ? 'submit' : 'fill-only';
 
   if (result.paused || /paused:/i.test(result.message ?? '')) {
     outcome = code === 'form.CAPTCHA' ? 'captcha' : 'paused';
@@ -64,6 +67,7 @@ export function workerSummaryFromReplay(
     evidenceDir: result.evidenceDir,
     runId: result.runId,
     exitCode,
+    mode,
   };
 }
 
@@ -106,6 +110,23 @@ export function selfCheckWorkerExit(): void {
     paused: false,
   });
   if (ok.exitCode !== 0 || ok.outcome !== 'filled') throw new Error('success exit');
+  if (ok.mode !== 'fill-only') throw new Error('fill-only mode');
+  const submitMode = workerSummaryFromReplay(
+    { ...base, ok: true, status: 'SUCCESS', code: null, message: 'ok', paused: false },
+    { allowSubmit: true, submitted: true },
+  );
+  if (submitMode.mode !== 'submit' || submitMode.outcome !== 'submitted') {
+    throw new Error('submit mode');
+  }
+  const empty = workerSummaryFromReplay({
+    ...base,
+    ok: true,
+    status: 'BUSINESS_OUTCOME',
+    code: 'field.UNMAPPED',
+    message: 'empty fill: no fields filled',
+    paused: false,
+  });
+  if (empty.exitCode !== 4 || empty.outcome !== 'unmapped') throw new Error('empty fill exit');
 }
 
 if (process.argv[1]?.endsWith('worker-exit.ts') || process.argv[1]?.endsWith('worker-exit.js')) {

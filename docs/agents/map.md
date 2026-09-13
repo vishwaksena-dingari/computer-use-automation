@@ -3,7 +3,7 @@
 **Destination:** Apply UI engine on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md` (G1–G12).
 
 **Operator contract:** `docs/APPLY.md`  
-**Active sprint:** **Bridge** close-out. Must-fix + review follow-ups done; T-B-7 live Ashby blocked on URL.
+**Active sprint:** **Worker harden** (live ATS honesty after T-B-7). Bridge close-out done.
 
 ## Tickets
 
@@ -29,7 +29,7 @@
 | T-B-4 | successBanner in apply done-check | `done` | Bridge |
 | T-B-5 | check:golden without rg | `done` | Bridge |
 | T-B-6 | Resume outside root (copy/.private) | `done` | Bridge |
-| T-B-7 | Live Ashby fill-only smoke | `blocked` (needs URL) | Bridge |
+| T-B-7 | Live Ashby fill-only smoke | `done` (Maximor `/application`; Overview false-green → T-W-*) | Bridge |
 | T-B-8 | Page-filter seeded FieldMap (perf + off-page) | `done` | Bridge |
 | T-B-9 | Plan CSS selector hardening + file-literal ban | `done` | Bridge |
 | T-B-10 | Preserve literal across LLM replace | `done` | Bridge |
@@ -46,6 +46,19 @@
 | T-B-21 | Stronger golden + shadow/file self-checks | `done` | Bridge |
 | T-B-22 | plan vs fields empty-array docs | `done` | Bridge |
 | T-B-23 | career-data vault keys in normalizeApplyProfile | `done` | Bridge |
+| T-B-24 | Opaque import empty keys abort whole plan | `ready` | Harden |
+| T-B-25 | `--out` write jail realpath ancestor | `ready` | Harden |
+| T-B-26 | `copy-vault-private.sh` rewrite resumePath | `ready` | Harden |
+| T-B-27 | Pass-2 never drop required:true | `ready` | Harden |
+| T-B-28 | workAuth Yes→Authorized vocab | `ready` | Harden |
+| T-W-1 | Location object → display string | `done` | Worker |
+| T-W-2 | Refuse SUCCESS when filledKeys empty | `done` | Worker |
+| T-W-3 | Overview → Application / Apply click | `done` | Worker |
+| T-W-4 | Persist auto-ats map after DOM bootstrap | `done` | Worker |
+| T-W-5 | Live re-prove Maximor Overview + /application | `doing` | Worker |
+| T-W-6 | Optional `apply-live.sh` wrapper | `done` | Worker |
+| T-W-7 | Location combobox type city → select | `done` | Worker |
+| T-B-26 | `copy-vault-private.sh` rewrite resumePath | `done` | Harden |
 
 ## Agent start checklist
 
