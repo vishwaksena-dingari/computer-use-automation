@@ -174,6 +174,8 @@ export const FieldMapFieldSchema = z
     invertBool: z.boolean().optional(),
     /** Free-text: LLM craft only under --mode hybrid when profile value empty. */
     craft: z.enum(['none', 'llm']).optional(),
+    /** Resolved plan answer (import-plan). When set, preferred over profilePath (file kind ignored). */
+    literal: z.union([z.string(), z.number(), z.boolean()]).optional(),
   })
   .strict();
 
@@ -183,6 +185,8 @@ export const FieldMapSchema = z
     id: z.string().min(1),
     platform: z.string().optional(),
     companyKey: z.string().optional(),
+    /** Optional success banner from plan (exact match; runtime ignores if shorter than 12 chars). */
+    successBanner: z.string().min(1).optional(),
     fields: z.array(FieldMapFieldSchema).min(1),
     updatedAt: z.string().min(1),
   })

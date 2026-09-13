@@ -510,8 +510,13 @@ addGlobalConfigFlags(
           (opts.out as string | undefined) ??
           writeImportedFieldMap(root, map);
         if (opts.out) {
-          mkdirSync(dirname(resolve(root, opts.out)), { recursive: true });
-          writeFileSync(resolve(root, opts.out), `${JSON.stringify(map, null, 2)}\n`, 'utf8');
+          const outAbs = resolve(root, opts.out);
+          const outRel = relative(root, outAbs);
+          if (outRel.startsWith('..') || isAbsolute(outRel)) {
+            throw new Error(`--out must be inside project root: ${opts.out}`);
+          }
+          mkdirSync(dirname(outAbs), { recursive: true });
+          writeFileSync(outAbs, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
         }
         console.log(
           JSON.stringify(

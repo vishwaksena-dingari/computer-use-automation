@@ -2,7 +2,7 @@
  * @file Deterministic capability replay — zero LLM (docs/replay-outcomes.md).
  */
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
-import type { Capability } from '../artifact/schema.js';
+import type { Capability, FieldMap } from '../artifact/schema.js';
 import type { RuntimeConfig } from '../config/schema.js';
 import { resolveTarget } from '../surface/resolve-locator.js';
 import { assertActionAllowed, assertHostAllowed } from '../policy/guard.js';
@@ -22,6 +22,7 @@ import { getProfilePath, setProfilePath } from '../artifact/profile.js';
 import { buildFillReceipt, writeFillReceipt, type FillReceipt } from '../artifact/fill-receipt.js';
 import { formOutcomeFromPageText } from '../artifact/form-outcomes.js';
 import {
+  filterFieldMapToControls,
   repairFieldMap,
   writeFieldMapById,
   writeProposedFieldMap,
@@ -29,7 +30,6 @@ import {
 import { observeControls } from '../surface/observe-controls.js';
 import { detectAtsFamily } from '../surface/detect-ats.js';
 import { listVisibleRequiredErrors } from '../surface/page-errors.js';
-import type { FieldMap } from '../artifact/schema.js';
 import {
   patchTargetFromNote,
   targetKeyFromStep,
@@ -925,6 +925,24 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
           };
           const maybeCraft = mode === 'hybrid' ? craftAnswer : undefined;
 
+          // Bridge: honor imported / --field-map-id FieldMap; repair only fills gaps.
+          let seedMap: FieldMap | null = null;
+          try {
+            seedMap = loadFieldMapById(root, mapId);
+          } catch (e) {
+            seedMap = null;
+            ledger.push({
+              at: new Date().toISOString(),
+              stepId: step.id,
+              action: 'fillFormFlow',
+              ok: false,
+              detail: `seed FieldMap ${mapId} missing (${(e as Error).message}) — bootstrapping from DOM`,
+            });
+          }
+          const rawBanner = seedMap?.successBanner?.trim() || '';
+          // Ignore short banners (hostile/accidental early match); keep built-in defaults.
+          const successBanner = rawBanner.length >= 12 ? rawBanner : '';
+
           for (let pageIdx = 0; pageIdx < maxPages; pageIdx++) {
             let observed = await observeControls(page);
             if (!observed.length) {
@@ -935,12 +953,30 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               observed = await observeControls(page);
               if (!observed.length) break;
             }
-            // Always re-bootstrap from visible controls (multi-page maps must not carry stale requireds)
+            // Page-filter imported seed (perf); repair still adds gaps for uncovered controls.
+            const pageSeed = seedMap ? filterFieldMapToControls(seedMap, observed) : null;
+            if (seedMap && pageSeed && pageSeed.fields.length < seedMap.fields.length) {
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: true,
+                detail: `page ${pageIdx} seed filtered ${seedMap.fields.length}→${pageSeed.fields.length} fields`,
+              });
+            } else if (seedMap && pageSeed && pageSeed.fields.length === seedMap.fields.length && observed.length) {
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: true,
+                detail: `page ${pageIdx} seed filter kept all ${seedMap.fields.length} (match or fail-open)`,
+              });
+            }
             let repair;
             try {
               repair = await repairFieldMap({
                 page,
-                fieldMap: null,
+                fieldMap: pageSeed,
                 mapId: `${mapId}-p${pageIdx}`,
                 config,
                 profileKeys,
@@ -1044,11 +1080,14 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             allReceiptEntries.push(...fillResult.receipt);
             allFilledKeys.push(...fillResult.filled.map((k) => `p${pageIdx}:${k}`));
 
-            // Done markers — ignore hidden DOM text
-            const doneVisible = page.getByText(/Application draft complete|application received/i).filter({
+            // Done markers — custom banner exact; built-in defaults as substring regex.
+            const defaultDone = page.getByText(/Application draft complete|application received/i).filter({
               visible: true,
             });
-            if ((await doneVisible.count()) > 0) {
+            const customDone = successBanner
+              ? page.getByText(successBanner, { exact: true }).filter({ visible: true })
+              : null;
+            if ((await defaultDone.count()) > 0 || (customDone && (await customDone.count()) > 0)) {
               break;
             }
             const submitOnly = page.getByRole('button', { name: /Submit Application|^Submit$/i }).filter({
@@ -1058,10 +1097,16 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               if (opts.allowSubmit) {
                 await submitOnly.first().click({ timeout: 8_000 }).catch(() => undefined);
                 await page.waitForTimeout(800);
-                const banner = page.getByText(/application received|thank you for applying|submitted/i).filter({
-                  visible: true,
-                });
-                if ((await banner.count()) === 0) {
+                const defaultSubmit = page
+                  .getByText(/application received|thank you for applying|submitted/i)
+                  .filter({ visible: true });
+                const customSubmit = successBanner
+                  ? page.getByText(successBanner, { exact: true }).filter({ visible: true })
+                  : null;
+                if (
+                  (await defaultSubmit.count()) === 0 &&
+                  !(customSubmit && (await customSubmit.count()) > 0)
+                ) {
                   // Still treat as terminal page after click attempt.
                 }
               }
@@ -1085,7 +1130,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               try {
                 const retryRepair = await repairFieldMap({
                   page,
-                  fieldMap: null,
+                  fieldMap: workingMap,
                   mapId: `${mapId}-p${pageIdx}-retry`,
                   config,
                   profileKeys,
@@ -1131,7 +1176,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               }
             }
 
-            if ((await doneVisible.count()) > 0) {
+            if ((await defaultDone.count()) > 0 || (customDone && (await customDone.count()) > 0)) {
               break;
             }
           }

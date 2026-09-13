@@ -1,9 +1,9 @@
 # Wayfinder map — product track (tracked)
 
-**Destination:** Apply UI engine on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md` (G1–G11).
+**Destination:** Apply UI engine on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md` (G1–G12).
 
 **Operator contract:** `docs/APPLY.md`  
-**Active sprint:** none — **P0–P6 complete**. Optional follow-ups only (G2 unlock, deeper Greenhouse live polish).
+**Active sprint:** **Bridge** close-out. Must-fix + review follow-ups done; T-B-7 live Ashby blocked on URL.
 
 ## Tickets
 
@@ -23,6 +23,20 @@
 | T-P6-1 | Golden CI + HAR private | `done` | P6 |
 | T-P6-2 | Split replayCapability | `wontfix` (not blocking) | P6 |
 | T-G2-1 | Cart / non-apply author-steps | `wontfix` until unlock | G2 |
+| T-B-1 | fillFormFlow honors imported FieldMap | `done` | Bridge |
+| T-B-2 | Plan aliases + literal values + surveyPlan | `done` | Bridge |
+| T-B-3 | Nested vault profile flatten | `done` | Bridge |
+| T-B-4 | successBanner in apply done-check | `done` | Bridge |
+| T-B-5 | check:golden without rg | `done` | Bridge |
+| T-B-6 | Resume outside root (copy/.private) | `done` | Bridge |
+| T-B-7 | Live Ashby fill-only smoke | `blocked` (needs URL) | Bridge |
+| T-B-8 | Page-filter seeded FieldMap (perf + off-page) | `done` | Bridge |
+| T-B-9 | Plan CSS selector hardening + file-literal ban | `done` | Bridge |
+| T-B-10 | Preserve literal across LLM replace | `done` | Bridge |
+| T-B-11 | Golden/self-check covers bridge-alias fixture | `done` | Bridge |
+| T-B-12 | ARCHITECTURE.md Bridge section | `done` | Bridge |
+| T-B-13 | Zod PlanJson + FieldMap source union | `todo` | Bridge |
+| T-B-14 | Restrict file profilePath + profile realpath | `todo` | Bridge |
 
 ## Agent start checklist
 

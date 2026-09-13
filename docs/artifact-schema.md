@@ -216,7 +216,9 @@ Notes:
 
 ## Plan JSON → FieldMap (`cua import-plan`)
 
-Upstream planners emit plan JSON; this repo only imports:
+Upstream planners emit plan JSON; this repo only imports.
+
+Aliases: `title`→label, `isRequired`→required, Greenhouse `name`→path. Resolved non-`profile.*` `value` → FieldMap `literal`. Optional `surveyPlan[]` appends after `plan[]`. `successBanner` is stored on the FieldMap and used by apply done-check.
 
 ```json
 {
@@ -230,11 +232,12 @@ Upstream planners emit plan JSON; this repo only imports:
       "profilePath": "email",
       "required": true
     }
-  ]
+  ],
+  "surveyPlan": []
 }
 ```
 
-Targets: label / `name=` css first; UUID `#…` selectors only as rank ≥3. See `fixtures/sample-apply-plan.json`.
+Targets: label / `name=` css first; UUID `#…` selectors only as rank ≥3. See `fixtures/sample-apply-plan.json` and `fixtures/bridge-alias-plan.json`.
 
 ---
 

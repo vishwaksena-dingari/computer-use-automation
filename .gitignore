@@ -36,3 +36,5 @@ config.local.yaml
 **/storage-state*.json
 .private/**/*.json
 !fixtures/applicant-profile*.json
+# Generated import demos with plan literals (regenerate via golden / import-plan)
+capabilities/field-maps/bridge-alias-demo.json

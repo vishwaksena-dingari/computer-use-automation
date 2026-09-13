@@ -51,6 +51,8 @@ Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-
 | G9 | Reliability pack | Light frozen local fail fixtures (CAPTCHA/CLOSED) OK | Demo named outcomes without live ATS |
 | G10 | Repo voice | Tracked docs/code reference **this product only** — no other apps, no prior-art writeups, no assignment framing | Clean private product tree |
 | G11 | Hygiene | See `docs/REPO-HYGIENE.md` | Every agent keeps tip clean |
+| G12 | Plan → fill | Imported FieldMap is seed for `fillFormFlow`; repair adds gaps only | Dead plan bridge blocked workers |
+| G12a | Plan literals | FieldMap `literal` may hold resolved plan answers; treat those maps as **private** (D7 carve-out). Prefer `.private/` / gitignored outputs | Workers need plan values without baking vault into Capability |
 
 ## Explicitly out of scope (hold until new lock)
 
