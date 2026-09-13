@@ -2,6 +2,7 @@
 
 Agent pickup for product work on `main`. Tags `v0.1.0` / `v0.2.0` are frozen snapshots — do not retarget them for features.
 
+**Operator contract (flags / exit codes / live runbook):** [`docs/APPLY.md`](./APPLY.md)  
 **Locks:** `DECISIONS.md` (esp. G1–G11). **Map:** `docs/agents/map.md`. **Hygiene:** `docs/REPO-HYGIENE.md`.
 
 ## Goal (done when)

@@ -29,6 +29,8 @@ Offline escape hatch (you explicitly point at private golden — not default):
 
 ## Apply UI (`cua apply` / `import-plan`)
 
+Full reference: **`docs/APPLY.md`** (every flag, exit codes, profile fields, live checklist).
+
 ```bash
 # Optional: merge live allowlist (gitignored)
 cp config.local.example.yaml config.local.yaml
@@ -41,9 +43,8 @@ npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
 
 # Worker flags: --escalate (captcha HITL) · --submit (default off) · --storage-state <path>
 # Exit codes: 0 ok · 2 HITL/captcha · 3 closed · 4 unmapped/verify/fail
+# Resume private apply pauses: cua escalate resume --dir evidence/private/<runId>
 ```
-
-See `docs/PRODUCTIZE.md`.
 
 ## Sauce Demo (optional)
 
