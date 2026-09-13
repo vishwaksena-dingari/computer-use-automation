@@ -77,4 +77,5 @@ Unblocks workers dropping parallel UI assist: imported FieldMaps must drive fill
 - [x] T-B-13 Zod PlanJson + file/literal refine
 - [x] T-B-14 file `resumePath` + profile realpath
 - [x] T-B-15–22 review harden (merge/shadow/jail/allowlist/ext/checks/docs)
+- [x] T-B-23 career-data vault adapters (`work_authorization`, location, discipline)
 - [ ] T-B-7 live Ashby fill-only (blocked — needs URL)

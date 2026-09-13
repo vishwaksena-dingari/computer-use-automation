@@ -45,6 +45,7 @@
 | T-B-20 | Upload extension allowlist | `done` | Bridge |
 | T-B-21 | Stronger golden + shadow/file self-checks | `done` | Bridge |
 | T-B-22 | plan vs fields empty-array docs | `done` | Bridge |
+| T-B-23 | career-data vault keys in normalizeApplyProfile | `done` | Bridge |
 
 ## Agent start checklist
 

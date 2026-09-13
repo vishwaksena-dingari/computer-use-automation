@@ -53,6 +53,10 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
     hoist('full_name', 'fullName');
     hoist('fullName', 'fullName');
     hoist('name', 'fullName');
+    hoist('first_name', 'firstName');
+    hoist('firstName', 'firstName');
+    hoist('last_name', 'lastName');
+    hoist('lastName', 'lastName');
     hoist('email', 'email');
     hoist('phone', 'phone');
     hoist('phone_number', 'phone');
@@ -60,19 +64,55 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
     hoist('linkedin', 'linkedin');
     hoist('linkedin_url', 'linkedin');
     hoist('linkedinUrl', 'linkedin');
+    hoist('github_url', 'portfolio');
+    hoist('github', 'portfolio');
+    // Nested identity.location → top-level location for getProfilePath city/state/country.
+    if (out.location === undefined && id.location !== undefined) out.location = id.location;
   };
   // Nested vault hoist (identity / contact / personal / work_auth / sponsorship / answers).
   hoistIdentityAliases(out.identity);
   hoistIdentityAliases(out.contact);
   hoistIdentityAliases(out.personal);
 
-  const workAuth = out.work_auth ?? out.workAuth ?? out.workAuthorization;
+  // career-data uses work_authorization; also accept camelCase / short aliases.
+  const workAuth =
+    out.work_auth ?? out.workAuth ?? out.workAuthorization ?? out.work_authorization;
   if (typeof workAuth === 'string' && out.workAuth === undefined) out.workAuth = workAuth;
   if (workAuth && typeof workAuth === 'object' && !Array.isArray(workAuth)) {
     const wa = workAuth as Record<string, unknown>;
+    const defaults =
+      wa.form_defaults && typeof wa.form_defaults === 'object' && !Array.isArray(wa.form_defaults)
+        ? (wa.form_defaults as Record<string, unknown>)
+        : undefined;
     if (out.workAuth === undefined && wa.status !== undefined) out.workAuth = wa.status;
+    if (out.workAuth === undefined && typeof defaults?.authorized === 'string') {
+      out.workAuth = defaults.authorized;
+    }
     if (out.workAuth === undefined && wa.authorized !== undefined) {
       out.workAuth = wa.authorized ? 'Authorized' : 'Not authorized';
+    }
+    if (out.workAuth === undefined && wa.legally_authorized_to_work_in_us !== undefined) {
+      out.workAuth = wa.legally_authorized_to_work_in_us ? 'Authorized' : 'Not authorized';
+    }
+    if (out.flags === undefined || typeof out.flags !== 'object') out.flags = {};
+    const flags = out.flags as Record<string, unknown>;
+    if (flags.workAuthYes === undefined && wa.legally_authorized_to_work_in_us !== undefined) {
+      flags.workAuthYes = wa.legally_authorized_to_work_in_us ? 'yes' : 'no';
+    }
+    if (flags.workAuthYes === undefined && typeof defaults?.authorized === 'string') {
+      flags.workAuthYes = /^(yes|authorized|true|1)$/i.test(defaults.authorized.trim())
+        ? 'yes'
+        : 'no';
+    }
+    // sponsorshipNo: "yes" = does NOT need sponsorship (FieldMap invert-friendly).
+    if (flags.sponsorshipNo === undefined && wa.require_sponsorship_now_or_future !== undefined) {
+      flags.sponsorshipNo = wa.require_sponsorship_now_or_future ? 'no' : 'yes';
+    }
+    if (flags.sponsorshipNo === undefined && typeof defaults?.sponsorship === 'string') {
+      // form_defaults.sponsorship "Yes" means needs sponsorship → sponsorshipNo = no.
+      flags.sponsorshipNo = /^(yes|true|1|required|needs)/i.test(defaults.sponsorship.trim())
+        ? 'no'
+        : 'yes';
     }
   }
   const sponsorship = out.sponsorship;
@@ -118,6 +158,7 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
     hoistEdu('fieldOfStudy', 'fieldOfStudy');
     hoistEdu('field', 'fieldOfStudy');
     hoistEdu('major', 'fieldOfStudy');
+    hoistEdu('discipline', 'fieldOfStudy');
     hoistEdu('fromYear', 'eduFromYear');
     hoistEdu('startYear', 'eduFromYear');
     hoistEdu('toYear', 'eduToYear');
@@ -260,6 +301,29 @@ export function selfCheckProfileFlags(): void {
   if (contact.eduFromYear !== 2018 || contact.eduToYear !== 2022) throw new Error('education years');
   const ans = contact.answers as Record<string, unknown> | undefined;
   if (ans?.whyCompany !== 'Fit') throw new Error('identity.answers hoist');
+
+  // career-data apply-profile shape (work_authorization + identity.location + discipline).
+  const career = normalizeApplyProfile({
+    identity: {
+      full_name: 'Dana Career',
+      email: 'dana@example.com',
+      location: { city: 'City', state: 'MD', country: 'United States' },
+    },
+    work_authorization: {
+      legally_authorized_to_work_in_us: true,
+      require_sponsorship_now_or_future: true,
+      form_defaults: { authorized: 'Yes', sponsorship: 'Yes' },
+    },
+    education: [{ school: 'UMD', degree: 'MS', discipline: 'CS' }],
+  });
+  if (career.fullName !== 'Dana Career') throw new Error('career identity.full_name');
+  if (getProfilePath(career, 'city') !== 'City') throw new Error('career identity.location.city');
+  if (getProfilePath(career, 'state') !== 'MD') throw new Error('career identity.location.state');
+  if (career.workAuth !== 'Yes') throw new Error('career form_defaults.authorized→workAuth');
+  const cf = career.flags as Record<string, unknown> | undefined;
+  if (cf?.workAuthYes !== 'yes') throw new Error('career legally_authorized→workAuthYes');
+  if (cf?.sponsorshipNo !== 'no') throw new Error('career require_sponsorship→sponsorshipNo');
+  if (career.fieldOfStudy !== 'CS') throw new Error('career education.discipline');
 }
 
 if (process.argv[1]?.endsWith('profile.ts') || process.argv[1]?.endsWith('profile.js')) {
