@@ -70,6 +70,7 @@
 | T-W-13 | openApplyFormSurface: parallel/short miss path | `done` | Worker |
 | T-W-14 | Re-assert origin after Apply click | `done` | Worker |
 | T-W-15 | apply-live.sh invoke local CLI not bare npx cua | `done` | Worker |
+| T-E-1 | fillFormFlow per-page screenshot gallery | `done` | Evidence |
 
 ## Agent start checklist
 

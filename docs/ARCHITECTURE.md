@@ -437,6 +437,7 @@ flowchart TD
   fill --> keys{filledKeys length?}
   keys -->|0| fail4
   keys -->|gt 0| ok[SUCCESS exit 0]
+  fill --> shots["page-N-before/after-fill + optional 00-after-open-form"]
   fill --> cache["seed miss → .private/field-maps only"]
   ok --> sub{--submit?}
   sub -->|yes + banner| submitted[outcome submitted]
@@ -452,6 +453,7 @@ flowchart TD
 | Seed cache | Missing seed → write **`.private/field-maps/<id>.json`** only; `--write-field-map` → tracked `capabilities/field-maps/` |
 | Submit claim | `outcome: submitted` only when confirmation text/banner observed (`submitConfirmed`) |
 | Live wrapper | `apply-live.sh` → `node dist/cli/main.js`; always rewrite `resumePath` when resume copied |
+| Page gallery | `fillFormFlow` writes `00-after-open-form` + `page-{N}-before/after-fill` under `screenshots/` + `screenshots-manifest.json` |
 
 **Act-on locks (D0, 2026-09-13 reviews):** T-W-8 observe submit · T-W-9 fail-closed location · T-W-10 private seed cache · T-W-12 resume rewrite · T-W-14 origin check · T-W-15 local CLI. No tracked Maximor-specific `auto-ashby.json`.
 
