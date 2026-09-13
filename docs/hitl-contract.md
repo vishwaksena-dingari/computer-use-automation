@@ -58,6 +58,6 @@ escalate resume --run <runId> [--note "..."]
 Writes `evidence/<runId>/hitl/resume.json` with `resumedAt`, `note`, `humanActionsRecorded` (false by default; true with `--recorded` or after `--record-actions` teach apply).  
 Then `owner=automation`; next step **re-observes** live DOM (does not assume pre-pause locators still hold).
 
-## Grader UX
+## Operator UX
 
 Terminal prints pause reason + run id + screenshot path → use open headed browser → resume command → automation continues.
