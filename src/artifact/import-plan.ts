@@ -3,7 +3,7 @@
  * Planning stays outside this repo. Accepts cua-native + common ATS plan aliases.
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { resolve, relative, isAbsolute } from 'node:path';
+import { resolveUnderRoot } from '../config/paths.js';
 import {
   FieldMapSchema,
   PlanJsonSchema,
@@ -84,11 +84,21 @@ function literalFromValue(value: unknown): string | number | boolean | undefined
   return undefined;
 }
 
-/** Convert plan JSON → FieldMap (Zod fail-closed). */
+/** Convert plan JSON → FieldMap (Zod fail-closed on schema). Opaque profilePath values
+ * outside the allowlist are coerced to `_plan.<step.path>` with literals preserved (T-B-24)
+ * instead of aborting the whole import. */
 export function importPlanToFieldMap(
   raw: unknown,
   opts: { id: string; platform?: string; companyKey?: string },
 ): FieldMap {
+  return importPlanToFieldMapWithStats(raw, opts).map;
+}
+
+/** Same as {@link importPlanToFieldMap}, plus count of paths remapped by the opaque branch. */
+export function importPlanToFieldMapWithStats(
+  raw: unknown,
+  opts: { id: string; platform?: string; companyKey?: string },
+): { map: FieldMap; opaqueCoerced: number } {
   assertSafeFieldMapId(opts.id);
   const parsedPlan = PlanJsonSchema.safeParse(raw ?? {});
   if (!parsedPlan.success) {
@@ -98,6 +108,7 @@ export function importPlanToFieldMap(
   const primary = plan.plan ?? plan.fields ?? [];
   const survey = plan.surveyPlan ?? [];
   const steps = [...primary, ...survey];
+  let opaqueCoerced = 0;
   const fields: FieldMapField[] = steps.map((rawStep, i) => {
     const step = normalizePlanStep(rawStep, i);
     const kind = kindFromType(step.type);
@@ -116,6 +127,7 @@ export function importPlanToFieldMap(
     if (kind !== 'file' && isOpaqueProfilePath(profilePath, [])) {
       // T-B-24: unanswered EEO / custom keys → _plan.* (never abort whole import).
       profilePath = `_plan.${step.path}`;
+      opaqueCoerced += 1;
     }
     return {
       key: step.path.replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 64) || `field_${i}`,
@@ -139,19 +151,16 @@ export function importPlanToFieldMap(
   if (!parsed.success) {
     throw new Error(`imported field-map invalid: ${parsed.error.message}`);
   }
-  return parsed.data;
+  return { map: parsed.data, opaqueCoerced };
 }
 
-/** Write FieldMap JSON under capabilities/field-maps/. */
+/** Write FieldMap JSON under capabilities/field-maps/ (realpath jail). */
 export function writeImportedFieldMap(root: string, map: FieldMap): string {
   assertSafeFieldMapId(map.id);
-  const dir = resolve(root, 'capabilities', 'field-maps');
-  const out = resolve(dir, `${map.id}.json`);
-  const rel = relative(dir, out);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw new Error(`field-map path escapes field-maps/: ${map.id}`);
-  }
-  mkdirSync(dir, { recursive: true });
+  const out = resolveUnderRoot(root, `capabilities/field-maps/${map.id}.json`, { realpath: true });
+  mkdirSync(resolveUnderRoot(root, 'capabilities/field-maps', { realpath: true }), {
+    recursive: true,
+  });
   writeFileSync(out, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
   return out;
 }
@@ -208,18 +217,14 @@ export function selfCheckImportPlan(): void {
     opaqueCoerced = false;
   }
   if (!opaqueCoerced) throw new Error('opaque plan profilePath must coerce to _plan');
-  let stillThrows = false;
-  try {
-    // ssn without literal still gets _plan; ensure truly hostile long uuid path still works via _plan
-    importPlanToFieldMap(
-      { plan: [{ path: 'ssn', type: 'text', profilePath: 'ssn' }] },
-      { id: 'opaque-check' },
-    );
-  } catch {
-    stillThrows = true;
+  const ssnMap = importPlanToFieldMap(
+    { plan: [{ path: 'ssn', type: 'text', profilePath: 'ssn' }] },
+    { id: 'opaque-check' },
+  );
+  const ssn = ssnMap.fields.find((f) => f.key === 'ssn');
+  if (!ssn || ssn.profilePath !== '_plan.ssn') {
+    throw new Error('opaque empty path must coerce to _plan.ssn');
   }
-  // After T-B-24, bare opaque paths coerce — must not throw.
-  if (stillThrows) throw new Error('opaque empty path should coerce not throw');
   const fileForced = importPlanToFieldMap(
     { plan: [{ path: 'resume', type: 'file', profilePath: 'email', isRequired: true }] },
     { id: 'file-path-force' },

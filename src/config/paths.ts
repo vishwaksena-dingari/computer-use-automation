@@ -1,7 +1,7 @@
 /**
  * @file Resolve project root and config/env file paths.
  */
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,6 +57,15 @@ export function resolveUnderRoot(
   const abs = isAbsolute(relOrAbs) ? resolve(relOrAbs) : resolve(root, relOrAbs);
   if (opts?.realpath) {
     const rootReal = existsSync(root) ? realpathSync(root) : resolve(root);
+    // Dangling symlink leaf: existsSync is false but writeFileSync would follow — refuse.
+    try {
+      if (lstatSync(abs).isSymbolicLink() && !existsSync(abs)) {
+        throw new Error(`path must be inside project root: ${relOrAbs}`);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('path must be inside')) throw e;
+      // ENOENT — fall through to ancestor jail.
+    }
     if (existsSync(abs)) {
       const absReal = realpathSync(abs);
       const rel = relative(rootReal, absReal);
@@ -143,6 +152,13 @@ export function selfCheckPaths(): void {
     realpath: true,
   });
   if (!nested.includes('evidence')) throw new Error('write-path resolve failed');
+  let escapeThrew = false;
+  try {
+    resolveUnderRoot(root, '../outside/__write_jail_probe__/x.json', { realpath: true });
+  } catch {
+    escapeThrew = true;
+  }
+  if (!escapeThrew) throw new Error('realpath write path must refuse .. escape');
 }
 
 if (process.argv[1]?.endsWith('paths.ts') || process.argv[1]?.endsWith('paths.js')) {

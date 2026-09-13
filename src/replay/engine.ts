@@ -901,6 +901,8 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               entries: fillResult.receipt,
               filledKeys: fillResult.filled,
               unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
+              failDetail:
+                fillResult.filled.length === 0 ? 'empty fill: no fields filled' : undefined,
             }),
           );
           // T-W-11: same honesty as fillFormFlow — never SUCCESS with zero fills.
@@ -1316,6 +1318,8 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               entries: allReceiptEntries,
               filledKeys: allFilledKeys,
               unverifiedRequired: allReceiptEntries.filter((e) => !e.verified).map((e) => e.key),
+              failDetail:
+                allFilledKeys.length === 0 ? 'empty fill: no fields filled' : undefined,
             }),
           );
 
