@@ -1,0 +1,20 @@
+# Copy to config.local.yaml (gitignored) for live hosts.
+# schemaVersion: 1
+#
+# policy:
+#   allowedHosts:
+#     - 127.0.0.1
+#     - localhost
+#     - jobs.ashbyhq.com
+#     - jobs.lever.co
+#     - boards.greenhouse.io
+#     # - "*.myworkdayjobs.com"  # use concrete host; wildcards are literal strings today
+#
+# session:
+#   storageStatePath: .private/storage-state.json
+
+schemaVersion: 1
+policy:
+  allowedHosts:
+    - 127.0.0.1
+    - localhost

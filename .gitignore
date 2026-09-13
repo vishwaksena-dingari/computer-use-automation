@@ -30,3 +30,9 @@ graphify-out/
 
 # All local planning / research / scratch (never publish)
 .scratch/
+
+# Local runtime overlays / auth (never publish)
+config.local.yaml
+**/storage-state*.json
+.private/**/*.json
+!fixtures/applicant-profile*.json

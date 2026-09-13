@@ -7,7 +7,7 @@
 | `capabilities/*.json` | **Live** artifacts — written by train; used by replay |
 | `.private/golden-capabilities/` | **Human backup only** — gitignored; app does not auto-read |
 
-## Retrain — mock (graded)
+## Retrain — mock (core)
 
 ```bash
 # 1) ensure nothing stale (optional)
@@ -26,6 +26,24 @@ Offline escape hatch (you explicitly point at private golden — not default):
 ```bash
 ./scripts/train.sh --allow-offline-seed --seed .private/golden-capabilities/lookup-member-savings-balance.json
 ```
+
+## Apply UI (`cua apply` / `import-plan`)
+
+```bash
+# Optional: merge live allowlist (gitignored)
+cp config.local.example.yaml config.local.yaml
+
+npx cua import-plan --plan-json fixtures/sample-apply-plan.json --id sample-plan-demo
+
+npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
+  --profile fixtures/applicant-profile.json \
+  --field-map-id demo-co-a
+
+# Worker flags: --escalate (captcha HITL) · --submit (default off) · --storage-state <path>
+# Exit codes: 0 ok · 2 HITL/captcha · 3 closed · 4 unmapped/verify/fail
+```
+
+See `docs/PRODUCTIZE.md`.
 
 ## Sauce Demo (optional)
 

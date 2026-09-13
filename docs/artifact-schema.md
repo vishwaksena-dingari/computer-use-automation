@@ -214,6 +214,30 @@ Notes:
 
 ---
 
+## Plan JSON → FieldMap (`cua import-plan`)
+
+Upstream planners emit plan JSON; this repo only imports:
+
+```json
+{
+  "ats": "ashby",
+  "successBanner": "Application received",
+  "plan": [
+    {
+      "path": "email",
+      "type": "text",
+      "label": "Email",
+      "profilePath": "email",
+      "required": true
+    }
+  ]
+}
+```
+
+Targets: label / `name=` css first; UUID `#…` selectors only as rank ≥3. See `fixtures/sample-apply-plan.json`.
+
+---
+
 ## Replay result contract
 
 ```mermaid

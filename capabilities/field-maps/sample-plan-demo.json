@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-plan-demo",
+  "platform": "mock",
+  "fields": [
+    {
+      "key": "fullName",
+      "required": true,
+      "profilePath": "fullName",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Full name"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='fullName'], textarea[name='fullName'], select[name='fullName']"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "#fullName"
+        }
+      ]
+    },
+    {
+      "key": "email",
+      "required": true,
+      "profilePath": "email",
+      "kind": "text",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Email"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='email'], textarea[name='email'], select[name='email']"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "#email"
+        }
+      ]
+    },
+    {
+      "key": "workAuth",
+      "required": true,
+      "profilePath": "workAuth",
+      "kind": "select",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Work authorization"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='workAuth'], textarea[name='workAuth'], select[name='workAuth']"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "#workAuth"
+        }
+      ]
+    },
+    {
+      "key": "whyCompany",
+      "required": false,
+      "profilePath": "answers.whyCompany",
+      "kind": "textarea",
+      "targets": [
+        {
+          "kind": "label",
+          "rank": 1,
+          "name": "Why this company?"
+        },
+        {
+          "kind": "css",
+          "rank": 2,
+          "selector": "input[name='whyCompany'], textarea[name='whyCompany'], select[name='whyCompany']"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "#whyCompany"
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-13T00:41:03.796Z"
+}

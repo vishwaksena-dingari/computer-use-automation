@@ -1,5 +1,5 @@
 /**
- * @file Load + merge RuntimeConfig: CLI > env > config.yaml > code defaults.
+ * @file Load + merge RuntimeConfig: CLI > env > config.local.yaml > config.yaml > code defaults.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { config as loadDotenv } from 'dotenv';
@@ -7,14 +7,16 @@ import { parse as parseYaml } from 'yaml';
 import {
   CODE_DEFAULTS,
   FileConfigSchema,
+  LocalOverlaySchema,
   RuntimeConfigSchema,
   type ConfigLayer,
   type ConfigSources,
   type FileConfig,
+  type LocalOverlay,
   type RuntimeConfig,
   type Secrets,
 } from './schema.js';
-import { configYamlPath, envFilePath, findProjectRoot } from './paths.js';
+import { configLocalYamlPath, configYamlPath, envFilePath, findProjectRoot } from './paths.js';
 
 export type CliConfigOverrides = {
   provider?: string;
@@ -23,6 +25,8 @@ export type CliConfigOverrides = {
   baseUrl?: string;
   headed?: boolean;
   configPath?: string;
+  /** Playwright storageState JSON (repo-relative). */
+  storageStatePath?: string;
   maxSteps?: number;
   stepTimeoutMs?: number;
   runTimeoutMs?: number;
@@ -90,6 +94,53 @@ function applyFileLayer(
   next.evidence = { ...next.evidence, ...file.evidence };
   markTree(sources, 'evidence', 'file', file.evidence);
 
+  return next;
+}
+
+/**
+ * Merge gitignored config.local.yaml over committed config.yaml.
+ * List fields replace when present; scalars deep-merge.
+ */
+function applyLocalOverlay(
+  base: FileConfig,
+  sources: ConfigSources,
+  local: LocalOverlay,
+): FileConfig {
+  const next = deepClone(base);
+  if (local.llm) {
+    next.llm = { ...next.llm, ...local.llm };
+    markTree(sources, 'llm', 'local', local.llm);
+  }
+  if (local.target) {
+    next.target = { ...next.target, ...local.target };
+    markTree(sources, 'target', 'local', local.target);
+  }
+  if (local.policy) {
+    if (local.policy.allowedHosts) {
+      next.policy.allowedHosts = local.policy.allowedHosts;
+      setSource(sources, 'policy.allowedHosts', 'local');
+    }
+    if (local.policy.allowedActions) {
+      next.policy.allowedActions = local.policy.allowedActions;
+      setSource(sources, 'policy.allowedActions', 'local');
+    }
+    if (local.policy.riskyActions) {
+      next.policy.riskyActions = local.policy.riskyActions;
+      setSource(sources, 'policy.riskyActions', 'local');
+    }
+  }
+  if (local.limits) {
+    next.limits = { ...next.limits, ...local.limits };
+    markTree(sources, 'limits', 'local', local.limits);
+  }
+  if (local.session) {
+    next.session = { ...next.session, ...local.session };
+    markTree(sources, 'session', 'local', local.session);
+  }
+  if (local.evidence) {
+    next.evidence = { ...next.evidence, ...local.evidence };
+    markTree(sources, 'evidence', 'local', local.evidence);
+  }
   return next;
 }
 
@@ -217,6 +268,10 @@ function applyCliLayer(
     next.limits.runTimeoutMs = cli.runTimeoutMs;
     setSource(sources, 'limits.runTimeoutMs', 'cli');
   }
+  if (cli.storageStatePath) {
+    next.session.storageStatePath = cli.storageStatePath;
+    setSource(sources, 'session.storageStatePath', 'cli');
+  }
   return next;
 }
 
@@ -243,6 +298,22 @@ export function loadConfig(cli: CliConfigOverrides = {}): LoadedConfig {
       throw new Error(`Invalid config.yaml (${yamlPath}): ${detail}`);
     }
     fileCfg = applyFileLayer(fileCfg, sources, parsed.data);
+  }
+
+  // When --config points at a custom yaml, skip sibling local overlay (operator owns that file).
+  if (!cli.configPath) {
+    const localPath = configLocalYamlPath(root);
+    if (existsSync(localPath)) {
+      const raw = parseYaml(readFileSync(localPath, 'utf8'));
+      const parsed = LocalOverlaySchema.safeParse(raw);
+      if (!parsed.success) {
+        const detail = parsed.error.issues
+          .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+          .join('; ');
+        throw new Error(`Invalid config.local.yaml (${localPath}): ${detail}`);
+      }
+      fileCfg = applyLocalOverlay(fileCfg, sources, parsed.data);
+    }
   }
 
   const withEnv = applyEnvLayer(fileCfg, sources);

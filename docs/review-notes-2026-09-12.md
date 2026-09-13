@@ -20,7 +20,7 @@ Pre-commit checkpoint: uncommitted G1 work vs tag `v0.1.0`.
 |---|---|
 | F1 ignored `assertActionAllowed(fillFormFlow)` | **Fixed** — removed redundant call; step loop already gates all actions |
 | F2 password env overlay + heuristic invent | **Fixed** — overlay only when profile already declares key; heuristics map password only if profile keys include it |
-| F3–F6 host re-check / path jail / storageState / GH host | **Partial** — GH host regex anchored `(^|\.)greenhouse\.io$`; rest tracked for later |
+| F3–F6 host re-check / path jail / storageState / GH host | **Fixed** — post-navigate host re-check; `resolveUnderRoot` for storageState; GH host regex already anchored |
 
 ## Architecture ([Architecture](45158045-2e51-4db4-bec6-821bd4c0ebd9))
 

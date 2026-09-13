@@ -63,7 +63,29 @@ export const RuntimeConfigSchema = FileConfigSchema.extend({
 
 export type RuntimeConfig = z.infer<typeof RuntimeConfigSchema>;
 
-export type ConfigLayer = 'cli' | 'env' | 'file' | 'default';
+export type ConfigLayer = 'cli' | 'env' | 'file' | 'local' | 'default';
+
+/** Partial overlay for gitignored `config.local.yaml` (P1). */
+export const LocalOverlaySchema = z
+  .object({
+    schemaVersion: z.literal(1).optional(),
+    llm: FileConfigSchema.shape.llm.partial().optional(),
+    target: FileConfigSchema.shape.target.partial().optional(),
+    policy: z
+      .object({
+        allowedHosts: z.array(z.string().min(1)).min(1).optional(),
+        allowedActions: z.array(z.string().min(1)).min(1).optional(),
+        riskyActions: z.array(z.string().min(1)).optional(),
+      })
+      .strict()
+      .optional(),
+    limits: FileConfigSchema.shape.limits.partial().optional(),
+    session: FileConfigSchema.shape.session.partial().optional(),
+    evidence: FileConfigSchema.shape.evidence.partial().optional(),
+  })
+  .strict();
+
+export type LocalOverlay = z.infer<typeof LocalOverlaySchema>;
 
 /** Per-key winning layer for `config show`. */
 export type ConfigSources = Record<string, ConfigLayer>;

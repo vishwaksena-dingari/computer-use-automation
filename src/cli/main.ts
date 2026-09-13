@@ -3,17 +3,26 @@
  * @file Operator CLI entry: discover | replay | invoke | escalate | config.
  */
 import { Command } from 'commander';
-import { join, resolve, relative, isAbsolute } from 'node:path';
+import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { flattenForShow, loadConfig, validateConfig, type CliConfigOverrides } from '../config/load.js';
 import { setConfigValue } from '../config/set.js';
 import { findProjectRoot, repoRelative } from '../config/paths.js';
 import { loadCapability, sha256File, findCapabilityPathById } from '../artifact/load.js';
+import { normalizeApplyProfile } from '../artifact/profile.js';
+import {
+  importPlanToFieldMap,
+  writeImportedFieldMap,
+} from '../artifact/import-plan.js';
+import { authorAtsApplyShell } from '../discover/author-steps.js';
+import { detectAtsFamily } from '../surface/detect-ats.js';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { replayCapability } from '../replay/engine.js';
 import { discoverCapability } from '../discover/emit.js';
 import { writeResume } from '../session/hitl.js';
 import { newRunId, prepareChapter, writeJson, ensureDir } from '../evidence/store.js';
 import { configureLog, log } from '../util/log.js';
+import { workerSummaryFromReplay } from './worker-exit.js';
 
 function cliFromOpts(opts: Record<string, unknown>): CliConfigOverrides {
   return {
@@ -23,6 +32,7 @@ function cliFromOpts(opts: Record<string, unknown>): CliConfigOverrides {
     baseUrl: opts.baseUrl as string | undefined,
     headed: opts.headed as boolean | undefined,
     configPath: opts.config as string | undefined,
+    storageStatePath: opts.storageState as string | undefined,
     maxSteps: opts.maxSteps !== undefined ? Number(opts.maxSteps) : undefined,
     stepTimeoutMs: opts.stepTimeoutMs !== undefined ? Number(opts.stepTimeoutMs) : undefined,
     runTimeoutMs: opts.runTimeoutMs !== undefined ? Number(opts.runTimeoutMs) : undefined,
@@ -36,7 +46,7 @@ function loadProfileJson(root: string, profilePath: string): Record<string, unkn
   if (rel.startsWith('..') || isAbsolute(rel)) {
     throw new Error(`--profile must be inside project root: ${profilePath}`);
   }
-  return JSON.parse(readFileSync(abs, 'utf8')) as Record<string, unknown>;
+  return normalizeApplyProfile(JSON.parse(readFileSync(abs, 'utf8')) as Record<string, unknown>);
 }
 
 /**
@@ -77,7 +87,8 @@ function addGlobalConfigFlags(cmd: Command): Command {
     .option('--max-steps <n>', 'max steps')
     .option('--step-timeout-ms <n>', 'per-step timeout ms')
     .option('--run-timeout-ms <n>', 'whole-run timeout ms')
-    .option('--config <path>', 'path to config.yaml');
+    .option('--config <path>', 'path to config.yaml')
+    .option('--storage-state <path>', 'Playwright storageState JSON (repo-relative)');
 }
 
 const program = new Command();
@@ -192,6 +203,7 @@ addGlobalConfigFlags(
     .option('--har-on-failure', 'with --record-har: keep HAR only when the run fails')
     .option('--trace-on-failure', 'write evidence/<run>/trace.zip only when the run fails')
     .option('--har-content <mode>', 'omit | embed', 'omit')
+    .option('--submit', 'allow clicking Submit on apply forms (default: fill-only)')
     .action(async (artifact: string | undefined, opts) => {
       try {
         configureLog({ verbose: Boolean(opts.verbose) });
@@ -267,6 +279,7 @@ addGlobalConfigFlags(
               opts.harContent === 'embed' ? ('embed' as const) : ('omit' as const),
             harRetainOnFailure: Boolean(opts.harOnFailure),
             traceOnFailure: Boolean(opts.traceOnFailure),
+            allowSubmit: Boolean(opts.submit),
           });
 
         log('info', 'replay start', {
@@ -360,6 +373,7 @@ addGlobalConfigFlags(
     .option('--har-on-failure', 'with --record-har: keep HAR only when the run fails')
     .option('--trace-on-failure', 'write evidence/<run>/trace.zip only when the run fails')
     .option('--har-content <mode>', 'omit | embed', 'omit')
+    .option('--submit', 'allow clicking Submit on apply forms (default: fill-only)')
     .action(async (id: string, opts) => {
       try {
         configureLog({ verbose: Boolean(opts.verbose) });
@@ -425,6 +439,7 @@ addGlobalConfigFlags(
           recordHarContent: opts.harContent === 'embed' ? 'embed' : 'omit',
           harRetainOnFailure: Boolean(opts.harOnFailure),
           traceOnFailure: Boolean(opts.traceOnFailure),
+          allowSubmit: Boolean(opts.submit),
         });
 
         const agentView = {
@@ -470,6 +485,159 @@ function ensureEvidence(dir: string): void {
 }
 
 const escalate = program.command('escalate').description('HITL pause/resume helpers');
+
+addGlobalConfigFlags(
+  program
+    .command('import-plan')
+    .description('Import upstream plan JSON → FieldMap (P2)')
+    .requiredOption('--plan-json <path>', 'plan JSON path (under project root)')
+    .option('--out <path>', 'field-map output path')
+    .option('--id <id>', 'field-map id', 'imported-plan')
+    .option('--ats <family>', 'ashby|lever|greenhouse|workday|auto')
+    .action((opts) => {
+      try {
+        const root = findProjectRoot();
+        const planPath = resolve(root, opts.planJson as string);
+        const rel = relative(root, planPath);
+        if (rel.startsWith('..') || isAbsolute(rel)) {
+          throw new Error(`--plan-json must be inside project root: ${opts.planJson}`);
+        }
+        const raw = JSON.parse(readFileSync(planPath, 'utf8')) as unknown;
+        const platform =
+          opts.ats && opts.ats !== 'auto' ? String(opts.ats) : (raw as { ats?: string }).ats;
+        const map = importPlanToFieldMap(raw, { id: String(opts.id), platform });
+        const out =
+          (opts.out as string | undefined) ??
+          writeImportedFieldMap(root, map);
+        if (opts.out) {
+          mkdirSync(dirname(resolve(root, opts.out)), { recursive: true });
+          writeFileSync(resolve(root, opts.out), `${JSON.stringify(map, null, 2)}\n`, 'utf8');
+        }
+        console.log(
+          JSON.stringify(
+            { ok: true, fieldMapId: map.id, out: repoRelative(root, resolve(root, out)), fields: map.fields.length },
+            null,
+            2,
+          ),
+        );
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exitCode = 1;
+      }
+    }),
+);
+
+addGlobalConfigFlags(
+  program
+    .command('apply')
+    .description('Worker apply: navigate URL → fillFormFlow (optional plan import); Submit only with --submit')
+    .requiredOption('--url <url>', 'apply form URL')
+    .option('--ats <family>', 'auto|ashby|lever|greenhouse|workday', 'auto')
+    .option('--profile <path>', 'applicant profile JSON')
+    .option('--plan-json <path>', 'optional upstream plan → FieldMap')
+    .option('--field-map-id <id>', 'existing field-map id (default: from plan or auto-<ats>)')
+    .option('--mode <mode>', 'deterministic | hybrid', 'deterministic')
+    .option('--company-context <text>', 'optional company blurb for hybrid craft')
+    .option('--escalate', 'pause same session on captcha/policy/stuck')
+    .option('--submit', 'click Submit when visible (default off)')
+    .option('--evidence <dir>', 'evidence directory')
+    .option('--write-field-map', 'persist repaired field-map')
+    .option('--form-repair-max <n>', 'dormant stuck repair loop (1–5)', '3')
+    .option('--record-har', 'write network.har')
+    .option('--har-on-failure', 'keep HAR only on failure')
+    .option('--trace-on-failure', 'keep trace.zip only on failure')
+    .action(async (opts) => {
+      try {
+        configureLog({ verbose: Boolean(opts.verbose) });
+        const url = String(opts.url);
+        let parsedUrl: URL;
+        try {
+          parsedUrl = new URL(url);
+        } catch {
+          throw new Error(`invalid --url: ${url}`);
+        }
+        const loaded = loadConfig({
+          ...cliFromOpts(opts),
+          baseUrl: parsedUrl.origin,
+        });
+        // entryPath must include path+search for navigate
+        loaded.config.target.entryPath = `${parsedUrl.pathname}${parsedUrl.search}` || '/';
+        loaded.config.target.baseUrl = parsedUrl.origin;
+        const errs = validateConfig(loaded);
+        if (errs.length) {
+          for (const e of errs) console.error(`error: ${e}`);
+          process.exitCode = 1;
+          return;
+        }
+        const root = loaded.root;
+        const family =
+          opts.ats && opts.ats !== 'auto'
+            ? String(opts.ats)
+            : detectAtsFamily(url);
+        let mapId = opts.fieldMapId as string | undefined;
+        if (opts.planJson) {
+          const planPath = resolve(root, opts.planJson as string);
+          const rel = relative(root, planPath);
+          if (rel.startsWith('..') || isAbsolute(rel)) {
+            throw new Error(`--plan-json must be inside project root`);
+          }
+          const raw = JSON.parse(readFileSync(planPath, 'utf8')) as unknown;
+          mapId = mapId ?? `imported-${family}`;
+          const map = importPlanToFieldMap(raw, { id: mapId, platform: family });
+          writeImportedFieldMap(root, map);
+        }
+        mapId = mapId ?? `auto-${family}`;
+        const capability = authorAtsApplyShell({
+          goal: `Apply via ${url}`,
+          mapId,
+          family,
+        });
+        const capDir = join(root, 'capabilities', 'experiments');
+        mkdirSync(capDir, { recursive: true });
+        const capPath = join(capDir, `${capability.id}.json`);
+        writeFileSync(capPath, `${JSON.stringify(capability, null, 2)}\n`, 'utf8');
+
+        let profile: Record<string, unknown> | undefined;
+        if (opts.profile) {
+          profile = applyAtsEnvOverrides(loadProfileJson(root, opts.profile as string));
+        }
+        const runId = newRunId('apply');
+        const evidenceDir =
+          opts.evidence ?? join(root, 'evidence', 'private', runId);
+        ensureEvidence(evidenceDir);
+        ensureDir(join(root, 'evidence', 'private'));
+
+        const result = await replayCapability({
+          capability,
+          config: loaded.config,
+          root,
+          params: {},
+          runId,
+          evidenceDir,
+          headed: Boolean(opts.headed || opts.escalate),
+          escalateOnPolicy: Boolean(opts.escalate),
+          profile,
+          mode: parseFillMode(String(opts.mode ?? 'deterministic')),
+          companyContext: opts.companyContext as string | undefined,
+          writeFieldMap: Boolean(opts.writeFieldMap),
+          formRepairMax: parseFormRepairMax(opts.formRepairMax),
+          recordHarPath: opts.recordHar ? join(evidenceDir, 'network.har') : undefined,
+          harRetainOnFailure: Boolean(opts.harOnFailure),
+          traceOnFailure: Boolean(opts.traceOnFailure),
+          allowSubmit: Boolean(opts.submit),
+        });
+        writeJson(join(evidenceDir, 'result.json'), result);
+        const summary = workerSummaryFromReplay(result, { submitted: Boolean(opts.submit) && result.ok });
+        writeJson(join(evidenceDir, 'worker.json'), summary);
+        console.log(JSON.stringify(summary, null, 2));
+        process.exitCode = summary.exitCode;
+      } catch (e) {
+        log('error', (e as Error).message);
+        console.error((e as Error).message);
+        process.exitCode = 4;
+      }
+    }),
+);
 
 escalate
   .command('resume')

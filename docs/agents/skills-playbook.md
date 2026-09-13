@@ -5,7 +5,7 @@ Universal routers: `agent-os/PLAYBOOK.md`. PRD intake: `agent-os/FROM-PRD.md`. I
 
 `CLAUDE.md` points here for **project** phase/sprint detail. Prefer this overlay + agent-os over inventing a new process.
 
-Read with: `DECISIONS.md`, `docs/ARCHITECTURE.md`, wayfinder map under `.scratch/computer-use-automation/`.
+Read with: `DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCTIZE.md`, tracked map `docs/agents/map.md`.
 
 ---
 
@@ -24,7 +24,7 @@ Read with: `DECISIONS.md`, `docs/ARCHITECTURE.md`, wayfinder map under `.scratch
 
 | Phase | Goal | Use these | Do not use |
 |---|---|---|---|
-| **0 Orient** | Understand brief / repo | Read `DECISIONS.md`, `CONTEXT.md`, this file | Implementing features |
+| **0 Orient** | Understand repo + product track | Read `DECISIONS.md`, `CONTEXT.md`, `docs/PRODUCTIZE.md`, this file | Implementing features |
 | **1 Decide** | Lock open questions | **wayfinder**, **grilling** / **grill-me**, **domain-modeling**, **llm-council** (expensive forks only) | Coding, gstack, Graft |
 | **2 Design** | Surfaces + contracts | Update `docs/ARCHITECTURE.md` + linked docs; **archify** only if diagrams need a dedicated pass | Product UI frameworks |
 | **3 Build** | Vertical slice | **Implementation routing** + **ponytail** (`full`); Matt **implement** / **tdd**; **pstack** `/how` for gnarly modules | Breadth features; review-everything-after-every-task |
@@ -87,7 +87,7 @@ Read with: `DECISIONS.md`, `docs/ARCHITECTURE.md`, wayfinder map under `.scratch
 |---|---|
 | **graphify** (`/graphify`) | After substantial `src/` exists; map modules ↔ docs |
 | **Graft** | Not default — only if user asks or context thrash is bad |
-| **gstack** | Not default — optional `/qa` `/review` before email submit |
+| **gstack** | Not default — optional `/qa` `/review` before a milestone review |
 
 ### Explicitly out of band for this project core
 
@@ -158,17 +158,19 @@ Use outcome names tied to the vertical slice. Default sequence for this project:
 
 | Sprint id | Name | Done when |
 |---|---|---|
-| S1 | **Scaffold-CLI-and-Runtime-Config** | `cua` runs; config show/validate/set; Ollama switchable |
-| S2 | **Hostile-Mock-Core-Surface** | Local bank-ish UI; M-10042 / M-99999 paths |
-| S3 | **Capability-Artifact-Contract** | Zod (or locked validator) + sample capability JSON |
-| S4 | **Deterministic-Replay-Engine** | Happy replay + one `BUSINESS_OUTCOME`; no LLM |
-| S5 | **LLM-Discovery-Emission** | NL goal → artifact via default Ollama |
-| S6 | **Same-Session-HITL-Escalation** | Pause/resume same Playwright session |
-| S7 | **Evidence-Chapters-and-REPORT** | `/evidence/` chapters + `REPORT.md` |
-| S8 | **Stretch-Tenant-Variant-Overrides** *(only if S1–S7 solid)* | Second mock “tenant” skin + capability `bindings` override demo |
-| S9 | **Stretch-Callable-Capability-Invoke** *(optional, after S8 or instead if time)* | `cua invoke <id>` / tiny tool surface — one typed call |
+| S1–S9 | **Core slice (done)** | See git tags `v0.1.0` / `v0.2.0` — do not reopen for product work |
+| P0 | **Hygiene** | Ignore rules + PRODUCTIZE/map current |
+| P1 | **Live-Hosts-and-Profile** | `config.local.yaml` merge + profile/storageState; **ACTIVE** |
+| P2 | **Import-Plan-to-FieldMap** | `cua import-plan` + fill shell |
+| P3 | **Captcha-Submit-Ladder** | escalate + `--submit` + exit codes |
+| P5 | **Apply-CLI** | `cua apply` one-liner |
+| P4 | **Harden-Selectors** | Rank-1 name/label; sniff after navigate |
+| R | **Reliability-Fixtures** | Local CAPTCHA/CLOSED fixtures |
+| H | **Hardening-Hour** | ≤1h leftovers |
+| P6 | **Maintain** | Split/CI only after P5 |
+| G2 | **Non-apply author-steps** | Parked (DECISIONS G8) |
 
-Tasks inside a sprint = checklist items toward that “Done when.” Subtasks = tiny steps (file, test, doc touch). **Do not** invent a second taxonomy (epics/stories/OKRs).
+Full checklists: `docs/PRODUCTIZE.md`. Tickets: `docs/agents/map.md`. Tasks = checklist under the sprint. **Do not** invent epics/OKRs.
 
 ### Implementation intensity (per task / sprint)
 
@@ -178,7 +180,7 @@ Tasks inside a sprint = checklist items toward that “Done when.” Subtasks = 
 | **I1 Task close** | Normal task inside sprint | ponytail → implement → **self-check** (run it / one assert) → update map checkbox |
 | **I2 Risky task** | Schema, replay classifier, secrets, allowlist | I1 + **ponytail-review** (or Matt tdd on pure calc) |
 | **I3 Sprint close** | Sprint “Done when” met | **Retarget:** wayfinder map refresh (open fog? cut scope?) + thin evidence note; **human** if path should change |
-| **I4 Slice / submit** | Vertical slice done or pre-email | multi-lens-review **or** critic + optional gstack `/review`; **not** all three stacked |
+| **I4 Slice / release** | Milestone (e.g. after P5) | multi-lens-review **or** critic + optional gstack `/review`; **not** all three stacked |
 
 ```mermaid
 flowchart TD

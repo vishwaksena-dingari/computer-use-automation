@@ -331,7 +331,7 @@ flowchart TD
 
 ## 10c. G1 hybrid forms (post-`v0.1.0` — locked E6)
 
-Additive. Does **not** replace §3 graded flow.
+Additive. Does **not** replace §3 core mock flow.
 
 ```mermaid
 flowchart TD
@@ -370,7 +370,7 @@ flowchart TD
 | Self-sufficiency | Dynamic shell + dormant repair/craft — capability factory, not always-on agent |
 | `--escalate` (dormant HITL) | **Needed as last resort** (MFA, captcha, judgment, secrets). Off by default; with `--escalate`, pause after repair budget exhausted / policy block. Captcha/closed page text → `form.CAPTCHA` / `form.CLOSED`. Not every run. |
 | Form outcome codes | `field.UNMAPPED` (missing required), `field.VERIFY`, `form.WIDGET`, `form.CAPTCHA`, `form.CLOSED` — same D3 outcome enum as bank mock |
-| Demo | `npm run demo:reviewer` (graded + Co A/B/C); Co A/B deterministic; Co C stale+extra hybrid |
+| Demo | `npm run demo:reviewer` (core mock + Co A/B/C); Co A/B deterministic; Co C stale+extra hybrid |
 | Templates | Optional `template` field — `docs/templates.md` |
 
 Queue: `.scratch/capability-factory-general/ROADMAP.md`.
@@ -400,3 +400,18 @@ When you add or change a module:
 1. Update this file (or add `docs/<module>.md` with Mermaid).
 2. Add/adjust the file module docstring and public function docstrings in code.
 3. Keep names identical across diagram labels, file paths, and symbols.
+
+## Product track (Apply UI)
+
+See `docs/PRODUCTIZE.md` and `docs/agents/map.md`. Shipped on `main`:
+
+| Surface | Module / CLI |
+|---|---|
+| Config overlay | `config.local.yaml` → `loadConfig` layer `local` |
+| Profile | `normalizeApplyProfile` + `--storage-state` |
+| Import plan | `cua import-plan` → `src/artifact/import-plan.ts` |
+| Worker apply | `cua apply` + `worker-exit` codes |
+| Golden CI | `npm run check:golden` |
+| HAR | Kept only under `evidence/private/` (or `CUA_ALLOW_PUBLIC_HAR=1`) |
+
+Core mock + G1 forms remain frozen at tags `v0.1.0` / `v0.2.0`.

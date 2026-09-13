@@ -25,4 +25,29 @@ try {
 }
 assert.equal(threw, true);
 
+// Local overlay file (if present) must not break validate; example path is documented only.
+import { writeFileSync, unlinkSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { findProjectRoot } from './paths.js';
+const root = findProjectRoot();
+const localPath = join(root, 'config.local.yaml');
+const hadLocal = existsSync(localPath);
+if (!hadLocal) {
+  writeFileSync(
+    localPath,
+    `schemaVersion: 1\npolicy:\n  allowedHosts:\n    - 127.0.0.1\n    - localhost\n    - jobs.ashbyhq.com\n`,
+    'utf8',
+  );
+}
+try {
+  const withLocal = loadConfig();
+  assert.ok(withLocal.config.policy.allowedHosts.includes('127.0.0.1'));
+  if (!hadLocal) {
+    assert.equal(withLocal.sources['policy.allowedHosts'], 'local');
+    assert.ok(withLocal.config.policy.allowedHosts.includes('jobs.ashbyhq.com'));
+  }
+} finally {
+  if (!hadLocal && existsSync(localPath)) unlinkSync(localPath);
+}
+
 console.log('config self-check ok');

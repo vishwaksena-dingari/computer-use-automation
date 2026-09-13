@@ -12,7 +12,7 @@ Mock must be up (`npm run mock` or `ensure-mock`). Runs **only** Co A + Co B + C
 | Second tenant mock | `capabilities/apply-demo-co-b.json` | `evidence/g1-co-b-receipt/` |
 | Stale/drift mock | `capabilities/apply-demo-co-c.json` (`--mode hybrid --form-repair-max 3`) | `evidence/g1-co-c-autonomy-reprove/` |
 
-`npm run demo:reviewer` = graded member-lookup happy+exception **plus** the three rows above.
+`npm run demo:reviewer` = core member-lookup happy+exception **plus** the three rows above.
 
 ## Broader pack (separate commands — not inside `demo:g1`)
 

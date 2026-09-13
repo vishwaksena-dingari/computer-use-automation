@@ -3,7 +3,8 @@
 Capability factory: **discover once (LLM) → versioned artifact → deterministic Playwright replay (no LLM)** against a local hostile bank-ish mock.
 
 **Core path:** member-lookup mock — `train` / `run` / evidence `01–03`.  
-**Forms stretch:** G1 apply demos — `npm run demo:g1` / `demo:reviewer`.
+**Forms stretch:** G1 apply demos — `npm run demo:g1` / `demo:reviewer`.  
+**Product track:** `cua apply` / `import-plan` — see `docs/PRODUCTIZE.md`.
 
 ## Quick start (host)
 
@@ -16,10 +17,17 @@ npm run mock                # terminal 1 — http://127.0.0.1:4173/member-lookup
 ./scripts/run.sh M-99999    # not-found → evidence/03-replay-exception
 ./scripts/run.sh M-10042 --headed   # watch Chromium
 
+# Apply UI (fill-only; evidence under evidence/private/):
+npx cua import-plan --plan-json fixtures/sample-apply-plan.json --id sample-plan-demo
+npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
+  --profile fixtures/applicant-profile.json --field-map-id demo-co-a
+# Live hosts: copy config.local.example.yaml → config.local.yaml (gitignored)
+# Optional: --escalate --submit --storage-state .private/storage-state.json
+
 # Stretch: Tenant Beta skin + bindings overlay (same capability)
 ./scripts/demo-tenant-beta.sh
 
-# Reviewer one-shot: graded happy+exception + G1 Co A/B/C (local mock only)
+# One-shot: core mock happy+exception + G1 Co A/B/C (local mock only)
 npm run demo:reviewer
 
 # G1 local forms only (Co A, Co B, Co C hybrid repair — not live ATS):
@@ -49,7 +57,7 @@ npx cua replay capabilities/apply-demo-co-a.json \
   --trace-on-failure \
   --evidence evidence/g1-co-a-receipt
 
-# G2 stretch: LLM authors steps (writes experiments/; does not touch graded cap)
+# G2 stretch: LLM authors steps (writes experiments/; does not touch core capability)
 # npx cua discover --author-steps --goal "Look up member savings balance" \
 #   --out capabilities/experiments/authored-capability.json
 
@@ -62,7 +70,7 @@ npx cua replay capabilities/apply-demo-co-a.json \
 #   cua replay … --escalate --hitl-locator-patch
 #   cua replay … --escalate --record-actions
 
-# Optional retarget experiment (Sauce Demo) — not the graded mock-core slice:
+# Optional retarget experiment (Sauce Demo) — not the core mock-core slice:
 #   ./scripts/try-sauce.sh
 #   ./scripts/try-sauce.sh --bad-login
 #   ./scripts/try-sauce.sh --headed
@@ -84,7 +92,7 @@ docker compose run --rm cua            # discover + happy + exception against co
 
 ## Docs
 
-- `REPORT.md` — design write-up (graded + §8 G1 stretch)  
+- `REPORT.md` — design write-up (core mock + §8 G1 stretch)  
 - `DECISIONS.md` — locked choices (E6–E9 form policy)  
 - `docs/ARCHITECTURE.md` — map; **§10c** = G1 hybrid forms  
 - `docs/golden-forms.md` — local vs live regression pack  

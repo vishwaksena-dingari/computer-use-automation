@@ -49,3 +49,15 @@ Who currently controls the live browser context: automation or human. Pause → 
 ## Allowlist
 
 Configurable set of permitted hosts and action types. Actions outside it are blocked or escalated.
+
+## FieldMap
+
+Versioned mapping from apply-form controls to profile paths or literals. Kept separate from Capability so profiles stay out of shareable artifacts.
+
+## Apply profile
+
+Operator-supplied JSON (via `--profile`) with applicant fields. Never embedded in Capability JSON.
+
+## Plan JSON
+
+Optional upstream planner output imported into a FieldMap. Planning itself is out of this repo; only the import contract lives here.

@@ -1,6 +1,6 @@
 # Evidence layout (LOCKED v1)
 
-**Status:** Locked via [Lock evidence directory layout](../.scratch/computer-use-automation/issues/07-lock-evidence-layout.md) after council.
+**Status:** Locked for core demo chapters + private apply runs.
 
 ## Demo evidence bag (committed)
 
@@ -25,6 +25,7 @@ evidence/
     screenshots/
       terminal.png     # required richer signal
   README.md            # one-paragraph map of the bag
+  private/             # gitignored — live apply / HAR (never commit)
 ```
 
 Capability canonical file lives in `capabilities/`; each manifest stores **path + sha256** (and `01-discovery` may also keep a copy `capability.snapshot.json` for a self-contained bag).
@@ -44,14 +45,25 @@ evidence/runs/<runId>/
   events.jsonl
   hitl/   # intervention.json, resume.json when used
   screenshots/
+
+evidence/private/<runId>/   # cua apply default; gitignored
+  result.json
+  worker.json
+  network.har               # only if --record-har and path under private/
 ```
+
+## HAR / trace
+
+- Default: no HAR. Opt-in `--record-har` / `--har-on-failure` / `--trace-on-failure`.
+- **P6:** HAR files outside `evidence/private/` are deleted after the run unless `CUA_ALLOW_PUBLIC_HAR=1`.
+- Prefer `--har-on-failure` so happy paths never keep network dumps.
 
 ## Redaction
 
 - No raw API keys, passwords, or `sensitive: true` values on disk  
 - Redacted placeholders in logs; `redaction.json` lists scrubbed field names  
-- Replay manifests must show `llmCalls: 0` for graded happy/exception chapters (opt-in `--hitl-locator-patch` / `--auto-retrain` may raise the count on experimental runs)
+- Replay manifests must show `llmCalls: 0` for core happy/exception chapters (opt-in `--hitl-locator-patch` / `--auto-retrain` may raise the count on experimental runs)
 
 ## Cuts
 
-No required screen recording. No DOM dump in the graded bag. HITL proof can live under live `runs/` plus REPORT; optional `hitl/` folder inside a chapter if a demo run used escalation.
+No required screen recording. No DOM dump in the core bag. HITL proof can live under live `runs/` plus REPORT; optional `hitl/` folder inside a chapter if a demo run used escalation.

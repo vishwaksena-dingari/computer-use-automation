@@ -15,15 +15,16 @@
     "setup": "bash scripts/setup.sh",
     "train": "bash scripts/train.sh",
     "run:workflow": "bash scripts/run.sh",
-    "check:config": "tsc && node dist/cli/main.js config validate && node dist/config/self-check.js",
+    "check:config": "tsc && node dist/cli/main.js config validate && node dist/config/self-check.js && node dist/config/paths.js",
     "check:artifact": "tsc && node dist/artifact/self-check.js",
     "check:session": "tsc && node dist/session/self-check.js",
-    "check:forms": "tsc && node dist/artifact/fill-receipt.js && node dist/artifact/form-outcomes.js && node dist/artifact/profile.js && node dist/surface/detect-ats.js && node dist/surface/greenhouse-boards.js && node dist/artifact/repair-field-map.js",
+    "check:forms": "tsc && node dist/artifact/fill-receipt.js && node dist/artifact/form-outcomes.js && node dist/artifact/profile.js && node dist/artifact/import-plan.js && node dist/cli/worker-exit.js && node dist/surface/detect-ats.js && node dist/surface/greenhouse-boards.js && node dist/artifact/repair-field-map.js",
     "check:mock": "node scripts/check-mock.mjs",
     "check": "npm run check:config && npm run check:mock && npm run check:artifact && npm run check:session && npm run check:forms",
     "demo:slice": "npm run build && node scripts/demo-slice.mjs",
     "demo:g1": "bash scripts/demo-g1-forms.sh",
-    "demo:reviewer": "bash scripts/demo-reviewer.sh"
+    "demo:reviewer": "bash scripts/demo-reviewer.sh",
+    "check:golden": "bash scripts/ci-golden.sh"
   },
   "engines": {
     "node": ">=20"
