@@ -40,7 +40,7 @@ export function classifyFillBlocker(detail: string): FillBlocker | null {
   if (/no longer accepting|position (is )?closed|job closed|404|not accepting applications/.test(d))
     return 'closed';
   if (/multiselect failed|select failed|combobox|react-select|widget/.test(d)) return 'widget';
-  if (/missing required profile|required profile path empty|required field (not visible|locator)/.test(d))
+  if (/missing required profile|required profile path empty|required field (not visible|locator)|empty fill/.test(d))
     return 'missing_required';
   if (/verify failed|verify mismatch/.test(d)) return 'verify';
   return null;
@@ -179,6 +179,9 @@ export function selfCheckFillReceipt(): void {
   }
   if (classifyFillBlocker('missing required profile paths: phone') !== 'missing_required') {
     throw new Error('blocker missing_required');
+  }
+  if (classifyFillBlocker('empty fill: no fields filled') !== 'missing_required') {
+    throw new Error('blocker empty fill');
   }
   if (classifyFillBlocker('verify failed for location') !== 'verify') {
     throw new Error('blocker verify');

@@ -50,7 +50,11 @@
 | T-B-25 | `--out` write jail realpath ancestor | `done` | Harden |
 | T-B-26 | `copy-vault-private.sh` rewrite resumePath | `done` | Harden |
 | T-B-27 | Pass-2 never drop required:true | `done` | Harden |
+| T-B-27b | Drop colliding plan literal when required shares selector | `done` | Harden |
 | T-B-28 | workAuth Yes→Authorized vocab | `done` | Harden |
+| T-B-28b | Don’t infer sponsorshipNo from bare Authorized/Yes | `done` | Harden |
+| T-B-29 | Jail `discover --out` via resolveUnderRoot realpath | `done` | Harden |
+| T-B-30 | Jail CLI `--evidence` paths via resolveUnderRoot | `done` | Harden |
 | T-W-1 | Location object → display string | `done` | Worker |
 | T-W-2 | Refuse SUCCESS when filledKeys empty | `done` | Worker |
 | T-W-3 | Overview → Application / Apply click | `done` | Worker |

@@ -14,7 +14,8 @@ function readPath(profile: Record<string, unknown>, path: string): unknown {
 
 /**
  * Normalize vault-shaped / alias keys into the apply-profile shape used by FieldMaps.
- * Does not invent values — only renames/aliases.
+ * Renames/aliases nested vault bags; also maps bare workAuth Yes/No/true/false/0/1 into
+ * Authorized / Not authorized vocabulary (T-B-28). Does not invent other values.
  */
 export function normalizeApplyProfile(raw: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...raw };
@@ -85,14 +86,15 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
         ? (wa.form_defaults as Record<string, unknown>)
         : undefined;
     if (out.workAuth === undefined && wa.status !== undefined) out.workAuth = wa.status;
-    if (out.workAuth === undefined && typeof defaults?.authorized === 'string') {
-      out.workAuth = defaults.authorized;
-    }
+    // Prefer structured booleans over form_defaults strings (hostile string can disagree).
     if (out.workAuth === undefined && wa.authorized !== undefined) {
-      out.workAuth = wa.authorized ? 'Authorized' : 'Not authorized';
+      out.workAuth = wa.authorized === true ? 'Authorized' : 'Not authorized';
     }
     if (out.workAuth === undefined && wa.legally_authorized_to_work_in_us !== undefined) {
-      out.workAuth = wa.legally_authorized_to_work_in_us ? 'Authorized' : 'Not authorized';
+      out.workAuth = wa.legally_authorized_to_work_in_us === true ? 'Authorized' : 'Not authorized';
+    }
+    if (out.workAuth === undefined && typeof defaults?.authorized === 'string') {
+      out.workAuth = defaults.authorized;
     }
     if (out.flags === undefined || typeof out.flags !== 'object') out.flags = {};
     const flags = out.flags as Record<string, unknown>;
@@ -116,6 +118,9 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
     }
   }
   // T-B-28: vault form_defaults often say "Yes" — FieldMaps expect Authorized vocabulary.
+  if (typeof out.workAuth === 'boolean') {
+    out.workAuth = out.workAuth ? 'Authorized' : 'Not authorized';
+  }
   if (typeof out.workAuth === 'string') {
     const t = out.workAuth.trim();
     if (/^(yes|true|1)$/i.test(t)) out.workAuth = 'Authorized';
@@ -174,7 +179,12 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
   return out;
 }
 
-/** True when path is not a known apply-profile key (LLM / plan allowlist). */
+/**
+ * True when path is not a known apply-profile key (LLM / plan allowlist).
+ * Call sites differ on empty `profileKeys`:
+ * - Import passes `[]` → anything off the static regex is opaque (then coerced to `_plan.*`).
+ * - Repair skips the check when `profileKeys` is empty (no live profile yet) — do not unify casually.
+ */
 export function isOpaqueProfilePath(path: string, profileKeys: string[]): boolean {
   if (profileKeys.includes(path)) return false;
   if (path.startsWith('answers.') || path.startsWith('flags.') || path.startsWith('_plan.'))
@@ -269,7 +279,11 @@ export function getProfilePath(profile: Record<string, unknown>, path: string): 
     const w = readPath(profile, 'workAuth');
     if (typeof w === 'string' && w.trim()) {
       if (/needs sponsorship|require(s)? sponsorship/i.test(w)) return 'no';
-      if (/authorized|citizen|yes|no sponsorship|does not need/i.test(w)) return 'yes';
+      // T-B-28b: only explicit anti-sponsorship phrases — bare Authorized/Yes must not imply
+      // sponsorshipNo (vault should set flags from sponsorship / form_defaults.sponsorship).
+      if (/no sponsorship|does not need|without sponsorship|not require(d)? sponsorship/i.test(w)) {
+        return 'yes';
+      }
     }
   }
   return direct;
@@ -324,6 +338,18 @@ export function selfCheckProfileFlags(): void {
   if (vault.workAuth !== 'Authorized') throw new Error('vault work_auth');
   const yesAuth = normalizeApplyProfile({ workAuth: 'Yes' });
   if (yesAuth.workAuth !== 'Authorized') throw new Error('Yes→Authorized');
+  if (getProfilePath(yesAuth, 'flags.sponsorshipNo') !== undefined) {
+    throw new Error('bare Yes must not infer sponsorshipNo');
+  }
+  const noAuth = normalizeApplyProfile({ workAuth: 'No' });
+  if (noAuth.workAuth !== 'Not authorized') throw new Error('No→Not authorized');
+  const boolAuth = normalizeApplyProfile({ workAuth: true });
+  if (boolAuth.workAuth !== 'Authorized') throw new Error('boolean true→Authorized');
+  const boolWins = normalizeApplyProfile({
+    work_authorization: { authorized: false, form_defaults: { authorized: 'Yes' } },
+  });
+  if (boolWins.workAuth !== 'Not authorized') throw new Error('boolean authorized must beat form_defaults');
+  if (isOpaqueProfilePath('region', [])) throw new Error('region must be allowlisted');
   const flags = vault.flags as Record<string, unknown> | undefined;
   if (flags?.sponsorshipNo !== 'yes') throw new Error('vault sponsorship.required→sponsorshipNo');
 

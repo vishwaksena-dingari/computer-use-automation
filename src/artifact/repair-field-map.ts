@@ -15,8 +15,9 @@ import { observeControls, type ControlHint } from '../surface/observe-controls.j
 import { enrichControlsFromGreenhouseApi } from '../surface/greenhouse-boards.js';
 import type { AtsFamily } from '../surface/detect-ats.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve, relative, isAbsolute } from 'node:path';
+import { join, resolve } from 'node:path';
 import { isOpaqueProfilePath } from './profile.js';
+import { resolveUnderRoot } from '../config/paths.js';
 
 const SYSTEM = `You repair application form field-maps. Reply with JSON only:
 {"fields":[{"key":"...","required":true,"profilePath":"...","kind":"text|textarea|select|checkbox|radio|file","targets":[{"kind":"label"|"css"|"role"|"placeholder",...}],"craft":"llm"?}]}
@@ -416,8 +417,10 @@ function fieldHasLiteral(f: FieldMap['fields'][number]): boolean {
 /**
  * Drop stale map rows that steal another field's DOM node (e.g. sponsorship → #workAuth on Co C).
  * Heuristic owner of #id / name wins. Plan literals may win over *optional* owners (survey),
- * but never over required heuristic owners (hostile/stale plan). Then non-literal rivals
- * sharing a kept literal's CSS selectors are dropped (G12a).
+ * but never over required heuristic owners (hostile/stale plan). Then non-literal optional rivals
+ * sharing a kept literal's CSS selectors are dropped (G12a). Required:true map rows are never
+ * dropped in that pass (T-B-27); when they share a selector with a plan literal, the literal
+ * is dropped instead so fill last-wins cannot overwrite the required profile value (T-B-27b).
  * ponytail: only css targets participate in ownership — label/role collisions are not detected;
  * upgrade: build owner map from resolved locators if that bites.
  */
@@ -471,6 +474,25 @@ export function dropShadowedFields(
       if (f.required) return true;
       for (const t of f.targets) {
         if (t.kind === 'css' && t.selector && literalSelectors.has(t.selector)) return false;
+      }
+      return true;
+    });
+  }
+  // T-B-27b: required non-literal beats colliding plan literal (avoids last-wins overwrite).
+  // Keep required literals (answered required select) — only drop optional colliding literals.
+  const requiredSelectors = new Set<string>();
+  for (const f of fields) {
+    if (fieldHasLiteral(f) || !f.required) continue;
+    for (const t of f.targets) {
+      if (t.kind === 'css' && t.selector) requiredSelectors.add(t.selector);
+    }
+  }
+  if (requiredSelectors.size) {
+    fields = fields.filter((f) => {
+      if (!fieldHasLiteral(f)) return true;
+      if (f.required) return true;
+      for (const t of f.targets) {
+        if (t.kind === 'css' && t.selector && requiredSelectors.has(t.selector)) return false;
       }
       return true;
     });
@@ -1084,12 +1106,10 @@ export function writeFieldMapById(root: string, map: FieldMap): string {
   if (!/^[A-Za-z0-9._-]+$/.test(map.id)) {
     throw new Error(`invalid field-map id: ${map.id}`);
   }
-  const dir = resolve(root, 'capabilities', 'field-maps');
-  const path = resolve(dir, `${map.id}.json`);
-  const rel = relative(root, path);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw new Error(`field-map path escapes root: ${map.id}`);
-  }
+  mkdirSync(resolveUnderRoot(root, 'capabilities/field-maps', { realpath: true }), {
+    recursive: true,
+  });
+  const path = resolveUnderRoot(root, `capabilities/field-maps/${map.id}.json`, { realpath: true });
   writeFileSync(path, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
   return path;
 }
@@ -1101,13 +1121,8 @@ export function writePrivateFieldMapById(root: string, map: FieldMap): string {
   if (!/^[A-Za-z0-9._-]+$/.test(map.id)) {
     throw new Error(`invalid field-map id: ${map.id}`);
   }
-  const dir = resolve(root, '.private', 'field-maps');
-  mkdirSync(dir, { recursive: true });
-  const path = resolve(dir, `${map.id}.json`);
-  const rel = relative(root, path);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw new Error(`field-map path escapes root: ${map.id}`);
-  }
+  mkdirSync(resolveUnderRoot(root, '.private/field-maps', { realpath: true }), { recursive: true });
+  const path = resolveUnderRoot(root, `.private/field-maps/${map.id}.json`, { realpath: true });
   writeFileSync(path, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
   return path;
 }
@@ -1311,7 +1326,7 @@ export function selfCheckDropShadowedBlocksHostileLiteral(): void {
   if (!kept.fields.some((f) => f.key === 'workAuth')) throw new Error('required owner must remain');
 }
 
-/** Self-check: T-B-27 pass-2 never drops required:true when a literal shares the selector. */
+/** Self-check: T-B-27/27b — keep required; drop colliding literal; still drop optional non-literal. */
 export function selfCheckDropShadowedKeepsRequiredPass2(): void {
   const map: FieldMap = {
     schemaVersion: 1,
@@ -1335,10 +1350,43 @@ export function selfCheckDropShadowedKeepsRequiredPass2(): void {
       },
     ],
   };
-  // No control owner for #city → ownerRequired unset; pass-2 must still keep required city.
+  // No control owner for #city → ownerRequired unset; required city wins; literal drops.
   const kept = dropShadowedFields(map, [], ['city']);
   if (!kept.fields.some((f) => f.key === 'city')) {
     throw new Error('pass-2 must keep required:true even when literal shadows selector');
+  }
+  if (kept.fields.some((f) => f.key === 'surveyExtra')) {
+    throw new Error('T-B-27b must drop plan literal colliding with required field');
+  }
+  // Negative: optional non-literal still drops when optional literal owns the selector.
+  const optionalOnly: FieldMap = {
+    schemaVersion: 1,
+    id: 'shadow-opt',
+    updatedAt: new Date().toISOString(),
+    fields: [
+      {
+        key: 'surveyExtra',
+        required: false,
+        profilePath: '_plan.surveyExtra',
+        kind: 'text',
+        literal: 'N/A',
+        targets: [{ kind: 'css', rank: 1, selector: '#notes' }],
+      },
+      {
+        key: 'notes',
+        required: false,
+        profilePath: 'notes',
+        kind: 'text',
+        targets: [{ kind: 'css', rank: 1, selector: '#notes' }],
+      },
+    ],
+  };
+  const optKept = dropShadowedFields(optionalOnly, [], ['notes']);
+  if (!optKept.fields.some((f) => f.key === 'surveyExtra')) {
+    throw new Error('optional literal must remain when no required rival');
+  }
+  if (optKept.fields.some((f) => f.key === 'notes')) {
+    throw new Error('optional non-literal must still drop under literal selector');
   }
 }
 

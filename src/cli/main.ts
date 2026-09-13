@@ -12,6 +12,7 @@ import { loadCapability, sha256File, findCapabilityPathById } from '../artifact/
 import { normalizeApplyProfile } from '../artifact/profile.js';
 import {
   importPlanToFieldMap,
+  importPlanToFieldMapWithStats,
   writeImportedFieldMap,
 } from '../artifact/import-plan.js';
 import { authorAtsApplyShell } from '../discover/author-steps.js';
@@ -119,18 +120,22 @@ addGlobalConfigFlags(
           return;
         }
         const seed = opts.seed as string | undefined;
-        const out =
-          opts.out ??
-          (opts.authorSteps
-            ? join(root, 'capabilities/experiments/authored-capability.json')
-            : join(root, 'capabilities/lookup-member-savings-balance.json'));
-        const evidenceDir =
-          opts.evidence ??
-          join(
-            root,
-            loaded.config.evidence.dir,
-            opts.authorSteps ? 'g2-author-steps' : '01-discovery',
-          );
+        const outDefault = opts.authorSteps
+          ? join(root, 'capabilities/experiments/authored-capability.json')
+          : join(root, 'capabilities/lookup-member-savings-balance.json');
+        // T-B-25 follow-up: jail discover --out the same way as import-plan --out.
+        const out = resolveUnderRoot(root, (opts.out as string | undefined) ?? outDefault, {
+          realpath: true,
+        });
+        const evidenceDir = resolveUnderRoot(
+          root,
+          (opts.evidence as string | undefined) ??
+            join(
+              loaded.config.evidence.dir,
+              opts.authorSteps ? 'g2-author-steps' : '01-discovery',
+            ),
+          { realpath: true },
+        );
         if (opts.authorSteps) {
           ensureDir(join(root, 'capabilities/experiments'));
         } else {
@@ -218,11 +223,22 @@ addGlobalConfigFlags(
           ...(opts.param as Record<string, string>),
         };
         const runId = newRunId('replay');
-        const evidenceDir =
-          opts.evidence ??
-          (opts.chapter
-            ? prepareChapter(join(root, loaded.config.evidence.dir), opts.chapter)
-            : join(root, loaded.config.evidence.dir, 'runs', runId));
+        let evidenceDir: string;
+        if (opts.evidence) {
+          evidenceDir = resolveUnderRoot(root, opts.evidence as string, { realpath: true });
+        } else if (opts.chapter) {
+          evidenceDir = resolveUnderRoot(
+            root,
+            prepareChapter(join(root, loaded.config.evidence.dir), opts.chapter as string),
+            { realpath: true },
+          );
+        } else {
+          evidenceDir = resolveUnderRoot(
+            root,
+            join(loaded.config.evidence.dir, 'runs', runId),
+            { realpath: true },
+          );
+        }
         ensureEvidence(evidenceDir);
 
         let bindingsOverlay: Record<string, unknown> | null = null;
@@ -393,8 +409,12 @@ addGlobalConfigFlags(
           }
         }
         const runId = newRunId('invoke');
-        const evidenceDir =
-          opts.evidence ?? join(root, loaded.config.evidence.dir, 'runs', runId);
+        const evidenceDir = resolveUnderRoot(
+          root,
+          (opts.evidence as string | undefined) ??
+            join(loaded.config.evidence.dir, 'runs', runId),
+          { realpath: true },
+        );
         ensureEvidence(evidenceDir);
 
         let bindingsOverlay: Record<string, unknown> | null = null;
@@ -496,18 +516,28 @@ addGlobalConfigFlags(
         const raw = JSON.parse(readFileSync(planPath, 'utf8')) as unknown;
         const platform =
           opts.ats && opts.ats !== 'auto' ? String(opts.ats) : (raw as { ats?: string }).ats;
-        const map = importPlanToFieldMap(raw, { id: String(opts.id), platform });
-        const out =
-          (opts.out as string | undefined) ??
-          writeImportedFieldMap(root, map);
+        const { map, opaqueCoerced } = importPlanToFieldMapWithStats(raw, {
+          id: String(opts.id),
+          platform,
+        });
+        let outAbs: string;
         if (opts.out) {
-          const outAbs = resolveUnderRoot(root, opts.out as string, { realpath: true });
+          // T-B-25: realpath nearest ancestor so nonexistent --out cannot escape via symlink.
+          outAbs = resolveUnderRoot(root, opts.out as string, { realpath: true });
           mkdirSync(dirname(outAbs), { recursive: true });
           writeFileSync(outAbs, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
+        } else {
+          outAbs = writeImportedFieldMap(root, map);
         }
         console.log(
           JSON.stringify(
-            { ok: true, fieldMapId: map.id, out: repoRelative(root, resolve(root, out)), fields: map.fields.length },
+            {
+              ok: true,
+              fieldMapId: map.id,
+              out: repoRelative(root, outAbs),
+              fields: map.fields.length,
+              opaqueCoerced,
+            },
             null,
             2,
           ),
@@ -590,8 +620,11 @@ addGlobalConfigFlags(
           profile = applyAtsEnvOverrides(loadProfileJson(root, opts.profile as string));
         }
         const runId = newRunId('apply');
-        const evidenceDir =
-          opts.evidence ?? join(root, 'evidence', 'private', runId);
+        const evidenceDir = resolveUnderRoot(
+          root,
+          (opts.evidence as string | undefined) ?? join('evidence', 'private', runId),
+          { realpath: true },
+        );
         ensureEvidence(evidenceDir);
         ensureDir(join(root, 'evidence', 'private'));
 

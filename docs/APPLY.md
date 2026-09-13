@@ -70,7 +70,7 @@ Converts upstream **plan JSON** → `capabilities/field-maps/<id>.json`. Plannin
 |---|---|---|---|
 | `--plan-json <path>` | yes | — | Must resolve under project root |
 | `--id <id>` | no | `imported-plan` | FieldMap `id` / filename stem |
-| `--out <path>` | no | `capabilities/field-maps/<id>.json` | Optional explicit write path |
+| `--out <path>` | no | `capabilities/field-maps/<id>.json` | Write path under project root; realpath nearest ancestor (symlink escape refused) |
 | `--ats <family>` | no | from plan `ats` or omit | `ashby\|lever\|greenhouse\|workday\|auto` |
 | Global config flags | no | — | See below |
 
@@ -307,13 +307,13 @@ cp /path/to/your-resume.pdf .private/resume.pdf
 #   "resumePath": ".private/resume.pdf"
 ```
 
-Plan JSON must **not** put file paths in `value` for upload fields — file kinds ignore plan `literal` and use `resumePath` from the profile only. Plan `profilePath` must be an allowlisted apply key (or `answers.*` / `flags.*` / `_plan.*`).
+Plan JSON must **not** put file paths in `value` for upload fields — file kinds ignore plan `literal` and use `resumePath` from the profile only. Prefer allowlisted `profilePath` values (`answers.*` / `flags.*` / apply keys). Opaque or unanswered keys are **coerced** to `_plan.<path>` (import still succeeds; literals attach) — they no longer abort the whole plan.
 
 - Plan aliases accepted: `title`→label, `isRequired`→required, `name`→path; resolved `value` stored as FieldMap `literal`. Plan JSON is Zod-validated at import.
 - Optional `surveyPlan[]` merges after `plan[]`.
 - `successBanner` on the plan/map is used in submit/done detection (**exact** match; ignored if shorter than 12 characters — falls back to built-in phrases).
 - **Resume PDF:** copy into `.private/` (or another path under the repo) and set `resumePath`. Paths outside the project root are rejected (path jail).
-- Nested vault profiles: `normalizeApplyProfile` hoists `identity` / `contact` / `personal` / `work_auth` / `work_authorization` / `workAuthorization` / `sponsorship` / nested `answers` / `education[0]` (incl. `discipline`→`fieldOfStudy`) into apply-profile keys. Also maps `form_defaults.authorized|sponsorship` and `identity.location` → `location`. Bare `workAuth: "Yes"` / `"No"` normalize to `Authorized` / `Not authorized`.
+- Nested vault profiles: `normalizeApplyProfile` hoists `identity` / `contact` / `personal` / `work_auth` / `work_authorization` / `workAuthorization` / `sponsorship` / nested `answers` / `education[0]` (incl. `discipline`→`fieldOfStudy`) into apply-profile keys. Also maps `form_defaults.authorized|sponsorship` and `identity.location` → `location`. Bare `workAuth: "Yes"` / `"No"` normalize to `Authorized` / `Not authorized`. Sponsorship flags come from vault sponsorship fields — bare `Authorized` does **not** imply `flags.sponsorshipNo`.
 
 ### career-data → `.private/` (ops + adapter)
 
