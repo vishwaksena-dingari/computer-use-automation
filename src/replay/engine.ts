@@ -36,6 +36,7 @@ import {
   targetKeyFromStep,
 } from '../discover/patch-locator.js';
 import { ensureDir, writeJson } from '../evidence/store.js';
+import { captureEvidenceShot, writeScreenshotManifest } from '../evidence/shots.js';
 import { repoRelative, resolveUnderRoot } from '../config/paths.js';
 import { log } from '../util/log.js';
 import { existsSync, readFileSync, mkdirSync, unlinkSync } from 'node:fs';
@@ -1021,6 +1022,8 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
           const rawBanner = seedMap?.successBanner?.trim() || '';
           // Ignore short banners (hostile/accidental early match); keep built-in defaults.
           const successBanner = rawBanner.length >= 12 ? rawBanner : '';
+          /** Per-surface gallery for apply evidence (always-on in fillFormFlow). */
+          const pageGallery: string[] = [];
 
           for (let pageIdx = 0; pageIdx < maxPages; pageIdx++) {
             let observed = await observeControls(page);
@@ -1035,6 +1038,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   ok: false,
                   detail: `page ${pageIdx}: Apply navigation left allowedHosts`,
                 });
+                writeScreenshotManifest(evidenceDir, pageGallery);
                 return finish({
                   ok: false,
                   status: 'HARD_FAILURE',
@@ -1052,6 +1056,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   ok: true,
                   detail: `page ${pageIdx}: opened apply form surface`,
                 });
+                await captureEvidenceShot(page, evidenceDir, '00-after-open-form.png', pageGallery);
                 observed = await observeControls(page);
               }
             }
@@ -1102,11 +1107,19 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 ok: false,
                 detail: `page ${pageIdx}: repair failed (${observed.length} controls): ${(e as Error).message}`,
               });
+              writeScreenshotManifest(evidenceDir, pageGallery);
               throw e;
             }
             llmCalls += repair.llmCalls;
             writeProposedFieldMap(evidenceDir, repair.map);
             // Persist after fill success (below); don't cache a map that never filled.
+
+            await captureEvidenceShot(
+              page,
+              evidenceDir,
+              `page-${pageIdx}-before-fill.png`,
+              pageGallery,
+            );
 
             let fillResult = await runFillForm({
               page: page!,
@@ -1184,8 +1197,15 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 ok: false,
                 detail: `page ${pageIdx}: ${fillResult.detail}`,
               });
+              writeScreenshotManifest(evidenceDir, pageGallery);
               return finishFormOutcome(fillResult.detail, step.id);
             }
+            await captureEvidenceShot(
+              page,
+              evidenceDir,
+              `page-${pageIdx}-after-fill.png`,
+              pageGallery,
+            );
             pagesFilled.push(`p${pageIdx}:{${fillResult.filled.join(',')}}`);
             allReceiptEntries.push(...fillResult.receipt);
             allFilledKeys.push(...fillResult.filled.map((k) => `p${pageIdx}:${k}`));
@@ -1308,6 +1328,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   ok: false,
                   detail: `page ${pageIdx} still required: ${errs.slice(0, 5).join(' | ')}`,
                 });
+                writeScreenshotManifest(evidenceDir, pageGallery);
                 return finishFormOutcome(
                   `required after advance: ${errs.slice(0, 5).join(' | ')}`,
                   step.id,
@@ -1331,6 +1352,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 allFilledKeys.length === 0 ? 'empty fill: no fields filled' : undefined,
             }),
           );
+          writeScreenshotManifest(evidenceDir, pageGallery);
 
           // Overview false-green: never SUCCESS with zero fills.
           if (allFilledKeys.length === 0) {

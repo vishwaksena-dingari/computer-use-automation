@@ -248,8 +248,15 @@ See `docs/config-surface.md`.
 | `result.json` | Full replay result |
 | `worker.json` | Thin worker summary |
 | `fill-receipt.json` / `ats-family.json` | When fill path runs |
+| `screenshots/success.png` | End-state shot on SUCCESS (unchanged) |
+| `screenshots/00-after-open-form.png` | After Overview→Application / Apply open (when that click runs) |
+| `screenshots/page-{N}-before-fill.png` | Before fill on multipage index `N` (`pageIdx`, plain integer: `0`, `1`, …) |
+| `screenshots/page-{N}-after-fill.png` | After fill+verify on that same page |
+| `screenshots-manifest.json` | List of gallery relative paths taken this run |
 | `hitl/` | Pause artifacts |
 | `network.har` | Only with `--record-har`; **deleted** if not under `private/` unless `CUA_ALLOW_PUBLIC_HAR=1` |
+
+`fillFormFlow` (used by `cua apply`) always writes the page gallery when those stages run. Screenshot failures are swallowed — they never abort apply. Empty-fill / exit 4 still keeps whatever page shots were taken. Do not commit `evidence/` or `.private/`.
 
 Curated demo chapters stay under `evidence/g1-*` (tracked). New experiments → **private** or **runs**.
 
