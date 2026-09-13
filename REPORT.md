@@ -6,7 +6,7 @@ Hostile UIs punish brittle selectors. This system turns a natural-language goal 
 
 ## 2. Architecture
 
-CLI `cua` loads runtime config (CLI > env > `config.yaml` > defaults). **Discovery** opens the local mock, observes page text + controls, asks Ollama to emit **locator candidates only** (JSON-Schema constrained), and merges them into a **code-owned Capability skeleton** (Zod fail-closed). **Replay** resolves ranked a11y/css locators with Playwright (`llmCalls: 0` by default), classifies `SUCCESS` | `BUSINESS_OUTCOME` | `HARD_FAILURE`. Opt-in: `--auto-retrain` / `--autonomous-repair` (capped re-discover on `locator_miss`), `--hitl-locator-patch` (note→locator), `--record-actions` (P3 HITL click→locator teach). **`cua invoke <id>`** (S9) is the calling-agent surface: resolve capability by id, validate required inputs, deterministic replay, return a thin JSON view (`status` / `outputs` / `code`). **HITL** pauses the same Playwright session on stuck/policy; `cua escalate resume` continues after the operator fixes the live page. Evidence chapters under `/evidence/` mirror the demo story. Operator wrappers: `./scripts/setup.sh`, `train.sh`, `run.sh`; optional Docker Compose for mock + slice.
+CLI `cua` loads runtime config (CLI > env > **`config.local.yaml`** > `config.yaml` > defaults). **Discovery** opens the local mock, observes page text + controls, asks Ollama to emit **locator candidates only** (JSON-Schema constrained), and merges them into a **code-owned Capability skeleton** (Zod fail-closed). **Replay** resolves ranked a11y/css locators with Playwright (`llmCalls: 0` by default), classifies `SUCCESS` | `BUSINESS_OUTCOME` | `HARD_FAILURE`. Opt-in: `--auto-retrain` / `--autonomous-repair` (capped re-discover on `locator_miss`), `--hitl-locator-patch` (note→locator), `--record-actions` (P3 HITL click→locator teach). **`cua invoke <id>`** (S9) is the calling-agent surface. **`cua apply` / `import-plan`** (product track) fill apply UIs with profile + FieldMap; see §9 and `docs/APPLY.md`. **HITL** pauses the same Playwright session on stuck/policy; `cua escalate resume` continues after the operator fixes the live page. Evidence chapters under `/evidence/` mirror the demo story; apply defaults to gitignored `evidence/private/`.
 
 ## 3. Capability artifact
 
@@ -58,3 +58,25 @@ Same factory, messier UI: **field-maps + `fillForm` / `fillFormFlow`**, dormant 
 | Goldens | `docs/golden-forms.md` |
 
 Does **not** replace the core bank mock. Rejected: always-on LLM agent (G3), merging external job products into this repo.
+
+## 9. Product track — Apply UI engine
+
+Post-tag work on `main` (tags `v0.1.0` / `v0.2.0` stay frozen snapshots). Full operator contract: **`docs/APPLY.md`**.
+
+**Goal:** one worker command fills an apply URL without baking PII into Capability JSON; Submit only with an explicit flag; captcha pauses the same Playwright session.
+
+| Piece | What shipped |
+|---|---|
+| Config | `config.local.yaml` overlay (gitignored) over `config.yaml`; CLI `--storage-state` |
+| Profile | `--profile` + vault aliases (`normalizeApplyProfile`); path jail under repo / `.private/` |
+| Plan import | `cua import-plan` → FieldMap; label/`name=` first; UUID css rank ≥3 |
+| Worker CLI | `cua apply --url …` → fillFormFlow; default evidence under `evidence/private/` |
+| Ladder | `--escalate` for captcha/HITL; `--submit` default **off**; stdout `worker.json` + exit `0/2/3/4` |
+| Prove | `npm run check:golden` (mock Co A apply + G1 forms) |
+
+```bash
+npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
+  --profile fixtures/applicant-profile.json --field-map-id demo-co-a
+```
+
+**Still out of scope:** unbounded repair loops, always-on HAR/video, hunter/queue merge, payment submit, full Workday account-create autonomy. Upstream plan generation stays outside this repo — we only import plan JSON.

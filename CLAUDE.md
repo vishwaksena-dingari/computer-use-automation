@@ -1,7 +1,7 @@
 # Computer-Use Automation
 
 Capability-factory CLI: discover → versioned capability → deterministic Playwright replay.
-**Product track:** Apply UI engine — start at `docs/PRODUCTIZE.md` + `docs/agents/map.md`.
+**Product track:** Apply UI engine — start at `docs/APPLY.md` + `docs/PRODUCTIZE.md` + `docs/agents/map.md`.
 Local scratch (gitignored): `.scratch/`. Hygiene: `docs/REPO-HYGIENE.md`. Locks: `DECISIONS.md`.
 
 ## Agent OS (portable — any project)

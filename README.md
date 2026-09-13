@@ -4,7 +4,7 @@ Capability factory: **discover once (LLM) → versioned artifact → determinist
 
 **Core path:** member-lookup mock — `train` / `run` / evidence `01–03`.  
 **Forms stretch:** G1 apply demos — `npm run demo:g1` / `demo:reviewer`.  
-**Product track:** `cua apply` / `import-plan` — see `docs/PRODUCTIZE.md`.
+**Product track:** `cua apply` / `import-plan` — **`docs/APPLY.md`** (flags, exit codes, live runbook) · `docs/PRODUCTIZE.md` (status).
 
 ## Quick start (host)
 

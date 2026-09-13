@@ -2,6 +2,7 @@
 
 **Destination:** Apply UI engine on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md` (G1–G11).
 
+**Operator contract:** `docs/APPLY.md`  
 **Active sprint:** none — **P0–P6 complete**. Optional follow-ups only (G2 unlock, deeper Greenhouse live polish).
 
 ## Tickets

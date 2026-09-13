@@ -403,7 +403,9 @@ When you add or change a module:
 
 ## Product track (Apply UI)
 
-See `docs/PRODUCTIZE.md` and `docs/agents/map.md`. Shipped on `main`:
+Operator guide: **`docs/APPLY.md`**. Status: `docs/PRODUCTIZE.md` / `docs/agents/map.md`.
+
+Shipped on `main`:
 
 | Surface | Module / CLI |
 |---|---|

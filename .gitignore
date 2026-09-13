@@ -15,7 +15,7 @@ dist/
 .DS_Store
 graphify-out/
 
-# Live ad-hoc runs
+# Live / ad-hoc evidence (never publish). Put experiments here — not under evidence/g1-*.
 /evidence/runs/
 /evidence/private/
 
