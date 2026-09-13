@@ -25,19 +25,23 @@ export function loadFieldMap(path: string): FieldMap {
 }
 
 /**
- * Resolve `capabilities/field-maps/<id>.json` by id under project root.
+ * Resolve field-map by id: prefer gitignored `.private/field-maps/`, else tracked `capabilities/field-maps/`.
  */
 export function loadFieldMapById(root: string, id: string): FieldMap {
   if (!/^[A-Za-z0-9._-]+$/.test(id)) {
     throw new Error(`invalid field-map id: ${id}`);
   }
-  const dir = resolve(root, 'capabilities', 'field-maps');
-  const path = resolve(dir, `${id}.json`);
+  const privatePath = resolve(root, '.private', 'field-maps', `${id}.json`);
+  const trackedPath = resolve(root, 'capabilities', 'field-maps', `${id}.json`);
+  const path = existsSync(privatePath) ? privatePath : trackedPath;
+  const dir = existsSync(privatePath)
+    ? resolve(root, '.private', 'field-maps')
+    : resolve(root, 'capabilities', 'field-maps');
   if (!path.startsWith(dir + '/') && path !== dir) {
     throw new Error(`field-map path escapes field-maps/: ${id}`);
   }
   if (!existsSync(path)) {
-    throw new Error(`field-map not found: ${id} (${path})`);
+    throw new Error(`field-map not found: ${id} (${trackedPath})`);
   }
   const map = loadFieldMap(path);
   if (map.id !== id) {

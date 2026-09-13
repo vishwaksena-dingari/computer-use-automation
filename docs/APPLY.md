@@ -155,14 +155,14 @@ Stdout is a single JSON object (also written to `evidence/.../worker.json`):
 
 | `exitCode` | Typical `outcome` | When |
 |---|---|---|
-| **0** | `filled` or `submitted` | `SUCCESS`; `submitted` only if `--submit` and success |
+| **0** | `filled` or `submitted` | `SUCCESS`; **`submitted` only if `--submit` and confirmation banner observed** |
 | **2** | `captcha` or `paused` | HITL pause / `form.CAPTCHA` (use `--escalate`) |
 | **3** | `closed` | `form.CLOSED` |
 | **4** | `unmapped` / `verify` / `failed` | `field.UNMAPPED`, `field.VERIFY`, **empty fill** (Overview with no form), other failures |
 
-`worker.json` includes `"mode": "fill-only" | "submit"` so fill-only runs are never mistaken for submits.
+`worker.json` includes `"mode": "fill-only" | "submit"` (intent from `--submit`) and `outcome` from observed result. `--submit` without a thank-you / received banner → `outcome: filled`, not `submitted`.
 
-Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now opens Application / Apply, or exits **4** if still empty.
+Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now opens Application / Apply (same host only), or exits **4** if still empty.
 
 **Daily live helper** (fill-only unless `--submit`):
 
@@ -174,15 +174,18 @@ Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now
   --headed --escalate
 ```
 
-Location widgets: type **city**, then select the matching dropdown option (not paste `[object Object]`).
+Requires `npm run build` first (wrapper calls `node dist/cli/main.js`, never bare `npx cua`).  
+Missing FieldMap seeds cache under **`.private/field-maps/`** (gitignored). Use `--write-field-map` only to promote into tracked `capabilities/field-maps/`.
+
+Location widgets: type **`City, ST`**, select only if the option contains that **city token** (and region when present). No match → skip (optional) / fail (required) — never blind first-hit.
 
 ### `--submit` matrix
 
 | Flags | Behavior |
 |---|---|
 | default | Fill / advance pages; **stop** when Submit is the only advance |
-| `--submit` | Click Submit Application / Submit when visible |
-| `--submit` without success banner | Still ends the flow after click attempt; judge page + checkpoints |
+| `--submit` | Click Submit when visible; set `submitConfirmed` only if confirmation text/banner appears |
+| `--submit` without confirmation | Flow ends; **`outcome: filled`** (not `submitted`) |
 
 Never enable `--submit` in unattended workers unless the job is intentional.
 

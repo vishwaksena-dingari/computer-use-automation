@@ -85,13 +85,20 @@ async function fillCombobox(
     .locator('.select__option:visible, [role="option"]:visible')
     .allTextContents()
     .then((rows) => rows.map((t) => t.trim()).filter(Boolean));
-  let snapped = snapSelectValue(value, liveOpts);
-  if (!liveOpts.some((o) => o.toLowerCase() === snapped.toLowerCase()) && typeNeedle !== value) {
-    snapped = snapSelectValue(typeNeedle, liveOpts);
-  }
-  // Location: re-score with city/region so "St. Johns" ≠ "St. Johnsbury".
-  if (opts.typeNeedle) {
-    snapped = snapLocationOption(value, liveOpts);
+  const isLocation = Boolean(opts.typeNeedle);
+  let snapped: string;
+  if (isLocation) {
+    const locSnap = snapLocationOption(value, liveOpts);
+    if (!locSnap) {
+      // Fail closed: do not ArrowDown/Enter into a wrong Places hit.
+      return;
+    }
+    snapped = locSnap;
+  } else {
+    snapped = snapSelectValue(value, liveOpts);
+    if (!liveOpts.some((o) => o.toLowerCase() === snapped.toLowerCase()) && typeNeedle !== value) {
+      snapped = snapSelectValue(typeNeedle, liveOpts);
+    }
   }
   const escaped = snapped.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const candidates = [
@@ -107,6 +114,7 @@ async function fillCombobox(
       return;
     }
   }
+  if (isLocation) return; // no blind keyboard fallback for location
   await loc.press('ArrowDown').catch(() => undefined);
   await loc.press('Enter').catch(() => undefined);
   await page.waitForTimeout(200);
@@ -125,29 +133,35 @@ export function locationTypeNeedle(value: string): string {
   return city.length >= 2 ? city : t;
 }
 
-/** Prefer Ashby/Places options matching city (+ region when present); avoid St. Johns→Johnsbury. */
-export function snapLocationOption(value: string, options: string[]): string {
-  if (!options.length) return value;
+/** Prefer Ashby/Places options matching city (+ region when present); null if no safe match. */
+export function snapLocationOption(value: string, options: string[]): string | null {
+  if (!options.length) return null;
   const parts = value.split(',').map((s) => s.trim()).filter(Boolean);
   const city = parts[0] ?? value.trim();
   const region = parts[1];
-  const country = parts[2];
+  if (!city || city.length < 2) return null;
   const cityRe = new RegExp(`(?:^|[,\\s])${escapeRe(city)}(?=$|[,\\s])`, 'i');
+  const regionRe = region ? new RegExp(`\\b${escapeRe(region)}\\b`, 'i') : null;
   let best: string | undefined;
   let bestScore = -1;
   for (const o of options) {
-    const ol = o.toLowerCase();
-    let score = 0;
-    if (cityRe.test(o)) score += 10;
-    else if (ol.includes(city.toLowerCase())) score += 2;
-    if (region && new RegExp(`\\b${escapeRe(region)}\\b`, 'i').test(o)) score += 8;
-    if (country && ol.includes(country.toLowerCase().slice(0, Math.min(6, country.length)))) score += 2;
+    if (!cityRe.test(o)) continue; // require whole-city token — never St. Johns→Johnsbury
+    let score = 10;
+    if (regionRe && regionRe.test(o)) score += 8;
     if (score > bestScore) {
       bestScore = score;
       best = o;
     }
   }
-  return bestScore > 0 && best ? best : snapSelectValue(value, options);
+  if (!best) return null;
+  // When region known, prefer a region-bearing option; city-only Acceptable if Places omitted ST.
+  if (regionRe) {
+    const withRegion = options.filter((o) => cityRe.test(o) && regionRe.test(o));
+    if (withRegion.length) {
+      return withRegion.sort((a, b) => a.length - b.length)[0] ?? best;
+    }
+  }
+  return best;
 }
 
 function isLocationField(field: { key: string; profilePath: string }): boolean {
@@ -212,14 +226,7 @@ export function snapSelectValue(value: string, options: string[]): string {
     );
     if (decline) return decline;
   }
-  // "City, ST, Country" → option with whole-city token (+ region preference via snapLocationOption callers).
   const lower = v.toLowerCase();
-  const city = v.split(',')[0]?.trim();
-  if (city && city.length >= 2 && city.toLowerCase() !== lower) {
-    const cityRe = new RegExp(`(?:^|[,\\s])${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[,\\s])`, 'i');
-    const cityHit = options.find((o) => cityRe.test(o));
-    if (cityHit) return cityHit;
-  }
   const contains = options.find(
     (o) => o.toLowerCase().includes(lower) || lower.includes(o.toLowerCase()),
   );
@@ -597,15 +604,15 @@ export async function runFillForm(opts: {
               .allTextContents()
               .then((rows) => rows.map((t) => t.trim()).filter(Boolean))
               .catch(() => [] as string[]);
-              const snapped = snapLocationOption(value, liveOpts);
-            await page
-              .getByRole('option', { name: new RegExp(escapeRe(snapped), 'i') })
-              .first()
-              .click({ timeout: 1500 })
-              .catch(async () => {
-                await page.getByRole('option').first().click({ timeout: 1500 }).catch(() => undefined);
-              });
-            await page.locator('.pac-item').first().click({ timeout: 1500 }).catch(() => undefined);
+            const snapped = snapLocationOption(value, liveOpts);
+            if (snapped) {
+              await page
+                .getByRole('option', { name: new RegExp(escapeRe(snapped), 'i') })
+                .first()
+                .click({ timeout: 1500 })
+                .catch(() => undefined);
+            }
+            // No .first() / pac-item fallback — wrong city is worse than empty.
           }
         }
       }

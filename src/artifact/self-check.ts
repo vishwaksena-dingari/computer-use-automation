@@ -149,6 +149,10 @@ assert.equal(
   'St. Johns, FL, United States',
 );
 assert.equal(
+  snapLocationOption('St. Johns, FL, United States', ['St. Johnsbury, Vermont, United States']),
+  null,
+);
+assert.equal(
   snapSelectValue('St. Johns, FL, United States', [
     'St. Johns, FL, United States',
     'Saint John, NB, Canada',
