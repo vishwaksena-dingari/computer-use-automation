@@ -55,7 +55,7 @@
 | T-W-2 | Refuse SUCCESS when filledKeys empty | `done` | Worker |
 | T-W-3 | Overview → Application / Apply click | `done` | Worker |
 | T-W-4 | Persist auto-ats map after DOM bootstrap | `done` | Worker |
-| T-W-5 | Live re-prove Maximor Overview + /application | `doing` | Worker |
+| T-W-5 | Live re-prove Maximor Overview + /application | `done` | Worker |
 | T-W-6 | Optional `apply-live.sh` wrapper | `done` | Worker |
 | T-W-7 | Location combobox type city → select | `done` | Worker |
 | T-B-26 | `copy-vault-private.sh` rewrite resumePath | `done` | Harden |
