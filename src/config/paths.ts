@@ -38,6 +38,24 @@ export function configYamlPath(root: string, override?: string): string {
   return override ? resolve(override) : join(root, 'config.yaml');
 }
 
+/** Gitignored local overlay beside config.yaml (never committed). */
+export function configLocalYamlPath(root: string): string {
+  return join(root, 'config.local.yaml');
+}
+
+/**
+ * Resolve a repo-relative path and refuse escapes outside project root.
+ * Returns absolute path under root.
+ */
+export function resolveUnderRoot(root: string, relOrAbs: string): string {
+  const abs = isAbsolute(relOrAbs) ? resolve(relOrAbs) : resolve(root, relOrAbs);
+  const rel = relative(resolve(root), abs);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error(`path must be inside project root: ${relOrAbs}`);
+  }
+  return abs;
+}
+
 /** Absolute path to `.env` under project root. */
 export function envFilePath(root: string): string {
   return join(root, '.env');
@@ -50,4 +68,23 @@ export function repoRelative(root: string, filePath: string): string {
   const abs = isAbsolute(filePath) ? resolve(filePath) : resolve(root, filePath);
   const rel = relative(resolve(root), abs);
   return (rel === '' ? '.' : rel).split('\\').join('/');
+}
+
+/** Self-check: resolveUnderRoot refuses escapes. */
+export function selfCheckPaths(): void {
+  const root = findProjectRoot();
+  const ok = resolveUnderRoot(root, 'fixtures/applicant-profile.json');
+  if (!ok.includes('applicant-profile')) throw new Error('resolveUnderRoot failed');
+  let threw = false;
+  try {
+    resolveUnderRoot(root, '../outside.json');
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error('resolveUnderRoot should refuse ..');
+}
+
+if (process.argv[1]?.endsWith('paths.ts') || process.argv[1]?.endsWith('paths.js')) {
+  selfCheckPaths();
+  console.log('paths self-check ok');
 }

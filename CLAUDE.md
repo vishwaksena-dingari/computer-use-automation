@@ -1,7 +1,8 @@
 # Computer-Use Automation
 
 Capability-factory CLI: discover → versioned capability → deterministic Playwright replay.
-Local planning lives under `.scratch/` (not GitHub Issues).
+**Product track:** Apply UI engine — start at `docs/PRODUCTIZE.md` + `docs/agents/map.md`.
+Local scratch (gitignored): `.scratch/`. Hygiene: `docs/REPO-HYGIENE.md`. Locks: `DECISIONS.md`.
 
 ## Agent OS (portable — any project)
 
@@ -27,9 +28,9 @@ Install/readiness checklist: `docs/agents/tooling-ready.md` (this repo) + `agent
 
 Do not invent parallel process mid-task. Prefer playbook phases over installing more tools.
 
-### Issue tracker
+### Issue tracker / map
 
-Issues live as local markdown under `.scratch/` (not GitHub). See `docs/agents/issue-tracker.md`.
+Tracked pickup map: `docs/agents/map.md`. Optional local issues under gitignored `.scratch/` — see `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -44,7 +45,7 @@ Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 - Coding sessions: **ponytail** at `full` (project rule `.cursor/rules/ponytail.mdc`).
 - High-stakes design forks: **llm-council** then wayfinder ticket answer.
 - After `src/` exists: `graft build` and optional `/graphify .`
-- Pre-submit (Claude Code): gstack `/review` and `/qa` if useful; Cursor uses playbook + browser tools.
+- Milestone review (Claude Code): optional gstack `/review` `/qa`; Cursor uses playbook + browser tools.
 - Local build clock (gitignored): `progress.html` — agents update `#progress-state` when closing a sprint or logging focused hours.
 - **How to run agents / branches / commits:** `docs/agents/skills-playbook.md` → section **How we work**.
 

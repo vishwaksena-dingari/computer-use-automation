@@ -10,6 +10,18 @@ export type AtsFamily = 'ashby' | 'lever' | 'greenhouse' | 'workday' | 'unknown'
  */
 export function detectAtsFamily(url: string, bodyText = ''): AtsFamily {
   const u = url.toLowerCase();
+  // about:blank / empty — wait for post-navigate sniff (callers pass page.url() after load).
+  if (!u || u === 'about:blank' || u === 'blank') {
+    const b = bodyText.toLowerCase().slice(0, 8000);
+    if (b) {
+      if (/data-automation-id=["']formfield-/i.test(bodyText) || /myworkdayjobs|workday, inc/i.test(b))
+        return 'workday';
+      if (/ashby|data-testid=["'][^"']*ashby/i.test(b)) return 'ashby';
+      if (/lever-application|posting-requirements|jobs\.lever/i.test(b)) return 'lever';
+      if (/greenhouse|grnhse|application--form/i.test(b)) return 'greenhouse';
+    }
+    return 'unknown';
+  }
   if (/ashbyhq\.com|jobs\.ashbyhq\.com|ashby\.co/.test(u)) return 'ashby';
   if (/jobs\.lever\.co|lever\.co\/|hire\.lever/.test(u)) return 'lever';
   if (/greenhouse\.io|boards\.greenhouse|grnh\.se/.test(u)) return 'greenhouse';
@@ -36,10 +48,14 @@ export function selfCheckDetectAts(): void {
     ],
     ['https://abbott.wd5.myworkdayjobs.com/abbottcareers/job/y', 'workday'],
     ['https://example.com/careers', 'unknown'],
+    ['about:blank', 'unknown'],
   ];
   for (const [url, want] of cases) {
     const got = detectAtsFamily(url);
     if (got !== want) throw new Error(`detectAtsFamily(${url})=${got} want ${want}`);
+  }
+  if (detectAtsFamily('about:blank', 'Powered by Ashby') !== 'ashby') {
+    throw new Error('about:blank + body should detect ashby');
   }
 }
 

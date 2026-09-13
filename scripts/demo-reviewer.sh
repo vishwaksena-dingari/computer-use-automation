@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reviewer one-shot: graded bank slice + G1 form demos (natural extension).
+# One-shot: core bank slice + G1 form demos.
 # Usage: ./scripts/demo-reviewer.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,9 +13,9 @@ fi
 bash "$ROOT/scripts/ensure-mock.sh"
 npm run build --silent
 
-echo "=== Graded core (happy) ===" >&2
+echo "=== Core mock (happy) ===" >&2
 ./scripts/run.sh M-10042
-echo "=== Graded core (exception) ===" >&2
+echo "=== Core mock (exception) ===" >&2
 ./scripts/run.sh M-99999
 echo "=== G1 forms (Co A/B/C) ===" >&2
 bash "$ROOT/scripts/demo-g1-forms.sh"

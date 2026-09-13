@@ -6,7 +6,7 @@ Do **not** store hand goldens here. Private backups (ignored by git / Cursor / a
 
 `.private/golden-capabilities/`
 
-## Retrain (mock — graded)
+## Retrain (mock — core)
 
 ```bash
 ./scripts/ensure-mock.sh   # or rely on train.sh auto-start

@@ -10,16 +10,22 @@
 flowchart TB
   CLI["CLI flags — highest"]
   ENV["Environment / .env — secrets + optional overrides"]
+  LOCAL["config.local.yaml — gitignored live overlay"]
   FILE["config.yaml — reviewable defaults + allowlist"]
   CODE["Code defaults"]
   CLI --> MERGE[RuntimeConfig]
   ENV --> MERGE
+  LOCAL --> MERGE
   FILE --> MERGE
   CODE --> MERGE
 ```
 
-`config show` prints **effective value + winning layer** for every key.  
+`config show` prints **effective value + winning layer** for every key (`cli` | `env` | `local` | `file` | `default`).  
 List fields: **replace from highest layer**, never silent concat.
+
+Copy `config.local.example.yaml` → `config.local.yaml` for live ATS hosts / `session.storageStatePath`. Never commit the local file.
+
+CLI: `--storage-state <path>` sets `session.storageStatePath` (repo-relative).
 
 ---
 

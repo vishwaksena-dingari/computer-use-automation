@@ -35,7 +35,7 @@ import {
   targetKeyFromStep,
 } from '../discover/patch-locator.js';
 import { ensureDir, writeJson } from '../evidence/store.js';
-import { repoRelative } from '../config/paths.js';
+import { repoRelative, resolveUnderRoot } from '../config/paths.js';
 import { log } from '../util/log.js';
 import { existsSync, readFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -146,6 +146,11 @@ export type ReplayOptions = {
   harRetainOnFailure?: boolean;
   /** Start Playwright tracing; keep `trace.zip` under evidence only when the run fails. */
   traceOnFailure?: boolean;
+  /**
+   * When true, fillFormFlow may click a visible Submit control (default false — fill-only).
+   * DECISIONS G6: irreversible apply is explicit.
+   */
+  allowSubmit?: boolean;
   existingContext?: BrowserContext;
   existingPage?: Page;
   existingBrowser?: Browser;
@@ -281,17 +286,62 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
     return formOutcomeFromPageText(body, detail);
   };
 
+  /** CAPTCHA/MFA + --escalate → same-session HITL pause (P3). */
+  const finishFormOutcome = async (
+    detail: string,
+    stepId: string,
+  ): Promise<ReplayResult> => {
+    const code = await resolveFormCode(detail);
+    if (
+      opts.escalateOnPolicy &&
+      (code === 'form.CAPTCHA' || /mfa|2fa|one-time|verification code/i.test(detail))
+    ) {
+      const shot = join(evidenceDir, 'hitl', 'pause.png');
+      await page!.screenshot({ path: shot, fullPage: true }).catch(() => undefined);
+      writeIntervention(evidenceDir, {
+        schemaVersion: 1,
+        runId,
+        mode: 'replay',
+        reasonCode: 'POLICY_BLOCK' as PauseReason,
+        reasonDetail: detail,
+        capabilityId: capability.id,
+        stepId,
+        pageUrl: page!.url(),
+        screenshotPath: 'hitl/pause.png',
+        owner: 'paused',
+        pausedAt: new Date().toISOString(),
+      });
+      return finish({
+        ok: false,
+        status: 'HARD_FAILURE',
+        code,
+        message: `paused: ${detail}`,
+        outputs: {},
+        error: { reason: 'hitl_pause', stepId },
+        paused: true,
+      });
+    }
+    return finish({
+      ok: true,
+      status: 'BUSINESS_OUTCOME',
+      code,
+      message: detail,
+      outputs: {},
+      error: null,
+    });
+  };
+
   const finish = async (
     partial: Omit<ReplayResult, 'durationMs' | 'llmCalls' | 'runId' | 'evidenceDir' | 'capabilityId' | 'capabilityVersion' | 'params'>,
   ): Promise<ReplayResult> => {
     // Persist auth cookies/localStorage for next run (Playwright storageState).
     if (ownsBrowser && context && config.session.storageStatePath) {
       try {
-        const abs = resolve(root, config.session.storageStatePath);
+        const abs = resolveUnderRoot(root, config.session.storageStatePath);
         mkdirSync(dirname(abs), { recursive: true });
         await context.storageState({ path: abs });
       } catch {
-        /* best effort */
+        /* best effort — refuse escapes silently on save; load path is fail-closed below */
       }
     }
     writeJson(join(evidenceDir, 'run.json'), { runId, ledger, llmCalls });
@@ -310,16 +360,20 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
     if (ownsBrowser && context) await context.close().catch(() => undefined);
     if (ownsBrowser && browser) await browser.close().catch(() => undefined);
     // Failure-only HAR: Playwright writes on close — drop the file after happy path.
-    if (
-      opts.harRetainOnFailure &&
-      partial.ok &&
-      opts.recordHarPath &&
-      existsSync(opts.recordHarPath)
-    ) {
-      try {
-        unlinkSync(opts.recordHarPath);
-      } catch {
-        /* ignore */
+    // P6: never keep HAR outside evidence/private unless CUA_ALLOW_PUBLIC_HAR=1.
+    if (opts.recordHarPath && existsSync(opts.recordHarPath)) {
+      const underPrivate = /(?:^|\/)evidence\/private(?:\/|$)/.test(
+        repoRelative(root, evidenceDir).replace(/\\/g, '/'),
+      );
+      const allowPublic = process.env.CUA_ALLOW_PUBLIC_HAR === '1';
+      const drop =
+        (opts.harRetainOnFailure && partial.ok) || (!underPrivate && !allowPublic);
+      if (drop) {
+        try {
+          unlinkSync(opts.recordHarPath);
+        } catch {
+          /* ignore */
+        }
       }
     }
     const result = {
@@ -345,7 +399,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
       browser = await chromium.launch({ headless: !(opts.headed ?? false) });
       ownsBrowser = true;
       const storageAbs = config.session.storageStatePath
-        ? resolve(root, config.session.storageStatePath)
+        ? resolveUnderRoot(root, config.session.storageStatePath)
         : undefined;
       const contextOpts: Parameters<Browser['newContext']>[0] = {};
       if (storageAbs && existsSync(storageAbs)) {
@@ -476,8 +530,21 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             });
           }
           await page.goto(url, { waitUntil: 'domcontentloaded', timeout: config.limits.stepTimeoutMs });
+          // Re-check host after redirects (H / F3).
+          const landed = page.url();
+          const landedOk = assertHostAllowed(config, landed);
+          if (!landedOk.ok) {
+            return finish({
+              ok: false,
+              status: 'HARD_FAILURE',
+              code: null,
+              message: `after navigate: ${landedOk.detail}`,
+              outputs,
+              error: { reason: landedOk.reasonCode, stepId: step.id },
+            });
+          }
           await refreshAtsFamily();
-          ledger.push({ at: new Date().toISOString(), stepId: step.id, action: 'navigate', ok: true, detail: url });
+          ledger.push({ at: new Date().toISOString(), stepId: step.id, action: 'navigate', ok: true, detail: landed });
           stepId = nextSequential(capability, step.id);
           continue;
         }
@@ -758,14 +825,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   ok: false,
                   detail: `after HITL: ${fillResult.detail}`,
                 });
-                return finish({
-                  ok: true,
-                  status: 'BUSINESS_OUTCOME',
-                  code: await resolveFormCode(fillResult.detail),
-                  message: fillResult.detail,
-                  outputs: {},
-                  error: null,
-                });
+                return finishFormOutcome(fillResult.detail, step.id);
               }
             } else {
               writeFillReceipt(
@@ -778,14 +838,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   failDetail: fillResult.detail,
                 }),
               );
-              return finish({
-                ok: true,
-                status: 'BUSINESS_OUTCOME',
-                code: await resolveFormCode(fillResult.detail),
-                message: fillResult.detail,
-                outputs: {},
-                error: null,
-              });
+              return finishFormOutcome(fillResult.detail, step.id);
             }
           }
           ledger.push({
@@ -985,14 +1038,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 ok: false,
                 detail: `page ${pageIdx}: ${fillResult.detail}`,
               });
-              return finish({
-                ok: true,
-                status: 'BUSINESS_OUTCOME',
-                code: await resolveFormCode(fillResult.detail),
-                message: fillResult.detail,
-                outputs: {},
-                error: null,
-              });
+              return finishFormOutcome(fillResult.detail, step.id);
             }
             pagesFilled.push(`p${pageIdx}:{${fillResult.filled.join(',')}}`);
             allReceiptEntries.push(...fillResult.receipt);
@@ -1009,6 +1055,16 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               visible: true,
             });
             if ((await submitOnly.count()) > 0) {
+              if (opts.allowSubmit) {
+                await submitOnly.first().click({ timeout: 8_000 }).catch(() => undefined);
+                await page.waitForTimeout(800);
+                const banner = page.getByText(/application received|thank you for applying|submitted/i).filter({
+                  visible: true,
+                });
+                if ((await banner.count()) === 0) {
+                  // Still treat as terminal page after click attempt.
+                }
+              }
               break;
             }
 
@@ -1068,14 +1124,10 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   ok: false,
                   detail: `page ${pageIdx} still required: ${errs.slice(0, 5).join(' | ')}`,
                 });
-                return finish({
-                  ok: true,
-                  status: 'BUSINESS_OUTCOME',
-                  code: await resolveFormCode(`required after advance: ${errs.slice(0, 5).join(' | ')}`),
-                  message: `required after advance: ${errs.slice(0, 5).join(' | ')}`,
-                  outputs: {},
-                  error: null,
-                });
+                return finishFormOutcome(
+                  `required after advance: ${errs.slice(0, 5).join(' | ')}`,
+                  step.id,
+                );
               }
             }
 

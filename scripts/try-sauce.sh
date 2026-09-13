@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Optional retarget experiment: Sauce Demo (NOT the graded mock-core slice).
+# Optional retarget experiment: Sauce Demo (NOT the core mock-core slice).
 # Usage: ./scripts/try-sauce.sh [--headed] [--bad-login]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,7 +26,7 @@ if [[ "$BAD" -eq 1 ]]; then
   CHAPTER="experiments/sauce-auth-failed"
 fi
 
-echo "[cua] sauce experiment → $CHAPTER (graded evidence remains 01–03 mock-core)" >&2
+echo "[cua] sauce experiment → $CHAPTER (core evidence remains 01–03 mock-core)" >&2
 exec node dist/cli/main.js replay "$ART" \
   --base-url "$BASE" \
   --member-id ignored \

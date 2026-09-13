@@ -1,0 +1,10 @@
+{
+  "ats": "mock",
+  "successBanner": "Application draft complete",
+  "plan": [
+    { "path": "fullName", "type": "text", "label": "Full name", "profilePath": "fullName", "required": true },
+    { "path": "email", "type": "text", "label": "Email", "profilePath": "email", "required": true },
+    { "path": "workAuth", "type": "select", "label": "Work authorization", "profilePath": "workAuth", "required": true },
+    { "path": "whyCompany", "type": "textarea", "label": "Why this company?", "profilePath": "answers.whyCompany", "required": false }
+  ]
+}
