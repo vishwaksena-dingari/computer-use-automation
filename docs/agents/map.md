@@ -35,8 +35,16 @@
 | T-B-10 | Preserve literal across LLM replace | `done` | Bridge |
 | T-B-11 | Golden/self-check covers bridge-alias fixture | `done` | Bridge |
 | T-B-12 | ARCHITECTURE.md Bridge section | `done` | Bridge |
-| T-B-13 | Zod PlanJson + FieldMap source union | `todo` | Bridge |
-| T-B-14 | Restrict file profilePath + profile realpath | `todo` | Bridge |
+| T-B-13 | Zod PlanJson + FieldMap file/literal refine | `done` | Bridge |
+| T-B-14 | Restrict file profilePath + profile realpath | `done` | Bridge |
+| T-B-15 | mergeFieldMap drop literal when kind→file | `done` | Bridge |
+| T-B-16 | resumePath-only for uploads (documented) | `done` | Bridge |
+| T-B-17 | Literal shadow must not steal required owners | `done` | Bridge |
+| T-B-18 | Shared realpath jail (profile/plan-json/out) | `done` | Bridge |
+| T-B-19 | Plan profilePath allowlist | `done` | Bridge |
+| T-B-20 | Upload extension allowlist | `done` | Bridge |
+| T-B-21 | Stronger golden + shadow/file self-checks | `done` | Bridge |
+| T-B-22 | plan vs fields empty-array docs | `done` | Bridge |
 
 ## Agent start checklist
 

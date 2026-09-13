@@ -177,7 +177,52 @@ export const FieldMapFieldSchema = z
     /** Resolved plan answer (import-plan). When set, preferred over profilePath (file kind ignored). */
     literal: z.union([z.string(), z.number(), z.boolean()]).optional(),
   })
-  .strict();
+  .strict()
+  .refine((f) => !(f.kind === 'file' && f.literal !== undefined), {
+    message: 'kind:file must not carry literal (use profile resumePath)',
+  })
+  .refine((f) => !(f.kind === 'file' && f.profilePath !== 'resumePath'), {
+    message: 'kind:file profilePath must be resumePath',
+  });
+
+/** One upstream plan step (cua-native + ATS aliases). */
+export const PlanStepSchema = z
+  .object({
+    path: z.string().optional(),
+    name: z.string().optional(),
+    type: z.string().optional(),
+    value: z.unknown().optional(),
+    profilePath: z.string().optional(),
+    label: z.string().optional(),
+    title: z.string().optional(),
+    required: z.boolean().optional(),
+    isRequired: z.boolean().optional(),
+  })
+  .passthrough();
+
+/** Accepted plan JSON shape for import-plan (Bridge).
+ * passthrough: upstream ATS keys beyond our aliases are ignored at FieldMap build.
+ * Empty plan:[] does not fall through to fields[] — put steps in plan or omit plan.
+ */
+export const PlanJsonSchema = z
+  .object({
+    ats: z.string().optional(),
+    successBanner: z.string().optional(),
+    plan: z.array(PlanStepSchema).optional(),
+    fields: z.array(PlanStepSchema).optional(),
+    surveyPlan: z.array(PlanStepSchema).optional(),
+  })
+  .passthrough()
+  .refine(
+    (p) => {
+      const primary = p.plan ?? p.fields;
+      return Array.isArray(primary) && primary.length > 0;
+    },
+    { message: 'plan JSON must include non-empty plan[] or fields[]' },
+  );
+
+export type PlanJson = z.infer<typeof PlanJsonSchema>;
+export type PlanStep = z.infer<typeof PlanStepSchema>;
 
 export const FieldMapSchema = z
   .object({

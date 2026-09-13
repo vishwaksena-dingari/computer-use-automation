@@ -4,7 +4,14 @@
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, relative, isAbsolute } from 'node:path';
-import { FieldMapSchema, type FieldMap, type FieldMapField } from './schema.js';
+import {
+  FieldMapSchema,
+  PlanJsonSchema,
+  type FieldMap,
+  type FieldMapField,
+  type PlanStep,
+} from './schema.js';
+import { isOpaqueProfilePath } from './profile.js';
 
 /** FieldMap ids must be path-safe (no traversal). */
 export function assertSafeFieldMapId(id: string): void {
@@ -12,32 +19,6 @@ export function assertSafeFieldMapId(id: string): void {
     throw new Error(`invalid field-map id: ${id}`);
   }
 }
-
-/** One step from an upstream apply planner (native + aliases). */
-export type PlanStep = {
-  path?: string;
-  /** Greenhouse-style alias for path */
-  name?: string;
-  type?: string;
-  value?: unknown;
-  profilePath?: string;
-  label?: string;
-  /** Ashby-style alias for label */
-  title?: string;
-  required?: boolean;
-  /** Ashby-style alias for required */
-  isRequired?: boolean;
-};
-
-/** Accepted plan JSON shape (documented in docs/artifact-schema.md). */
-export type PlanJson = {
-  ats?: string;
-  successBanner?: string;
-  plan?: PlanStep[];
-  fields?: PlanStep[];
-  /** Optional survey / EEO steps (same step shape); merged after plan[]. */
-  surveyPlan?: PlanStep[];
-};
 
 function kindFromType(t: string | undefined): FieldMapField['kind'] {
   const x = (t ?? 'text').toLowerCase();
@@ -109,28 +90,32 @@ export function importPlanToFieldMap(
   opts: { id: string; platform?: string; companyKey?: string },
 ): FieldMap {
   assertSafeFieldMapId(opts.id);
-  const plan = (raw ?? {}) as PlanJson;
-  const primary = plan.plan ?? plan.fields ?? [];
-  const survey = Array.isArray(plan.surveyPlan) ? plan.surveyPlan : [];
-  const steps = [...primary, ...survey];
-  if (!Array.isArray(steps) || steps.length === 0) {
-    throw new Error('plan JSON must include non-empty plan[] or fields[]');
+  const parsedPlan = PlanJsonSchema.safeParse(raw ?? {});
+  if (!parsedPlan.success) {
+    throw new Error(`plan JSON invalid: ${parsedPlan.error.message}`);
   }
+  const plan = parsedPlan.data;
+  const primary = plan.plan ?? plan.fields ?? [];
+  const survey = plan.surveyPlan ?? [];
+  const steps = [...primary, ...survey];
   const fields: FieldMapField[] = steps.map((rawStep, i) => {
-    const step = normalizePlanStep(rawStep as PlanStep, i);
+    const step = normalizePlanStep(rawStep, i);
     const kind = kindFromType(step.type);
     // File uploads must come from profile resumePath — never plan literal paths (exfil).
     const literal = kind === 'file' ? undefined : literalFromValue(step.value);
-    const profilePath =
-      typeof step.profilePath === 'string' && step.profilePath.trim()
-        ? step.profilePath.trim()
-        : typeof step.value === 'string' && step.value.startsWith('profile.')
-          ? step.value.slice('profile.'.length)
-          : kind === 'file'
-            ? 'resumePath'
+    let profilePath =
+      kind === 'file'
+        ? 'resumePath'
+        : typeof step.profilePath === 'string' && step.profilePath.trim()
+          ? step.profilePath.trim()
+          : typeof step.value === 'string' && step.value.startsWith('profile.')
+            ? step.value.slice('profile.'.length)
             : literal !== undefined
               ? `_plan.${step.path}`
               : step.path;
+    if (kind !== 'file' && isOpaqueProfilePath(profilePath, [])) {
+      throw new Error(`plan profilePath not allowed: ${profilePath}`);
+    }
     return {
       key: step.path.replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 64) || `field_${i}`,
       required: step.required !== false,
@@ -209,6 +194,22 @@ export function selfCheckImportPlan(): void {
   }
   const eeo = map.fields.find((f) => f.key === 'eeo');
   if (!eeo?.literal || eeo.literal !== 'Decline') throw new Error('surveyPlan merge');
+  let opaqueThrew = false;
+  try {
+    importPlanToFieldMap(
+      { plan: [{ path: 'q1', type: 'text', profilePath: 'ssn', value: 'x' }] },
+      { id: 'opaque-check' },
+    );
+  } catch {
+    opaqueThrew = true;
+  }
+  if (!opaqueThrew) throw new Error('opaque plan profilePath must throw');
+  const fileForced = importPlanToFieldMap(
+    { plan: [{ path: 'resume', type: 'file', profilePath: 'email', isRequired: true }] },
+    { id: 'file-path-force' },
+  );
+  const rf = fileForced.fields.find((f) => f.key === 'resume');
+  if (!rf || rf.profilePath !== 'resumePath') throw new Error('file import must force resumePath');
 }
 
 if (process.argv[1]?.endsWith('import-plan.ts') || process.argv[1]?.endsWith('import-plan.js')) {

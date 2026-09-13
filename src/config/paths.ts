@@ -1,8 +1,8 @@
 /**
  * @file Resolve project root and config/env file paths.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PACKAGE_NAME = 'computer-use-automation';
@@ -45,13 +45,42 @@ export function configLocalYamlPath(root: string): string {
 
 /**
  * Resolve a repo-relative path and refuse escapes outside project root.
- * Returns absolute path under root.
+ * Returns absolute path under root. Pass `realpath: true` to reject symlink escapes
+ * (same policy as upload jail / --profile).
  */
-export function resolveUnderRoot(root: string, relOrAbs: string): string {
+export function resolveUnderRoot(
+  root: string,
+  relOrAbs: string,
+  opts?: { realpath?: boolean },
+): string {
   const abs = isAbsolute(relOrAbs) ? resolve(relOrAbs) : resolve(root, relOrAbs);
+  if (opts?.realpath) {
+    const rootReal = existsSync(root) ? realpathSync(root) : resolve(root);
+    const absReal = existsSync(abs) ? realpathSync(abs) : abs;
+    const rel = relative(rootReal, absReal);
+    if (rel.startsWith('..') || isAbsolute(rel)) {
+      throw new Error(`path must be inside project root: ${relOrAbs}`);
+    }
+    return absReal;
+  }
   const rel = relative(resolve(root), abs);
   if (rel.startsWith('..') || isAbsolute(rel)) {
     throw new Error(`path must be inside project root: ${relOrAbs}`);
+  }
+  return abs;
+}
+
+/** Allowed resume / upload extensions (T-B-20). */
+const UPLOAD_EXTS = new Set(['.pdf', '.doc', '.docx', '.txt', '.rtf', '.odt']);
+
+/**
+ * Resolve an upload path under root (realpath) and require a document extension.
+ */
+export function resolveUploadUnderRoot(root: string, relOrAbs: string): string {
+  const abs = resolveUnderRoot(root, relOrAbs, { realpath: true });
+  const ext = extname(abs).toLowerCase();
+  if (!UPLOAD_EXTS.has(ext)) {
+    throw new Error(`upload must be a document (${[...UPLOAD_EXTS].join(', ')}), got: ${relOrAbs}`);
   }
   return abs;
 }
@@ -70,7 +99,7 @@ export function repoRelative(root: string, filePath: string): string {
   return (rel === '' ? '.' : rel).split('\\').join('/');
 }
 
-/** Self-check: resolveUnderRoot refuses escapes. */
+/** Self-check: resolveUnderRoot refuses escapes; realpath + upload ext. */
 export function selfCheckPaths(): void {
   const root = findProjectRoot();
   const ok = resolveUnderRoot(root, 'fixtures/applicant-profile.json');
@@ -82,6 +111,15 @@ export function selfCheckPaths(): void {
     threw = true;
   }
   if (!threw) throw new Error('resolveUnderRoot should refuse ..');
+  threw = false;
+  try {
+    resolveUploadUnderRoot(root, 'fixtures/applicant-profile.json');
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error('resolveUploadUnderRoot should refuse non-document');
+  const real = resolveUnderRoot(root, 'fixtures/applicant-profile.json', { realpath: true });
+  if (!real.includes('applicant-profile')) throw new Error('realpath resolve failed');
 }
 
 if (process.argv[1]?.endsWith('paths.ts') || process.argv[1]?.endsWith('paths.js')) {

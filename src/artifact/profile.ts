@@ -44,21 +44,29 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
     // leave undefined; FieldMaps use answers.*
   }
 
-  // Nested vault hoist (identity / work_auth / sponsorship / answers) — aliases only.
-  const identity = out.identity;
-  if (identity && typeof identity === 'object' && !Array.isArray(identity)) {
-    const id = identity as Record<string, unknown>;
+  const hoistIdentityAliases = (bag: unknown) => {
+    if (!bag || typeof bag !== 'object' || Array.isArray(bag)) return;
+    const id = bag as Record<string, unknown>;
     const hoist = (from: string, to: string) => {
       if (out[to] === undefined && id[from] !== undefined) out[to] = id[from];
     };
     hoist('full_name', 'fullName');
     hoist('fullName', 'fullName');
+    hoist('name', 'fullName');
     hoist('email', 'email');
     hoist('phone', 'phone');
+    hoist('phone_number', 'phone');
+    hoist('mobile', 'phone');
     hoist('linkedin', 'linkedin');
     hoist('linkedin_url', 'linkedin');
-  }
-  const workAuth = out.work_auth ?? out.workAuth;
+    hoist('linkedinUrl', 'linkedin');
+  };
+  // Nested vault hoist (identity / contact / personal / work_auth / sponsorship / answers).
+  hoistIdentityAliases(out.identity);
+  hoistIdentityAliases(out.contact);
+  hoistIdentityAliases(out.personal);
+
+  const workAuth = out.work_auth ?? out.workAuth ?? out.workAuthorization;
   if (typeof workAuth === 'string' && out.workAuth === undefined) out.workAuth = workAuth;
   if (workAuth && typeof workAuth === 'object' && !Array.isArray(workAuth)) {
     const wa = workAuth as Record<string, unknown>;
@@ -79,11 +87,61 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
   if (
     (!out.answers || typeof out.answers !== 'object' || Array.isArray(out.answers)) &&
     out.custom_answers &&
-    typeof out.custom_answers === 'object'
+    typeof out.custom_answers === 'object' &&
+    !Array.isArray(out.custom_answers)
   ) {
     out.answers = out.custom_answers;
   }
+  // Nested answers bags when top-level answers empty.
+  if (!out.answers || typeof out.answers !== 'object' || Array.isArray(out.answers)) {
+    for (const bag of [out.identity, out.contact, out.personal, out.survey, out.application]) {
+      if (bag && typeof bag === 'object' && !Array.isArray(bag)) {
+        const a = (bag as Record<string, unknown>).answers;
+        if (a && typeof a === 'object' && !Array.isArray(a)) {
+          out.answers = a;
+          break;
+        }
+      }
+    }
+  }
+  // Flatten education[0] into FieldMap-friendly top-level keys (aliases only).
+  const edu0 = Array.isArray(out.education) ? out.education[0] : undefined;
+  if (edu0 && typeof edu0 === 'object' && !Array.isArray(edu0)) {
+    const e = edu0 as Record<string, unknown>;
+    const hoistEdu = (from: string, to: string) => {
+      if (out[to] === undefined && e[from] !== undefined) out[to] = e[from];
+    };
+    hoistEdu('school', 'school');
+    hoistEdu('university', 'school');
+    hoistEdu('name', 'school');
+    hoistEdu('degree', 'degree');
+    hoistEdu('fieldOfStudy', 'fieldOfStudy');
+    hoistEdu('field', 'fieldOfStudy');
+    hoistEdu('major', 'fieldOfStudy');
+    hoistEdu('fromYear', 'eduFromYear');
+    hoistEdu('startYear', 'eduFromYear');
+    hoistEdu('toYear', 'eduToYear');
+    hoistEdu('endYear', 'eduToYear');
+    hoistEdu('gpa', 'gpa');
+  }
   return out;
+}
+
+/** True when path is not a known apply-profile key (LLM / plan allowlist). */
+export function isOpaqueProfilePath(path: string, profileKeys: string[]): boolean {
+  if (profileKeys.includes(path)) return false;
+  if (path.startsWith('answers.') || path.startsWith('flags.') || path.startsWith('_plan.'))
+    return false;
+  if (
+    /^(fullName|email|phone|resumePath|linkedin|portfolio|location|startDate|workAuth|firstName|lastName|password|country|company|howHeard|phoneDeviceType|address1|city|state|postalCode|school|degree|fieldOfStudy|eduFromYear|eduToYear|gpa)$/.test(
+      path,
+    )
+  )
+    return false;
+  if (/^[0-9a-f]{8}/i.test(path)) return true;
+  if (/systemfield/i.test(path)) return true;
+  if (path.length > 40) return true;
+  return !profileKeys.some((k) => path === k || path.startsWith(`${k}.`));
 }
 
 /** Read a dotted path from a plain object (e.g. answers.whyCompany). */
@@ -187,6 +245,21 @@ export function selfCheckProfileFlags(): void {
   const flags = vault.flags as Record<string, unknown> | undefined;
   if (flags?.sponsorshipNo !== 'yes') throw new Error('vault sponsorship.required→sponsorshipNo');
 
+  const contact = normalizeApplyProfile({
+    contact: { name: 'Casey Contact', phone: '555-0100' },
+    workAuthorization: { status: 'Citizen' },
+    education: [{ school: 'OU', degree: 'BS', major: 'CS', startYear: 2018, endYear: 2022 }],
+    identity: { answers: { whyCompany: 'Fit' } },
+  });
+  if (contact.fullName !== 'Casey Contact') throw new Error('contact.name→fullName');
+  if (contact.phone !== '555-0100') throw new Error('contact.phone');
+  if (contact.workAuth !== 'Citizen') throw new Error('workAuthorization.status');
+  if (contact.school !== 'OU' || contact.degree !== 'BS' || contact.fieldOfStudy !== 'CS') {
+    throw new Error('education[0] flatten');
+  }
+  if (contact.eduFromYear !== 2018 || contact.eduToYear !== 2022) throw new Error('education years');
+  const ans = contact.answers as Record<string, unknown> | undefined;
+  if (ans?.whyCompany !== 'Fit') throw new Error('identity.answers hoist');
 }
 
 if (process.argv[1]?.endsWith('profile.ts') || process.argv[1]?.endsWith('profile.js')) {
