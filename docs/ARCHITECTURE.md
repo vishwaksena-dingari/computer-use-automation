@@ -428,23 +428,32 @@ Live Ashby Overview URLs returned SUCCESS with an empty receipt; vault `location
 ```mermaid
 flowchart TD
   nav[navigate URL] --> open["openApplyFormSurface if no controls"]
-  open --> obs[observeControls]
+  open --> host{same allowed host?}
+  host -->|no| fail4h[HARD_FAILURE host escape]
+  host -->|yes| obs[observeControls]
   obs -->|still empty| fail4["BUSINESS_OUTCOME empty fill → exit 4"]
   obs -->|has controls| fill[runFillForm]
+  fill --> loc["location: city token + region snap or skip"]
   fill --> keys{filledKeys length?}
   keys -->|0| fail4
   keys -->|gt 0| ok[SUCCESS exit 0]
-  fill --> cache["write auto-ats FieldMap when seed missing"]
+  fill --> cache["seed miss → .private/field-maps only"]
+  ok --> sub{--submit?}
+  sub -->|yes + banner| submitted[outcome submitted]
+  sub -->|yes no banner| filledOnly[outcome filled — not submitted]
 ```
 
 | Guard | Behavior |
 |---|---|
 | Location display | `getProfilePath('location')` formats `{city,region,country}` → `"City, Region, Country"` |
-| Location typeahead | Combobox: type **city** needle → `snapSelectValue` → click option |
-| Empty fill | Never SUCCESS when `filledKeys` is empty |
-| Overview → form | Click Application tab / Apply for this Job before giving up |
-| Seed cache | Missing `auto-<ats>` → persist repaired map after page-0 fill success |
-| Live wrapper | `scripts/apply-live.sh` copies vault/resume → `cua apply` |
+| Location typeahead | Needle `City, ST`; **require** whole-city token match (+ region when present); else skip/fail — no blind Enter |
+| Empty fill | Never SUCCESS when `filledKeys` is empty (`fillFormFlow`) |
+| Overview → form | Click Application / Apply; **re-assert host** against allowlist |
+| Seed cache | Missing seed → write **`.private/field-maps/<id>.json`** only; `--write-field-map` → tracked `capabilities/field-maps/` |
+| Submit claim | `outcome: submitted` only when confirmation text/banner observed (`submitConfirmed`) |
+| Live wrapper | `apply-live.sh` → `node dist/cli/main.js`; always rewrite `resumePath` when resume copied |
+
+**Act-on locks (D0, 2026-09-13 reviews):** T-W-8 observe submit · T-W-9 fail-closed location · T-W-10 private seed cache · T-W-12 resume rewrite · T-W-14 origin check · T-W-15 local CLI. No tracked Maximor-specific `auto-ashby.json`.
 
 | Surface | Module / CLI |
 |---|---|
@@ -452,7 +461,7 @@ flowchart TD
 | Profile | `normalizeApplyProfile` (vault hoist) + `--storage-state` |
 | Import plan | `cua import-plan` → Zod PlanJson, aliases, `literal`, `surveyPlan`, `successBanner` |
 | Page-filter | `filterFieldMapToControls` before repair (multipage perf) |
-| Worker apply | `cua apply` + `worker-exit` codes; seed ≠ wipe; empty-fill fail |
+| Worker apply | `cua apply` + `worker-exit` codes; seed ≠ wipe; empty-fill fail; observed submit |
 | Golden CI | `npm run check:golden` (incl. bridge-alias fixture) |
 | HAR | Kept only under `evidence/private/` (or `CUA_ALLOW_PUBLIC_HAR=1`) |
 

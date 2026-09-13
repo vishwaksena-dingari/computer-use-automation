@@ -25,6 +25,7 @@ import {
   filterFieldMapToControls,
   repairFieldMap,
   writeFieldMapById,
+  writePrivateFieldMapById,
   writeProposedFieldMap,
 } from '../artifact/repair-field-map.js';
 import { observeControls } from '../surface/observe-controls.js';
@@ -90,8 +91,28 @@ async function clickFormAdvance(page: Page): Promise<boolean> {
 /**
  * Job Overview / JD pages have zero form controls — open the Application surface.
  * Ashby: Application tab or "Apply for this Job". Greenhouse-ish Apply buttons too.
+ * Rejects navigation off the allowed host list (T-W-14).
  */
-async function openApplyFormSurface(page: Page): Promise<boolean> {
+async function openApplyFormSurface(
+  page: Page,
+  allowedHosts: string[],
+): Promise<'opened' | 'blocked' | 'none'> {
+  const beforeHost = (() => {
+    try {
+      return new URL(page.url()).hostname.toLowerCase();
+    } catch {
+      return '';
+    }
+  })();
+  const hostOk = (url: string) => {
+    try {
+      const h = new URL(url).hostname.toLowerCase();
+      if (allowedHosts.some((a) => a.toLowerCase() === h)) return true;
+      return Boolean(beforeHost && h === beforeHost);
+    } catch {
+      return false;
+    }
+  };
   const candidates = [
     page.getByRole('tab', { name: /^Application$/i }),
     page.getByRole('link', { name: /^Application$/i }),
@@ -106,12 +127,13 @@ async function openApplyFormSurface(page: Page): Promise<boolean> {
       await first.waitFor({ state: 'visible', timeout: 1500 });
       await first.click({ timeout: 4000 });
       await page.waitForTimeout(600);
-      return true;
+      if (!hostOk(page.url())) return 'blocked';
+      return 'opened';
     } catch {
       /* try next */
     }
   }
-  return false;
+  return 'none';
 }
 
 export type RunStatus = 'SUCCESS' | 'BUSINESS_OUTCOME' | 'RECOVERABLE' | 'HARD_FAILURE';
@@ -133,6 +155,8 @@ export type ReplayResult = {
   llmCalls: number;
   paused?: boolean;
   autoRetrainAttempts?: number;
+  /** True only when --submit and a confirmation banner was observed. */
+  submitConfirmed?: boolean;
 };
 
 export type ReplayOptions = {
@@ -293,6 +317,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
   const ledger: LedgerEntry[] = [];
   const outputs: Record<string, string> = {};
   let llmCalls = 0;
+  let submitConfirmed = false;
 
   ensureDir(join(evidenceDir, 'screenshots'));
   ensureDir(join(evidenceDir, 'hitl'));
@@ -412,6 +437,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
       evidenceDir: repoRelative(root, evidenceDir),
       durationMs: Date.now() - started,
       llmCalls,
+      submitConfirmed: partial.submitConfirmed ?? submitConfirmed,
     };
     log(partial.ok ? 'info' : 'warn', 'replay finish', {
       status: partial.status,
@@ -978,8 +1004,25 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             let observed = await observeControls(page);
             if (!observed.length) {
               // Overview / JD: open Application before treating as SSO/advance.
-              const openedForm = await openApplyFormSurface(page);
-              if (openedForm) {
+              const openedForm = await openApplyFormSurface(page, config.policy.allowedHosts ?? []);
+              if (openedForm === 'blocked') {
+                ledger.push({
+                  at: new Date().toISOString(),
+                  stepId: step.id,
+                  action: 'fillFormFlow',
+                  ok: false,
+                  detail: `page ${pageIdx}: Apply navigation left allowedHosts`,
+                });
+                return finish({
+                  ok: false,
+                  status: 'HARD_FAILURE',
+                  code: null,
+                  message: 'Apply navigation left allowed host',
+                  outputs: {},
+                  error: { reason: 'host_escape', stepId: step.id },
+                });
+              }
+              if (openedForm === 'opened') {
                 ledger.push({
                   at: new Date().toISOString(),
                   stepId: step.id,
@@ -1125,20 +1168,27 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             allReceiptEntries.push(...fillResult.receipt);
             allFilledKeys.push(...fillResult.filled.map((k) => `p${pageIdx}:${k}`));
 
-            // Cache family map: explicit --write-field-map, or first DOM bootstrap when seed missing.
-            if (
-              pageIdx === 0 &&
-              fillResult.filled.length > 0 &&
-              (opts.writeFieldMap || seedWasMissing)
-            ) {
-              writeFieldMapById(root, { ...workingMap, id: mapId });
-              ledger.push({
-                at: new Date().toISOString(),
-                stepId: step.id,
-                action: 'fillFormFlow',
-                ok: true,
-                detail: `persisted FieldMap ${mapId} (${seedWasMissing ? 'seed cache' : 'write-field-map'})`,
-              });
+            // Cache: --write-field-map → tracked; seed miss → .private only (T-W-10).
+            if (pageIdx === 0 && fillResult.filled.length > 0) {
+              if (opts.writeFieldMap) {
+                writeFieldMapById(root, { ...workingMap, id: mapId });
+                ledger.push({
+                  at: new Date().toISOString(),
+                  stepId: step.id,
+                  action: 'fillFormFlow',
+                  ok: true,
+                  detail: `persisted FieldMap ${mapId} (write-field-map)`,
+                });
+              } else if (seedWasMissing) {
+                writePrivateFieldMapById(root, { ...workingMap, id: mapId });
+                ledger.push({
+                  at: new Date().toISOString(),
+                  stepId: step.id,
+                  action: 'fillFormFlow',
+                  ok: true,
+                  detail: `persisted FieldMap ${mapId} (.private seed cache)`,
+                });
+              }
             }
 
             // Done markers — custom banner exact; built-in defaults as substring regex.
@@ -1164,12 +1214,18 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 const customSubmit = successBanner
                   ? page.getByText(successBanner, { exact: true }).filter({ visible: true })
                   : null;
-                if (
-                  (await defaultSubmit.count()) === 0 &&
-                  !(customSubmit && (await customSubmit.count()) > 0)
-                ) {
-                  // Still treat as terminal page after click attempt.
-                }
+                submitConfirmed =
+                  (await defaultSubmit.count()) > 0 ||
+                  Boolean(customSubmit && (await customSubmit.count()) > 0);
+                ledger.push({
+                  at: new Date().toISOString(),
+                  stepId: step.id,
+                  action: 'fillFormFlow',
+                  ok: submitConfirmed,
+                  detail: submitConfirmed
+                    ? 'submit confirmed (banner)'
+                    : 'submit clicked but confirmation not observed',
+                });
               }
               break;
             }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @file One-shot live apply: optional vault/resume copy → cua apply (fill-only unless --submit).
+# @file One-shot live apply: optional vault/resume copy → local cua apply (fill-only unless --submit).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -32,9 +32,27 @@ usage: apply-live.sh --url <ashby|/application url> [options]
   --headed                  Show browser
   --escalate                HITL pause on captcha/stuck
   --submit                  Click Submit (OFF by default — irreversible)
-  --write-field-map         Persist repaired FieldMap even when seed exists
+  --write-field-map         Persist repaired field-map into tracked capabilities/
 EOF
   exit 1
+}
+
+rewrite_resume_path() {
+  local profile_path="$1"
+  python3 - "$profile_path" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+data["resumePath"] = ".private/resume.pdf"
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+import os
+os.replace(tmp, path)
+print("Set resumePath → .private/resume.pdf")
+PY
 }
 
 while [[ $# -gt 0 ]]; do
@@ -65,10 +83,21 @@ elif [[ -n "$RESUME" ]]; then
   mkdir -p .private
   cp "$RESUME" .private/resume.pdf
   echo "Copied resume → .private/resume.pdf"
+  if [[ -f "$PROFILE" ]]; then
+    rewrite_resume_path "$PROFILE"
+  else
+    echo "warn: profile missing at $PROFILE — resume copied but resumePath not rewritten" >&2
+  fi
 fi
 
 if [[ ! -f "$PROFILE" ]]; then
   echo "missing profile: $PROFILE (use --profile-from or copy into .private/)" >&2
+  exit 1
+fi
+
+CUA_BIN="$ROOT/dist/cli/main.js"
+if [[ ! -f "$CUA_BIN" ]]; then
+  echo "missing $CUA_BIN — run: npm run build" >&2
   exit 1
 fi
 
@@ -89,5 +118,5 @@ else
   echo "mode: fill-only → $URL"
 fi
 
-npx cua "${ARGS[@]}"
+node "$CUA_BIN" "${ARGS[@]}"
 echo "evidence → $EVIDENCE"

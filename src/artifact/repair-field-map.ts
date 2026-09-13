@@ -14,7 +14,7 @@ import type { RuntimeConfig } from '../config/schema.js';
 import { observeControls, type ControlHint } from '../surface/observe-controls.js';
 import { enrichControlsFromGreenhouseApi } from '../surface/greenhouse-boards.js';
 import type { AtsFamily } from '../surface/detect-ats.js';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute } from 'node:path';
 import { isOpaqueProfilePath } from './profile.js';
 
@@ -1077,12 +1077,30 @@ function heuristicYesNo(c: ControlHint, profileKeys: string[]): FieldMapField | 
   };
 }
 
-/** Persist field-map under capabilities/field-maps/ (jail). */
+/** Persist field-map under capabilities/field-maps/ (jail). Opt-in --write-field-map only. */
 export function writeFieldMapById(root: string, map: FieldMap): string {
   if (!/^[A-Za-z0-9._-]+$/.test(map.id)) {
     throw new Error(`invalid field-map id: ${map.id}`);
   }
   const dir = resolve(root, 'capabilities', 'field-maps');
+  const path = resolve(dir, `${map.id}.json`);
+  const rel = relative(root, path);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error(`field-map path escapes root: ${map.id}`);
+  }
+  writeFileSync(path, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
+  return path;
+}
+
+/**
+ * Persist bootstrap seed under gitignored `.private/field-maps/` (G12a / D7 — never auto-write tracked).
+ */
+export function writePrivateFieldMapById(root: string, map: FieldMap): string {
+  if (!/^[A-Za-z0-9._-]+$/.test(map.id)) {
+    throw new Error(`invalid field-map id: ${map.id}`);
+  }
+  const dir = resolve(root, '.private', 'field-maps');
+  mkdirSync(dir, { recursive: true });
   const path = resolve(dir, `${map.id}.json`);
   const rel = relative(root, path);
   if (rel.startsWith('..') || isAbsolute(rel)) {

@@ -616,7 +616,7 @@ addGlobalConfigFlags(
         });
         writeJson(join(evidenceDir, 'result.json'), result);
         const summary = workerSummaryFromReplay(result, {
-          submitted: Boolean(opts.submit) && result.ok,
+          submitted: Boolean(opts.submit) && result.ok && Boolean(result.submitConfirmed),
           allowSubmit: Boolean(opts.submit),
         });
         writeJson(join(evidenceDir, 'worker.json'), summary);

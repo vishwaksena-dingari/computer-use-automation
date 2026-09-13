@@ -118,6 +118,13 @@ export function selfCheckWorkerExit(): void {
   if (submitMode.mode !== 'submit' || submitMode.outcome !== 'submitted') {
     throw new Error('submit mode');
   }
+  const submitUnconfirmed = workerSummaryFromReplay(
+    { ...base, ok: true, status: 'SUCCESS', code: null, message: 'ok', paused: false },
+    { allowSubmit: true, submitted: false },
+  );
+  if (submitUnconfirmed.outcome !== 'filled' || submitUnconfirmed.mode !== 'submit') {
+    throw new Error('submit without confirm must be filled');
+  }
   const empty = workerSummaryFromReplay({
     ...base,
     ok: true,
