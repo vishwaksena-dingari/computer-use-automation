@@ -3,11 +3,11 @@
  * @file Operator CLI entry: discover | replay | invoke | escalate | config.
  */
 import { Command } from 'commander';
-import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { flattenForShow, loadConfig, validateConfig, type CliConfigOverrides } from '../config/load.js';
 import { setConfigValue } from '../config/set.js';
-import { findProjectRoot, repoRelative } from '../config/paths.js';
+import { findProjectRoot, repoRelative, resolveUnderRoot } from '../config/paths.js';
 import { loadCapability, sha256File, findCapabilityPathById } from '../artifact/load.js';
 import { normalizeApplyProfile } from '../artifact/profile.js';
 import {
@@ -16,7 +16,6 @@ import {
 } from '../artifact/import-plan.js';
 import { authorAtsApplyShell } from '../discover/author-steps.js';
 import { detectAtsFamily } from '../surface/detect-ats.js';
-import { writeFileSync, mkdirSync } from 'node:fs';
 import { replayCapability } from '../replay/engine.js';
 import { discoverCapability } from '../discover/emit.js';
 import { writeResume } from '../session/hitl.js';
@@ -39,13 +38,9 @@ function cliFromOpts(opts: Record<string, unknown>): CliConfigOverrides {
   };
 }
 
-/** Load applicant profile JSON; path must resolve under project root. */
+/** Load applicant profile JSON; path must resolve under project root (realpath). */
 function loadProfileJson(root: string, profilePath: string): Record<string, unknown> {
-  const abs = resolve(root, profilePath);
-  const rel = relative(root, abs);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw new Error(`--profile must be inside project root: ${profilePath}`);
-  }
+  const abs = resolveUnderRoot(root, profilePath, { realpath: true });
   return normalizeApplyProfile(JSON.parse(readFileSync(abs, 'utf8')) as Record<string, unknown>);
 }
 
@@ -497,11 +492,7 @@ addGlobalConfigFlags(
     .action((opts) => {
       try {
         const root = findProjectRoot();
-        const planPath = resolve(root, opts.planJson as string);
-        const rel = relative(root, planPath);
-        if (rel.startsWith('..') || isAbsolute(rel)) {
-          throw new Error(`--plan-json must be inside project root: ${opts.planJson}`);
-        }
+        const planPath = resolveUnderRoot(root, opts.planJson as string, { realpath: true });
         const raw = JSON.parse(readFileSync(planPath, 'utf8')) as unknown;
         const platform =
           opts.ats && opts.ats !== 'auto' ? String(opts.ats) : (raw as { ats?: string }).ats;
@@ -510,11 +501,7 @@ addGlobalConfigFlags(
           (opts.out as string | undefined) ??
           writeImportedFieldMap(root, map);
         if (opts.out) {
-          const outAbs = resolve(root, opts.out);
-          const outRel = relative(root, outAbs);
-          if (outRel.startsWith('..') || isAbsolute(outRel)) {
-            throw new Error(`--out must be inside project root: ${opts.out}`);
-          }
+          const outAbs = resolveUnderRoot(root, opts.out as string, { realpath: false });
           mkdirSync(dirname(outAbs), { recursive: true });
           writeFileSync(outAbs, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
         }
@@ -581,11 +568,7 @@ addGlobalConfigFlags(
             : detectAtsFamily(url);
         let mapId = opts.fieldMapId as string | undefined;
         if (opts.planJson) {
-          const planPath = resolve(root, opts.planJson as string);
-          const rel = relative(root, planPath);
-          if (rel.startsWith('..') || isAbsolute(rel)) {
-            throw new Error(`--plan-json must be inside project root`);
-          }
+          const planPath = resolveUnderRoot(root, opts.planJson as string, { realpath: true });
           const raw = JSON.parse(readFileSync(planPath, 'utf8')) as unknown;
           mapId = mapId ?? `imported-${family}`;
           const map = importPlanToFieldMap(raw, { id: mapId, platform: family });

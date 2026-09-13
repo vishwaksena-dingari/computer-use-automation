@@ -409,6 +409,8 @@ Operator guide: **`docs/APPLY.md`**. Status: `docs/PRODUCTIZE.md` / `docs/agents
 
 Imported FieldMaps seed `fillFormFlow`; repair only adds gaps. Plan answers may live on FieldMap `literal` (treat maps with literals as private).
 
+**Literal vs heuristic:** plan literals may win over *optional* survey owners sharing a CSS control; they never displace a *required* heuristic owner (hostile/stale plan). File fields always use profile `resumePath` (no plan literals; uploads are document extensions only under the repo realpath jail).
+
 ```mermaid
 flowchart LR
   plan["--plan-json / import-plan"] --> fmap[FieldMap on disk]
@@ -423,7 +425,7 @@ flowchart LR
 |---|---|
 | Config overlay | `config.local.yaml` → `loadConfig` layer `local` |
 | Profile | `normalizeApplyProfile` (vault hoist) + `--storage-state` |
-| Import plan | `cua import-plan` → aliases, `literal`, `surveyPlan`, `successBanner` |
+| Import plan | `cua import-plan` → Zod PlanJson, aliases, `literal`, `surveyPlan`, `successBanner` |
 | Page-filter | `filterFieldMapToControls` before repair (multipage perf) |
 | Worker apply | `cua apply` + `worker-exit` codes; seed ≠ wipe |
 | Golden CI | `npm run check:golden` (incl. bridge-alias fixture) |

@@ -274,22 +274,26 @@ npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
 
 - Before Bridge: repair always bootstrapped from DOM (`fieldMap: null`) and wiped imports. After (G12): seed + gap-only merge.
 - `--plan-json` / `--field-map-id` **seeds** fill; repair adds gaps only (LLM replace keeps prior `literal`).
+- Survey / plan **literals win** over *optional* heuristic keys that share the same control (e.g. `whyCompany` vs `additional` on one textarea). They **do not** displace required fields (e.g. workAuth).
+- Empty `"plan": []` does **not** fall through to `fields[]` — omit `plan` or put steps in `plan`.
 
 ### Resume PDF (path jail)
 
-Resume uploads must resolve **under the project root** (symlinks that escape are rejected).
+Resume uploads must resolve **under the project root** (symlinks that escape are rejected). File fields always read **`resumePath`** from the profile (nested vault paths and plan `profilePath` are not used — set top-level `resumePath`). Allowed extensions: `.pdf`, `.doc`, `.docx`, `.txt`, `.rtf`, `.odt`.
 
 ```bash
+bash scripts/copy-resume-private.sh /path/to/your-resume.pdf
+# or:
 mkdir -p .private
 cp /path/to/your-resume.pdf .private/resume.pdf
 # in profile JSON:
 #   "resumePath": ".private/resume.pdf"
 ```
 
-Plan JSON must **not** put file paths in `value` for upload fields — file kinds ignore plan `literal` and use `resumePath` from the profile only.
+Plan JSON must **not** put file paths in `value` for upload fields — file kinds ignore plan `literal` and use `resumePath` from the profile only. Plan `profilePath` must be an allowlisted apply key (or `answers.*` / `flags.*` / `_plan.*`).
 
-- Plan aliases accepted: `title`→label, `isRequired`→required, `name`→path; resolved `value` stored as FieldMap `literal`.
+- Plan aliases accepted: `title`→label, `isRequired`→required, `name`→path; resolved `value` stored as FieldMap `literal`. Plan JSON is Zod-validated at import.
 - Optional `surveyPlan[]` merges after `plan[]`.
 - `successBanner` on the plan/map is used in submit/done detection (**exact** match; ignored if shorter than 12 characters — falls back to built-in phrases).
 - **Resume PDF:** copy into `.private/` (or another path under the repo) and set `resumePath`. Paths outside the project root are rejected (path jail).
-- Nested vault profiles: `normalizeApplyProfile` hoists `identity.*` / `work_auth` / `sponsorship` into apply-profile keys.
+- Nested vault profiles: `normalizeApplyProfile` hoists `identity` / `contact` / `personal` / `work_auth` / `workAuthorization` / `sponsorship` / nested `answers` / `education[0]` into apply-profile keys.

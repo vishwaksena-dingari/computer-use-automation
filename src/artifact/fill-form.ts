@@ -15,8 +15,7 @@ import {
   howHeardPath,
 } from '../surface/workday-widgets.js';
 import type { RuntimeConfig } from '../config/schema.js';
-import { resolve, relative, isAbsolute } from 'node:path';
-import { realpathSync, existsSync } from 'node:fs';
+import { resolveUploadUnderRoot } from '../config/paths.js';
 import {
   readControlValue,
   redactForReceipt,
@@ -24,6 +23,11 @@ import {
   type FillReceiptEntry,
 } from './fill-receipt.js';
 import { formOutcomeCode } from './form-outcomes.js';
+
+/** File fields always read profile.resumePath (T-B-14). */
+export function profilePathForField(f: Pick<FieldMapField, 'kind' | 'profilePath'>): string {
+  return f.kind === 'file' ? 'resumePath' : f.profilePath;
+}
 
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -50,14 +54,7 @@ type CraftFn = (args: {
 }) => Promise<{ value: string | null; llmCalls: number }>;
 
 function jailPath(root: string, value: string): string {
-  const abs = resolve(root, value);
-  const rootReal = existsSync(root) ? realpathSync(root) : root;
-  const absReal = existsSync(abs) ? realpathSync(abs) : abs;
-  const rel = relative(rootReal, absReal);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw new Error(`file path escapes project root: ${value}`);
-  }
-  return absReal;
+  return resolveUploadUnderRoot(root, value);
 }
 
 /** Greenhouse/react-select: open control, type, pick option. */
@@ -255,15 +252,18 @@ export async function runFillForm(opts: {
   if (!opts.skipInvisibleRequired) {
     const missing = fieldMap.fields.filter((f) => {
       if (!f.required) return false;
-      if (f.literal !== undefined && f.literal !== null && String(f.literal).trim() !== '') return false;
-      const raw = getProfilePath(profile, f.profilePath);
+      if (f.kind !== 'file' && f.literal !== undefined && f.literal !== null && String(f.literal).trim() !== '') {
+        return false;
+      }
+      const path = profilePathForField(f);
+      const raw = getProfilePath(profile, path);
       if (raw !== undefined && raw !== null && String(raw).trim() !== '') return false;
       return !fieldWantsCraft(f, Boolean(opts.craftAnswer));
     });
     if (missing.length) {
-      const paths = missing.map((f) => f.profilePath).join(',');
-      // HITL resume note applies to a single profilePath — use the first gap.
-      return fail(missing[0]!.key, missing[0]!.profilePath, `missing required profile paths: ${paths}`);
+      const paths = missing.map((f) => profilePathForField(f)).join(',');
+      const firstPath = profilePathForField(missing[0]!);
+      return fail(missing[0]!.key, firstPath, `missing required profile paths: ${paths}`);
     }
   }
 
@@ -320,14 +320,15 @@ export async function runFillForm(opts: {
       continue;
     }
 
-    // Plan literals never drive file uploads (path jail still allows any in-repo file).
+    // Plan literals never drive file uploads; file values always from resumePath.
+    const valuePath = profilePathForField(field);
     let raw =
       field.kind !== 'file' &&
       field.literal !== undefined &&
       field.literal !== null &&
       String(field.literal).trim() !== ''
         ? field.literal
-        : getProfilePath(profile, field.profilePath);
+        : getProfilePath(profile, valuePath);
     // Dormant craft: wake when empty + craft:llm (or required answers.* / textarea) and craftAnswer wired.
     if ((raw === undefined || raw === null || String(raw).trim() === '') && fieldWantsCraft(field, Boolean(opts.craftAnswer))) {
       let crafted: { value: string | null; llmCalls: number } = { value: null, llmCalls: 0 };
@@ -353,7 +354,7 @@ export async function runFillForm(opts: {
 
     if (raw === undefined || raw === null || String(raw).trim() === '') {
       if (field.required) {
-        return fail(field.key, field.profilePath, `required profile path empty: ${field.profilePath}`);
+        return fail(field.key, valuePath, `required profile path empty: ${valuePath}`);
       }
       continue;
     }

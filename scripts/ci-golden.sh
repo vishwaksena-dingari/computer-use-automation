@@ -38,7 +38,15 @@ echo "$OUT2" | grep -q '"exitCode": 0' || { echo "bridge-alias apply failed" >&2
 # Prove plan seed: receipt includes map-driven keys / literal from bridge-alias-plan
 test -f evidence/private/ci-golden-bridge-alias/fill-receipt.json || { echo "missing bridge-alias fill-receipt" >&2; exit 1; }
 grep -q 'fullName' evidence/private/ci-golden-bridge-alias/fill-receipt.json || { echo "bridge-alias receipt missing fullName" >&2; exit 1; }
-grep -q 'Bridge Tester' evidence/private/ci-golden-bridge-alias/fill-receipt.json || { echo "bridge-alias receipt missing plan literal" >&2; exit 1; }
+grep -F -q 'Bridge Tester' evidence/private/ci-golden-bridge-alias/fill-receipt.json || { echo "bridge-alias receipt missing plan literal" >&2; exit 1; }
+node -e '
+const r = JSON.parse(require("fs").readFileSync("evidence/private/ci-golden-bridge-alias/fill-receipt.json","utf8"));
+const e = (r.entries||[]).find((x)=>x.key==="whyCompany");
+if (!e || e.verified !== true || e.actual !== "Because Bridge works.") {
+  console.error("bridge-alias receipt missing verified survey literal");
+  process.exit(1);
+}
+'
 
 echo "=== form outcome pages (static) ===" >&2
 # form-outcomes self-check already covers CAPTCHA/CLOSED strings; hit fixtures via curl

@@ -16,6 +16,7 @@ import { enrichControlsFromGreenhouseApi } from '../surface/greenhouse-boards.js
 import type { AtsFamily } from '../surface/detect-ats.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute } from 'node:path';
+import { isOpaqueProfilePath } from './profile.js';
 
 const SYSTEM = `You repair application form field-maps. Reply with JSON only:
 {"fields":[{"key":"...","required":true,"profilePath":"...","kind":"text|textarea|select|checkbox|radio|file","targets":[{"kind":"label"|"css"|"role"|"placeholder",...}],"craft":"llm"?}]}
@@ -159,6 +160,7 @@ function fieldCoversControl(f: FieldMapField, c: ControlHint): boolean {
       if (name && (sel.includes(`name='${name}'`) || sel.includes(`name="${name}"`))) return true;
     }
     if (name && f.key.toLowerCase() === name) return true;
+    if (f.kind === 'file' && c.widget === 'file') return true;
     if (f.profilePath === 'resumePath' && c.widget === 'file') return true;
     if (f.profilePath === 'location' && c.widget === 'combobox') return true;
   }
@@ -197,14 +199,18 @@ export function mergeFieldMap(
   for (const f of patchFields) {
     if (mode === 'replace' || !byKey.has(f.key)) {
       const prev = byKey.get(f.key);
-      // Keep imported plan answers when LLM repair omits literal.
+      // Keep imported plan answers when LLM repair omits literal — never on kind:file.
       if (
         mode === 'replace' &&
         prev &&
         prev.literal !== undefined &&
-        f.literal === undefined
+        f.literal === undefined &&
+        f.kind !== 'file'
       ) {
         byKey.set(f.key, { ...f, literal: prev.literal });
+      } else if (f.kind === 'file') {
+        const { literal: _drop, ...rest } = f;
+        byKey.set(f.key, { ...rest, profilePath: 'resumePath' });
       } else {
         byKey.set(f.key, f);
       }
@@ -403,9 +409,17 @@ export async function repairFieldMap(opts: {
   };
 }
 
+function fieldHasLiteral(f: FieldMap['fields'][number]): boolean {
+  return f.literal !== undefined && f.literal !== null && String(f.literal).trim() !== '';
+}
+
 /**
  * Drop stale map rows that steal another field's DOM node (e.g. sponsorship → #workAuth on Co C).
- * Heuristic owner of #id / name wins.
+ * Heuristic owner of #id / name wins. Plan literals may win over *optional* owners (survey),
+ * but never over required heuristic owners (hostile/stale plan). Then non-literal rivals
+ * sharing a kept literal's CSS selectors are dropped (G12a).
+ * ponytail: only css targets participate in ownership — label/role collisions are not detected;
+ * upgrade: build owner map from resolved locators if that bites.
  */
 export function dropShadowedFields(
   map: FieldMap,
@@ -413,24 +427,52 @@ export function dropShadowedFields(
   profileKeys: string[],
 ): FieldMap {
   const ownerBySelector = new Map<string, string>();
+  const ownerRequired = new Map<string, boolean>();
   for (const c of controls) {
     const h = heuristicFieldFromControl(c, profileKeys);
     if (!h) continue;
-    if (c.id) ownerBySelector.set(`#${c.id}`, h.key);
+    const mark = (sel: string) => {
+      ownerBySelector.set(sel, h.key);
+      ownerRequired.set(sel, Boolean(h.required));
+    };
+    if (c.id) mark(`#${c.id}`);
     if (c.inputName) {
-      ownerBySelector.set(`input[name='${c.inputName}']`, h.key);
-      ownerBySelector.set(`select[name='${c.inputName}']`, h.key);
-      ownerBySelector.set(`textarea[name='${c.inputName}']`, h.key);
+      mark(`input[name='${c.inputName}']`);
+      mark(`select[name='${c.inputName}']`);
+      mark(`textarea[name='${c.inputName}']`);
     }
   }
-  const fields = map.fields.filter((f) => {
+  let fields = map.fields.filter((f) => {
     for (const t of f.targets) {
       if (t.kind !== 'css' || !t.selector) continue;
       const owner = ownerBySelector.get(t.selector);
-      if (owner && owner !== f.key) return false;
+      if (!owner || owner === f.key) continue;
+      if (fieldHasLiteral(f)) {
+        // Required control: drop hostile/stale literal. Optional survey: literal may win.
+        if (ownerRequired.get(t.selector)) return false;
+        continue;
+      }
+      return false;
     }
     return true;
   });
+  // Drop non-literal fields whose CSS selectors collide with a kept literal field.
+  const literalSelectors = new Set<string>();
+  for (const f of fields) {
+    if (!fieldHasLiteral(f)) continue;
+    for (const t of f.targets) {
+      if (t.kind === 'css' && t.selector) literalSelectors.add(t.selector);
+    }
+  }
+  if (literalSelectors.size) {
+    fields = fields.filter((f) => {
+      if (fieldHasLiteral(f)) return true;
+      for (const t of f.targets) {
+        if (t.kind === 'css' && t.selector && literalSelectors.has(t.selector)) return false;
+      }
+      return true;
+    });
+  }
   return fields.length === map.fields.length ? map : mergeFieldMap({ ...map, fields }, [], map.id);
 }
 
@@ -485,22 +527,6 @@ async function ensureWorkdayCareerFields(
     });
   }
   return extra.length ? mergeFieldMap(map, extra, map.id) : map;
-}
-
-function isOpaqueProfilePath(path: string, profileKeys: string[]): boolean {
-  if (profileKeys.includes(path)) return false;
-  if (path.startsWith('answers.') || path.startsWith('flags.') || path.startsWith('_plan.'))
-    return false;
-  if (
-    /^(fullName|email|phone|resumePath|linkedin|portfolio|location|startDate|workAuth|firstName|lastName|password|country|company|howHeard|phoneDeviceType|address1|city|state|postalCode|school|degree|fieldOfStudy|eduFromYear|eduToYear|gpa)$/.test(
-      path,
-    )
-  )
-    return false;
-  if (/^[0-9a-f]{8}/i.test(path)) return true;
-  if (/systemfield/i.test(path)) return true;
-  if (path.length > 40) return true;
-  return !profileKeys.some((k) => path === k || path.startsWith(`${k}.`));
 }
 
 /** Refresh/add fields from live controls; collapse duplicate keys (same profilePath OK for verify password). */
@@ -918,11 +944,13 @@ function heuristicFieldFromControl(c: ControlHint, profileKeys: string[]): Field
     required = true;
   } else if (c.tag === 'textarea' || c.widget === 'textarea') {
     if (/additional|anything else|love to share|why/i.test(b)) {
-      profilePath = /why/i.test(b) ? 'answers.whyCompany' : 'answers.additional';
-      key = 'additional';
+      const isWhy = /why/i.test(b);
+      profilePath = isWhy ? 'answers.whyCompany' : 'answers.additional';
+      // Align with import-plan keys (whyCompany) so seed literals are not shadow-dropped.
+      key = isWhy ? 'whyCompany' : 'additional';
       kind = 'textarea';
       required = false;
-      craft = /why/i.test(b) ? 'llm' : undefined;
+      craft = isWhy ? 'llm' : undefined;
     } else return null;
   } else if (c.tag === 'select') {
     if (!/auth|sponsor|authorized to work|country/i.test(b)) return null;
@@ -1177,9 +1205,135 @@ export function selfCheckMergeLiteralPreserve(): void {
   if (patched.successBanner !== 'Application received') throw new Error('merge must keep successBanner');
 }
 
+/** Self-check: plan whyCompany literal survives heuristic additional shadowing. */
+export function selfCheckDropShadowedKeepsLiteral(): void {
+  const map: FieldMap = {
+    schemaVersion: 1,
+    id: 'shadow-lit',
+    updatedAt: new Date().toISOString(),
+    fields: [
+      {
+        key: 'whyCompany',
+        required: false,
+        profilePath: '_plan.whyCompany',
+        kind: 'textarea',
+        literal: 'Because Bridge works.',
+        targets: [
+          { kind: 'css', rank: 1, selector: "textarea[name='whyCompany']" },
+          { kind: 'label', rank: 2, name: 'Why this company?' },
+        ],
+      },
+      {
+        key: 'additional',
+        required: false,
+        profilePath: 'answers.additional',
+        kind: 'textarea',
+        targets: [{ kind: 'css', rank: 1, selector: "textarea[name='whyCompany']" }],
+      },
+    ],
+  };
+  const controls: ControlHint[] = [
+    {
+      tag: 'textarea',
+      label: 'Why this company?',
+      inputName: 'whyCompany',
+      id: 'whyCompany',
+      widget: 'textarea',
+    },
+  ];
+  const kept = dropShadowedFields(map, controls, ['answers.whyCompany', 'answers.additional']);
+  const why = kept.fields.find((f) => f.key === 'whyCompany');
+  if (!why || why.literal !== 'Because Bridge works.') {
+    throw new Error('dropShadowedFields must keep plan whyCompany literal');
+  }
+  if (kept.fields.some((f) => f.key === 'additional')) {
+    throw new Error('dropShadowedFields must drop non-literal rival on same selector');
+  }
+}
+
+/** Self-check: plan literal must not steal a required heuristic owner. */
+export function selfCheckDropShadowedBlocksHostileLiteral(): void {
+  const map: FieldMap = {
+    schemaVersion: 1,
+    id: 'shadow-hostile',
+    updatedAt: new Date().toISOString(),
+    fields: [
+      {
+        key: 'evil',
+        required: false,
+        profilePath: '_plan.evil',
+        kind: 'text',
+        literal: 'Yes',
+        targets: [{ kind: 'css', rank: 1, selector: '#workAuth' }],
+      },
+      {
+        key: 'workAuth',
+        required: true,
+        profilePath: 'workAuth',
+        kind: 'select',
+        targets: [{ kind: 'css', rank: 1, selector: '#workAuth' }],
+      },
+    ],
+  };
+  const controls: ControlHint[] = [
+    {
+      tag: 'select',
+      label: 'Work authorization',
+      id: 'workAuth',
+      inputName: 'workAuth',
+      widget: 'select',
+      required: true,
+      options: ['Authorized', 'Needs sponsorship'],
+    },
+  ];
+  const kept = dropShadowedFields(map, controls, ['workAuth']);
+  if (kept.fields.some((f) => f.key === 'evil')) throw new Error('hostile literal must drop');
+  if (!kept.fields.some((f) => f.key === 'workAuth')) throw new Error('required owner must remain');
+}
+
+/** Self-check: replace merge must not re-attach literal onto kind:file. */
+export function selfCheckMergeFileDropsLiteral(): void {
+  const base: FieldMap = {
+    schemaVersion: 1,
+    id: 'file-lit',
+    updatedAt: new Date().toISOString(),
+    fields: [
+      {
+        key: 'resume',
+        required: true,
+        profilePath: '_plan.resume',
+        kind: 'text',
+        literal: 'resume.pdf',
+        targets: [{ kind: 'label', rank: 1, name: 'Resume' }],
+      },
+    ],
+  };
+  const patched = mergeFieldMap(
+    base,
+    [
+      {
+        key: 'resume',
+        required: true,
+        profilePath: 'resumePath',
+        kind: 'file',
+        targets: [{ kind: 'css', rank: 1, selector: "input[type='file']" }],
+      },
+    ],
+    'file-lit',
+    { mode: 'replace' },
+  );
+  const f = patched.fields[0];
+  if (!f || f.kind !== 'file' || f.literal !== undefined || f.profilePath !== 'resumePath') {
+    throw new Error('merge must strip literal and force resumePath on file');
+  }
+}
+
 if (process.argv[1]?.endsWith('repair-field-map.ts') || process.argv[1]?.endsWith('repair-field-map.js')) {
   selfCheckRepairFewShot();
   selfCheckFilterFieldMapToControls();
   selfCheckMergeLiteralPreserve();
+  selfCheckDropShadowedKeepsLiteral();
+  selfCheckDropShadowedBlocksHostileLiteral();
+  selfCheckMergeFileDropsLiteral();
   console.log('repair-field-map few-shot self-check ok');
 }
