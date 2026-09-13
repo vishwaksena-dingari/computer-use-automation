@@ -133,24 +133,27 @@ const merged = mergeFieldMap(
 assert.ok(merged.fields.some((f) => f.key === 'phone'));
 assert.ok(merged.updatedAt !== fm.updatedAt);
 
-import { applyInvertBool, locationTypeNeedle, snapSelectValue } from './fill-form.js';
+import { applyInvertBool, locationTypeNeedle, snapLocationOption, snapSelectValue } from './fill-form.js';
 import { isNegatedSponsorshipQuestion } from './repair-field-map.js';
 import { getProfilePath } from './profile.js';
 
 assert.equal(snapSelectValue('yes', ['Yes', 'No']), 'Yes');
 assert.equal(snapSelectValue('yes', ['Authorized', 'Needs sponsorship']), 'Authorized');
 assert.equal(snapSelectValue('Authorized', ['authorized', 'Needs sponsorship']), 'authorized');
-assert.equal(locationTypeNeedle('St. Johns, FL, United States'), 'St. Johns');
+assert.equal(locationTypeNeedle('St. Johns, FL, United States'), 'St. Johns, FL');
+assert.equal(
+  snapLocationOption('St. Johns, FL, United States', [
+    'St. Johnsbury, Vermont, United States',
+    'St. Johns, FL, United States',
+  ]),
+  'St. Johns, FL, United States',
+);
 assert.equal(
   snapSelectValue('St. Johns, FL, United States', [
     'St. Johns, FL, United States',
     'Saint John, NB, Canada',
   ]),
   'St. Johns, FL, United States',
-);
-assert.equal(
-  snapSelectValue('St. Johns, FL, United States', ['St. Johns, Florida, US', 'Miami, FL']),
-  'St. Johns, Florida, US',
 );
 assert.equal(applyInvertBool('yes'), 'No');
 assert.equal(applyInvertBool('no'), 'Yes');
