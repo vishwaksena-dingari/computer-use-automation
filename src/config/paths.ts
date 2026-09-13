@@ -46,7 +46,8 @@ export function configLocalYamlPath(root: string): string {
 /**
  * Resolve a repo-relative path and refuse escapes outside project root.
  * Returns absolute path under root. Pass `realpath: true` to reject symlink escapes
- * (same policy as upload jail / --profile).
+ * (same policy as upload jail / --profile). Nonexistent write targets jail via nearest
+ * existing ancestor realpath (T-B-25).
  */
 export function resolveUnderRoot(
   root: string,
@@ -56,7 +57,24 @@ export function resolveUnderRoot(
   const abs = isAbsolute(relOrAbs) ? resolve(relOrAbs) : resolve(root, relOrAbs);
   if (opts?.realpath) {
     const rootReal = existsSync(root) ? realpathSync(root) : resolve(root);
-    const absReal = existsSync(abs) ? realpathSync(abs) : abs;
+    if (existsSync(abs)) {
+      const absReal = realpathSync(abs);
+      const rel = relative(rootReal, absReal);
+      if (rel.startsWith('..') || isAbsolute(rel)) {
+        throw new Error(`path must be inside project root: ${relOrAbs}`);
+      }
+      return absReal;
+    }
+    // Leaf may not exist yet (writes) — realpath nearest existing ancestor.
+    let ancestor = dirname(abs);
+    while (!existsSync(ancestor)) {
+      const parent = dirname(ancestor);
+      if (parent === ancestor) break;
+      ancestor = parent;
+    }
+    const ancestorReal = existsSync(ancestor) ? realpathSync(ancestor) : resolve(ancestor);
+    const leaf = relative(ancestor, abs);
+    const absReal = leaf && leaf !== '' ? resolve(ancestorReal, leaf) : ancestorReal;
     const rel = relative(rootReal, absReal);
     if (rel.startsWith('..') || isAbsolute(rel)) {
       throw new Error(`path must be inside project root: ${relOrAbs}`);
@@ -120,6 +138,11 @@ export function selfCheckPaths(): void {
   if (!threw) throw new Error('resolveUploadUnderRoot should refuse non-document');
   const real = resolveUnderRoot(root, 'fixtures/applicant-profile.json', { realpath: true });
   if (!real.includes('applicant-profile')) throw new Error('realpath resolve failed');
+  // T-B-25: nonexistent leaf under root still jails via ancestor realpath.
+  const nested = resolveUnderRoot(root, 'evidence/private/__write_jail_probe__/out.json', {
+    realpath: true,
+  });
+  if (!nested.includes('evidence')) throw new Error('write-path resolve failed');
 }
 
 if (process.argv[1]?.endsWith('paths.ts') || process.argv[1]?.endsWith('paths.js')) {

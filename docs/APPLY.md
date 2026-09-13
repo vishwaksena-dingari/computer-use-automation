@@ -313,7 +313,7 @@ Plan JSON must **not** put file paths in `value` for upload fields — file kind
 - Optional `surveyPlan[]` merges after `plan[]`.
 - `successBanner` on the plan/map is used in submit/done detection (**exact** match; ignored if shorter than 12 characters — falls back to built-in phrases).
 - **Resume PDF:** copy into `.private/` (or another path under the repo) and set `resumePath`. Paths outside the project root are rejected (path jail).
-- Nested vault profiles: `normalizeApplyProfile` hoists `identity` / `contact` / `personal` / `work_auth` / `work_authorization` / `workAuthorization` / `sponsorship` / nested `answers` / `education[0]` (incl. `discipline`→`fieldOfStudy`) into apply-profile keys. Also maps `form_defaults.authorized|sponsorship` and `identity.location` → `location`.
+- Nested vault profiles: `normalizeApplyProfile` hoists `identity` / `contact` / `personal` / `work_auth` / `work_authorization` / `workAuthorization` / `sponsorship` / nested `answers` / `education[0]` (incl. `discipline`→`fieldOfStudy`) into apply-profile keys. Also maps `form_defaults.authorized|sponsorship` and `identity.location` → `location`. Bare `workAuth: "Yes"` / `"No"` normalize to `Authorized` / `Not authorized`.
 
 ### career-data → `.private/` (ops + adapter)
 
