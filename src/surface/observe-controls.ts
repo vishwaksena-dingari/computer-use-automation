@@ -1,7 +1,5 @@
 /**
  * @file Shared a11y/control observation for discover + hybrid field-map repair.
- * ***REMOVED***
-
  *
  * Browser body is a Function string so tsx/esbuild `__name` helpers never leak into
  * Playwright's page.evaluate serialization (breaks Ashby and other CSP-ish pages).

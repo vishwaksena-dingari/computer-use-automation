@@ -1016,7 +1016,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             if (!advanced) break;
             await page.waitForTimeout(600);
 
-            // Per-page validate : if required errors remain, one repair+retry.
+            // Per-page validate: if required errors remain, one repair+retry.
             let errs = await listVisibleRequiredErrors(page);
             if (errs.length) {
               ledger.push({

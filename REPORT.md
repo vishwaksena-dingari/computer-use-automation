@@ -2,7 +2,7 @@
 
 ## 1. Problem framing
 
-Legacy bank-ish UIs are hostile to brittle selectors. This system that turns a natural-language goal into a **reusable capability**, then **replays without an LLM**, distinguishing **business outcomes** (member not found) from hard failures.
+Hostile UIs punish brittle selectors. This system turns a natural-language goal into a **reusable capability**, then **replays without an LLM**, distinguishing **business outcomes** (member not found) from hard failures.
 
 ## 2. Architecture
 
@@ -57,4 +57,4 @@ Same factory, messier UI: **field-maps + `fillForm` / `fillFormFlow`**, dormant 
 | Workday live auth scaffold (gated) | `evidence/g1-workday-live-scaffold-prove` — Create Account not auto-run |
 | Goldens | `docs/golden-forms.md` |
 
-Does **not** replace the graded bank mock. Rejected: always-on LLM agent (G3), merging external job products into this repo.
+Does **not** replace the core bank mock. Rejected: always-on LLM agent (G3), merging external job products into this repo.

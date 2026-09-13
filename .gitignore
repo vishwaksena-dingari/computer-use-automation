@@ -5,7 +5,6 @@
 
 # Confidential local docs — keep local only
 *.pdf
-*.pdf
 
 # Local-only progress / caches
 /progress.html
@@ -15,7 +14,7 @@ dist/
 *.log
 .DS_Store
 
-# Live ad-hoc runs (keep graded chapters)
+# Live ad-hoc runs (keep curated chapters)
 /evidence/runs/
 /evidence/private/
 
@@ -33,11 +32,12 @@ dist/
 # Local process leftovers
 .scratch/*.pid
 
-# Local research clones (never publish)
+# Local research clones / notes (never publish)
 .scratch/research-clones/
-
-# Local research notes (never publish)
 .scratch/research-notes/
+.scratch/research-clones/
+.scratch/research-notes/
+.scratch/brand-replacements.txt
 
 # local live ATS secrets / scratch profiles
 .scratch/profile-*.json
@@ -45,10 +45,12 @@ dist/
 .scratch/*-console.txt
 .scratch/demo-*.txt
 
-# External-project corpora / cross-repo refs (never publish names or paths)
+# Local planning / corpora (never publish)
 .scratch/form-autonomy-next/
 .scratch/**/corpus/
 .scratch/config.*.yaml
+.scratch/capability-factory-general/
 
-# Local ad-hoc G1 evidence noise (keep curated chapters only if committing goldens)
-# (operators may still commit selected evidence/g1-* intentionally)
+# Local ad-hoc G1 evidence noise (operators may still commit selected evidence/g1-* intentionally)
+
+graphify-out/
