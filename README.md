@@ -90,7 +90,7 @@ docker compose run --rm cua            # discover + happy + exception against co
 - `docs/golden-forms.md` — local vs live regression pack  
 - `docs/form-failure-pack.md` — known fail → repair/HITL/outcome  
 - `docs/TRAINING.md` — retrain commands + failure behavior  
-- `evidence/README.md` — grader bag  
+- `evidence/README.md` — evidence bag map  
 
 ## Safety
 

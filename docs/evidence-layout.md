@@ -2,7 +2,7 @@
 
 **Status:** Locked via [Lock evidence directory layout](../.scratch/computer-use-automation/issues/07-lock-evidence-layout.md) after council.
 
-## Grader-facing demo bag (committed)
+## Demo evidence bag (committed)
 
 Chapter names so a 60-second open of `/evidence/` tells the story:
 
@@ -24,7 +24,7 @@ evidence/
     result.json        # BUSINESS_OUTCOME member.NOT_FOUND
     screenshots/
       terminal.png     # required richer signal
-  README.md            # one-paragraph map for graders
+  README.md            # one-paragraph map of the bag
 ```
 
 Capability canonical file lives in `capabilities/`; each manifest stores **path + sha256** (and `01-discovery` may also keep a copy `capability.snapshot.json` for a self-contained bag).
