@@ -16,6 +16,7 @@ import {
 } from '../surface/workday-widgets.js';
 import type { RuntimeConfig } from '../config/schema.js';
 import { resolve, relative, isAbsolute } from 'node:path';
+import { realpathSync, existsSync } from 'node:fs';
 import {
   readControlValue,
   redactForReceipt,
@@ -50,11 +51,13 @@ type CraftFn = (args: {
 
 function jailPath(root: string, value: string): string {
   const abs = resolve(root, value);
-  const rel = relative(root, abs);
+  const rootReal = existsSync(root) ? realpathSync(root) : root;
+  const absReal = existsSync(abs) ? realpathSync(abs) : abs;
+  const rel = relative(rootReal, absReal);
   if (rel.startsWith('..') || isAbsolute(rel)) {
     throw new Error(`file path escapes project root: ${value}`);
   }
-  return abs;
+  return absReal;
 }
 
 /** Greenhouse/react-select: open control, type, pick option. */
@@ -247,17 +250,21 @@ export async function runFillForm(opts: {
     receipt,
   });
 
-  // Preflight: all empty required profile paths before any DOM fill (craftable exempt).
-  const missing = fieldMap.fields.filter((f) => {
-    if (!f.required) return false;
-    const raw = getProfilePath(profile, f.profilePath);
-    if (raw !== undefined && raw !== null && String(raw).trim() !== '') return false;
-    return !fieldWantsCraft(f, Boolean(opts.craftAnswer));
-  });
-  if (missing.length) {
-    const paths = missing.map((f) => f.profilePath).join(',');
-    // HITL resume note applies to a single profilePath — use the first gap.
-    return fail(missing[0]!.key, missing[0]!.profilePath, `missing required profile paths: ${paths}`);
+  // Preflight: required profile gaps before DOM fill (craftable / literal exempt).
+  // Multipage flow passes skipInvisibleRequired — off-page requireds must not fail the whole page.
+  if (!opts.skipInvisibleRequired) {
+    const missing = fieldMap.fields.filter((f) => {
+      if (!f.required) return false;
+      if (f.literal !== undefined && f.literal !== null && String(f.literal).trim() !== '') return false;
+      const raw = getProfilePath(profile, f.profilePath);
+      if (raw !== undefined && raw !== null && String(raw).trim() !== '') return false;
+      return !fieldWantsCraft(f, Boolean(opts.craftAnswer));
+    });
+    if (missing.length) {
+      const paths = missing.map((f) => f.profilePath).join(',');
+      // HITL resume note applies to a single profilePath — use the first gap.
+      return fail(missing[0]!.key, missing[0]!.profilePath, `missing required profile paths: ${paths}`);
+    }
   }
 
   // Workday My Experience: education block — once per page.
@@ -313,7 +320,14 @@ export async function runFillForm(opts: {
       continue;
     }
 
-    let raw = getProfilePath(profile, field.profilePath);
+    // Plan literals never drive file uploads (path jail still allows any in-repo file).
+    let raw =
+      field.kind !== 'file' &&
+      field.literal !== undefined &&
+      field.literal !== null &&
+      String(field.literal).trim() !== ''
+        ? field.literal
+        : getProfilePath(profile, field.profilePath);
     // Dormant craft: wake when empty + craft:llm (or required answers.* / textarea) and craftAnswer wired.
     if ((raw === undefined || raw === null || String(raw).trim() === '') && fieldWantsCraft(field, Boolean(opts.craftAnswer))) {
       let crafted: { value: string | null; llmCalls: number } = { value: null, llmCalls: 0 };

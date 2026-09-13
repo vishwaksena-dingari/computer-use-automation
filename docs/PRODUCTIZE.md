@@ -50,3 +50,25 @@ See `DECISIONS.md` out-of-scope table.
 npm run check
 npm run check:golden
 ```
+
+## Bridge sprint — plan → fill (active)
+
+Unblocks workers dropping parallel UI assist: imported FieldMaps must drive fill.
+
+- [x] `fillFormFlow` seeds `repairFieldMap` from loaded FieldMap (not always `null`)
+- [x] Import aliases: `title`/`isRequired`/`name` + plan `value` → `literal`
+- [x] `surveyPlan[]` merged into FieldMap fields
+- [x] Nested vault hoist in `normalizeApplyProfile`
+- [x] `successBanner` from map in apply done-check
+- [x] `check:golden` portable (`grep`, no `rg`)
+- [x] Resume: copy PDF into `.private/` (path jail stays; docs)
+- [ ] Live fill-only prove on real Ashby board
+
+**Done when (mock):** golden `bridge-alias` apply receipt shows plan keys/literal filled. **Done when (live):** T-B-7 Ashby fill-only with flattened `.private` profile.
+
+### Bridge review follow-ups (2026-09-12)
+
+- [x] T-B-8 page-filter seeded maps (perf)
+- [x] T-B-11 golden imports `fixtures/bridge-alias-plan.json`
+- [x] T-B-12 ARCHITECTURE Bridge section
+- [ ] T-B-7 live Ashby fill-only (blocked — needs URL)

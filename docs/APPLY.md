@@ -1,6 +1,6 @@
 # Apply UI — operator & worker guide
 
-Canonical reference for `cua apply` / `cua import-plan`. Roadmap/locks: `docs/PRODUCTIZE.md`, `DECISIONS.md` (G1–G11). Hygiene: `docs/REPO-HYGIENE.md`.
+Canonical reference for `cua apply` / `cua import-plan`. Roadmap/locks: `docs/PRODUCTIZE.md`, `DECISIONS.md` (G1–G12). Hygiene: `docs/REPO-HYGIENE.md`.
 
 ```mermaid
 flowchart LR
@@ -263,3 +263,33 @@ Curated demo chapters stay under `evidence/g1-*` (tracked). New experiments → 
 | `docs/hitl-contract.md` | Pause / resume |
 | `docs/TRAINING.md` | Short apply snippet |
 | `REPORT.md` §9 | Design write-up for this track |
+
+## Bridge notes (plan → fill)
+
+```bash
+npx cua import-plan --plan-json fixtures/bridge-alias-plan.json --id bridge-alias-demo
+npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
+  --profile fixtures/applicant-profile.json --field-map-id bridge-alias-demo
+```
+
+- Before Bridge: repair always bootstrapped from DOM (`fieldMap: null`) and wiped imports. After (G12): seed + gap-only merge.
+- `--plan-json` / `--field-map-id` **seeds** fill; repair adds gaps only (LLM replace keeps prior `literal`).
+
+### Resume PDF (path jail)
+
+Resume uploads must resolve **under the project root** (symlinks that escape are rejected).
+
+```bash
+mkdir -p .private
+cp /path/to/your-resume.pdf .private/resume.pdf
+# in profile JSON:
+#   "resumePath": ".private/resume.pdf"
+```
+
+Plan JSON must **not** put file paths in `value` for upload fields — file kinds ignore plan `literal` and use `resumePath` from the profile only.
+
+- Plan aliases accepted: `title`→label, `isRequired`→required, `name`→path; resolved `value` stored as FieldMap `literal`.
+- Optional `surveyPlan[]` merges after `plan[]`.
+- `successBanner` on the plan/map is used in submit/done detection (**exact** match; ignored if shorter than 12 characters — falls back to built-in phrases).
+- **Resume PDF:** copy into `.private/` (or another path under the repo) and set `resumePath`. Paths outside the project root are rejected (path jail).
+- Nested vault profiles: `normalizeApplyProfile` hoists `identity.*` / `work_auth` / `sponsorship` into apply-profile keys.

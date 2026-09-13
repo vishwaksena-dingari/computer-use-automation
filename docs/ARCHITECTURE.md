@@ -403,17 +403,30 @@ When you add or change a module:
 
 ## Product track (Apply UI)
 
-Operator guide: **`docs/APPLY.md`**. Status: `docs/PRODUCTIZE.md` / `docs/agents/map.md`.
+Operator guide: **`docs/APPLY.md`**. Status: `docs/PRODUCTIZE.md` / `docs/agents/map.md`. Locks: `DECISIONS.md` G1–G12.
 
-Shipped on `main`:
+### Bridge — plan → fill (G12)
+
+Imported FieldMaps seed `fillFormFlow`; repair only adds gaps. Plan answers may live on FieldMap `literal` (treat maps with literals as private).
+
+```mermaid
+flowchart LR
+  plan["--plan-json / import-plan"] --> fmap[FieldMap on disk]
+  fmap --> seed[loadFieldMapById]
+  seed --> filter[filterFieldMapToControls]
+  filter --> repair["repairFieldMap mode=add"]
+  repair --> fill[runFillForm]
+  fill --> banner[successBanner done-check]
+```
 
 | Surface | Module / CLI |
 |---|---|
 | Config overlay | `config.local.yaml` → `loadConfig` layer `local` |
-| Profile | `normalizeApplyProfile` + `--storage-state` |
-| Import plan | `cua import-plan` → `src/artifact/import-plan.ts` |
-| Worker apply | `cua apply` + `worker-exit` codes |
-| Golden CI | `npm run check:golden` |
+| Profile | `normalizeApplyProfile` (vault hoist) + `--storage-state` |
+| Import plan | `cua import-plan` → aliases, `literal`, `surveyPlan`, `successBanner` |
+| Page-filter | `filterFieldMapToControls` before repair (multipage perf) |
+| Worker apply | `cua apply` + `worker-exit` codes; seed ≠ wipe |
+| Golden CI | `npm run check:golden` (incl. bridge-alias fixture) |
 | HAR | Kept only under `evidence/private/` (or `CUA_ALLOW_PUBLIC_HAR=1`) |
 
 Core mock + G1 forms remain frozen at tags `v0.1.0` / `v0.2.0`.

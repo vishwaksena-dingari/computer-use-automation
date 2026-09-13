@@ -43,6 +43,46 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
   if (!out.answers || typeof out.answers !== 'object') {
     // leave undefined; FieldMaps use answers.*
   }
+
+  // Nested vault hoist (identity / work_auth / sponsorship / answers) — aliases only.
+  const identity = out.identity;
+  if (identity && typeof identity === 'object' && !Array.isArray(identity)) {
+    const id = identity as Record<string, unknown>;
+    const hoist = (from: string, to: string) => {
+      if (out[to] === undefined && id[from] !== undefined) out[to] = id[from];
+    };
+    hoist('full_name', 'fullName');
+    hoist('fullName', 'fullName');
+    hoist('email', 'email');
+    hoist('phone', 'phone');
+    hoist('linkedin', 'linkedin');
+    hoist('linkedin_url', 'linkedin');
+  }
+  const workAuth = out.work_auth ?? out.workAuth;
+  if (typeof workAuth === 'string' && out.workAuth === undefined) out.workAuth = workAuth;
+  if (workAuth && typeof workAuth === 'object' && !Array.isArray(workAuth)) {
+    const wa = workAuth as Record<string, unknown>;
+    if (out.workAuth === undefined && wa.status !== undefined) out.workAuth = wa.status;
+    if (out.workAuth === undefined && wa.authorized !== undefined) {
+      out.workAuth = wa.authorized ? 'Authorized' : 'Not authorized';
+    }
+  }
+  const sponsorship = out.sponsorship;
+  if (sponsorship && typeof sponsorship === 'object' && !Array.isArray(sponsorship)) {
+    const s = sponsorship as Record<string, unknown>;
+    if (out.flags === undefined || typeof out.flags !== 'object') out.flags = {};
+    const flags = out.flags as Record<string, unknown>;
+    if (flags.sponsorshipNo === undefined && s.required !== undefined) {
+      flags.sponsorshipNo = s.required ? 'no' : 'yes';
+    }
+  }
+  if (
+    (!out.answers || typeof out.answers !== 'object' || Array.isArray(out.answers)) &&
+    out.custom_answers &&
+    typeof out.custom_answers === 'object'
+  ) {
+    out.answers = out.custom_answers;
+  }
   return out;
 }
 
@@ -136,6 +176,17 @@ export function selfCheckProfileFlags(): void {
   if (loc.linkedin !== 'https://linkedin.com/in/pat') throw new Error('alias linkedin');
   if (getProfilePath(loc, 'city') !== 'Tulsa') throw new Error('location.city');
   if (getProfilePath(loc, 'state') !== 'OK') throw new Error('location.region→state');
+  const vault = normalizeApplyProfile({
+    identity: { full_name: 'Sam Vault', email: 'sam@example.com' },
+    work_auth: { authorized: true },
+    sponsorship: { required: false },
+  });
+  if (vault.fullName !== 'Sam Vault') throw new Error('vault identity.full_name');
+  if (vault.email !== 'sam@example.com') throw new Error('vault identity.email');
+  if (vault.workAuth !== 'Authorized') throw new Error('vault work_auth');
+  const flags = vault.flags as Record<string, unknown> | undefined;
+  if (flags?.sponsorshipNo !== 'yes') throw new Error('vault sponsorship.required→sponsorshipNo');
+
 }
 
 if (process.argv[1]?.endsWith('profile.ts') || process.argv[1]?.endsWith('profile.js')) {

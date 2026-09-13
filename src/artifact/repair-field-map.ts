@@ -138,37 +138,85 @@ export function findExtraControls(
 }
 
 function controlCoveredByMap(c: ControlHint, map: FieldMap): boolean {
+  return map.fields.some((f) => fieldCoversControl(f, c));
+}
+
+/** True when a FieldMap row targets this observed control. */
+function fieldCoversControl(f: FieldMapField, c: ControlHint): boolean {
   const label = (c.label || '').toLowerCase();
+  const question = (c.question || '').toLowerCase();
   const name = (c.name || c.inputName || '').toLowerCase();
   const id = (c.id || '').toLowerCase();
-  for (const f of map.fields) {
-    for (const t of f.targets) {
-      if (t.kind === 'label' && t.name && label && t.name.toLowerCase() === label) return true;
-      if (t.kind === 'css' && t.selector && id && t.selector.replace(/^#/, '') === id) return true;
-      if (t.kind === 'css' && t.selector === `#${c.id}`) return true;
-      if (name && f.key.toLowerCase() === name) return true;
-      if (f.profilePath === 'resumePath' && c.widget === 'file') return true;
-      if (f.profilePath === 'location' && c.widget === 'combobox') return true;
+  for (const t of f.targets) {
+    if (t.kind === 'label' && t.name) {
+      const ln = t.name.toLowerCase();
+      if (label && ln === label) return true;
+      if (question && (question.includes(ln) || ln.includes(question))) return true;
     }
+    if (t.kind === 'css' && t.selector) {
+      const sel = t.selector;
+      if (id && (sel === `#${c.id}` || sel.replace(/^#/, '') === id)) return true;
+      if (name && (sel.includes(`name='${name}'`) || sel.includes(`name="${name}"`))) return true;
+    }
+    if (name && f.key.toLowerCase() === name) return true;
+    if (f.profilePath === 'resumePath' && c.widget === 'file') return true;
+    if (f.profilePath === 'location' && c.widget === 'combobox') return true;
   }
   return false;
 }
 
-/** Merge LLM fields into base by key; bump updatedAt. */
+/**
+ * Keep only FieldMap rows that match visible controls (Bridge multipage perf).
+ * If nothing matches, return the original map so repair can still bootstrap.
+ */
+export function filterFieldMapToControls(map: FieldMap, controls: ControlHint[]): FieldMap {
+  if (!controls.length) return map;
+  const fields = map.fields.filter((f) => {
+    // Never drop plan literals — label drift would wipe answers; fill skips invisible.
+    if (f.literal !== undefined && f.literal !== null && String(f.literal).trim() !== '') return true;
+    return controls.some((c) => fieldCoversControl(f, c));
+  });
+  if (!fields.length) return map;
+  return { ...map, fields, updatedAt: new Date().toISOString() };
+}
+
+/**
+ * Merge field rows by key.
+ * - `add` (default for heuristics): keep existing keys — imported maps must not be wiped.
+ * - `replace`: patch wins (stuck/LLM repair).
+ */
 export function mergeFieldMap(
   base: FieldMap | null,
   patchFields: FieldMapField[],
   id: string,
+  opts?: { mode?: 'add' | 'replace' },
 ): FieldMap {
+  const mode = opts?.mode ?? 'add';
   const byKey = new Map<string, FieldMapField>();
   if (base) for (const f of base.fields) byKey.set(f.key, f);
-  for (const f of patchFields) byKey.set(f.key, f);
+  for (const f of patchFields) {
+    if (mode === 'replace' || !byKey.has(f.key)) {
+      const prev = byKey.get(f.key);
+      // Keep imported plan answers when LLM repair omits literal.
+      if (
+        mode === 'replace' &&
+        prev &&
+        prev.literal !== undefined &&
+        f.literal === undefined
+      ) {
+        byKey.set(f.key, { ...f, literal: prev.literal });
+      } else {
+        byKey.set(f.key, f);
+      }
+    }
+  }
   const fields = [...byKey.values()];
   return FieldMapSchema.parse({
     schemaVersion: 1,
     id: base?.id ?? id,
     platform: base?.platform,
     companyKey: base?.companyKey,
+    successBanner: base?.successBanner,
     fields,
     updatedAt: new Date().toISOString(),
   });
@@ -229,6 +277,10 @@ function normalizeField(raw: unknown): FieldMapField | null {
     enumHints: Array.isArray(f.enumHints) ? f.enumHints.map(String) : undefined,
     invertBool: f.invertBool === true ? true : undefined,
     craft: f.craft === 'llm' ? 'llm' : f.craft === 'none' ? 'none' : undefined,
+    literal:
+      typeof f.literal === 'string' || typeof f.literal === 'number' || typeof f.literal === 'boolean'
+        ? f.literal
+        : undefined,
   });
   return parsed.success ? parsed.data : null;
 }
@@ -293,7 +345,8 @@ export async function repairFieldMap(opts: {
   const requiredExtras = findExtraControls(controls, opts.fieldMap).filter((c) => Boolean(c.required));
 
   const heuristicFields = buildHeuristicFields(controls, opts.profileKeys);
-  let map = mergeFieldMap(opts.fieldMap, heuristicFields, opts.mapId);
+  // Prefer seed/import: heuristics only fill gaps (Bridge: honor imported FieldMaps).
+  let map = mergeFieldMap(opts.fieldMap, heuristicFields, opts.mapId, { mode: 'add' });
 
   const fewShot =
     opts.root && opts.atsFamily
@@ -331,7 +384,7 @@ export async function repairFieldMap(opts: {
           if (isOpaqueProfilePath(n.profilePath, opts.profileKeys)) continue;
           llmFields.push(n);
         }
-        if (llmFields.length) map = mergeFieldMap(map, llmFields, opts.mapId);
+        if (llmFields.length) map = mergeFieldMap(map, llmFields, opts.mapId, { mode: 'replace' });
       } catch {
         /* keep heuristics */
       }
@@ -436,7 +489,8 @@ async function ensureWorkdayCareerFields(
 
 function isOpaqueProfilePath(path: string, profileKeys: string[]): boolean {
   if (profileKeys.includes(path)) return false;
-  if (path.startsWith('answers.') || path.startsWith('flags.')) return false;
+  if (path.startsWith('answers.') || path.startsWith('flags.') || path.startsWith('_plan.'))
+    return false;
   if (
     /^(fullName|email|phone|resumePath|linkedin|portfolio|location|startDate|workAuth|firstName|lastName|password|country|company|howHeard|phoneDeviceType|address1|city|state|postalCode|school|degree|fieldOfStudy|eduFromYear|eduToYear|gpa)$/.test(
       path,
@@ -1029,7 +1083,103 @@ export function selfCheckRepairFewShot(root = process.cwd()): void {
   if (hold.siblingFields?.length) throw new Error('few-shot hold-out failed');
 }
 
+/** Self-check: page filter keeps on-page fields only. */
+export function selfCheckFilterFieldMapToControls(): void {
+  const map: FieldMap = {
+    schemaVersion: 1,
+    id: 'filter-self-check',
+    updatedAt: new Date().toISOString(),
+    fields: [
+      {
+        key: 'email',
+        required: true,
+        profilePath: 'email',
+        kind: 'text',
+        targets: [{ kind: 'label', rank: 1, name: 'Email' }],
+      },
+      {
+        key: 'offpage',
+        required: true,
+        profilePath: 'answers.offpage',
+        kind: 'text',
+        targets: [{ kind: 'label', rank: 1, name: 'Off page only' }],
+      },
+    ],
+  };
+  const controls: ControlHint[] = [
+    { tag: 'input', label: 'Email', type: 'email', inputName: 'email', widget: 'text' },
+  ];
+  const filtered = filterFieldMapToControls(map, controls);
+  if (filtered.fields.length !== 1 || filtered.fields[0]?.key !== 'email') {
+    throw new Error(`filterFieldMapToControls expected [email], got ${filtered.fields.map((f) => f.key).join(',')}`);
+  }
+  const empty = filterFieldMapToControls(map, []);
+  if (empty.fields.length !== 2) throw new Error('empty controls must keep full map');
+  const drifted = filterFieldMapToControls(
+    {
+      ...map,
+      fields: [
+        ...map.fields,
+        {
+          key: 'planOnly',
+          required: true,
+          profilePath: '_plan.planOnly',
+          kind: 'text',
+          literal: 'KeepMe',
+          targets: [{ kind: 'label', rank: 1, name: 'Does Not Match Any Control' }],
+        },
+      ],
+    },
+    controls,
+  );
+  if (!drifted.fields.some((f) => f.key === 'planOnly' && f.literal === 'KeepMe')) {
+    throw new Error('filter must retain fields with literal under label drift');
+  }
+  const zeroMatch = filterFieldMapToControls(map, [
+    { tag: 'input', label: 'Totally Other', type: 'text', inputName: 'other', widget: 'text' },
+  ]);
+  if (zeroMatch.fields.length !== 2) throw new Error('zero matches must fail-open to full map');
+}
+
+/** Self-check: replace merge keeps prior literal when LLM omits it. */
+export function selfCheckMergeLiteralPreserve(): void {
+  const base: FieldMap = {
+    schemaVersion: 1,
+    id: 'lit-merge',
+    successBanner: 'Application received',
+    updatedAt: new Date().toISOString(),
+    fields: [
+      {
+        key: 'why',
+        required: true,
+        profilePath: '_plan.why',
+        kind: 'textarea',
+        literal: 'Because Bridge',
+        targets: [{ kind: 'label', rank: 1, name: 'Why' }],
+      },
+    ],
+  };
+  const patched = mergeFieldMap(
+    base,
+    [
+      {
+        key: 'why',
+        required: true,
+        profilePath: '_plan.why',
+        kind: 'textarea',
+        targets: [{ kind: 'css', rank: 1, selector: "textarea[name='why']" }],
+      },
+    ],
+    'lit-merge',
+    { mode: 'replace' },
+  );
+  if (patched.fields[0]?.literal !== 'Because Bridge') throw new Error('replace must keep prior literal');
+  if (patched.successBanner !== 'Application received') throw new Error('merge must keep successBanner');
+}
+
 if (process.argv[1]?.endsWith('repair-field-map.ts') || process.argv[1]?.endsWith('repair-field-map.js')) {
   selfCheckRepairFewShot();
+  selfCheckFilterFieldMapToControls();
+  selfCheckMergeLiteralPreserve();
   console.log('repair-field-map few-shot self-check ok');
 }

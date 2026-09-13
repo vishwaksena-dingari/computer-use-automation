@@ -1,0 +1,12 @@
+{
+  "ats": "ashby",
+  "successBanner": "Application received",
+  "plan": [
+    { "title": "Full name", "name": "fullName", "type": "String", "isRequired": true, "value": "Bridge Tester" },
+    { "title": "Email", "path": "email", "type": "Email", "isRequired": true, "profilePath": "email" },
+    { "title": "Work authorization", "path": "workAuth", "type": "select", "isRequired": true, "profilePath": "workAuth" }
+  ],
+  "surveyPlan": [
+    { "title": "Why this company?", "path": "whyCompany", "type": "textarea", "isRequired": false, "value": "Because Bridge works." }
+  ]
+}
