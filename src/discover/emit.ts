@@ -398,6 +398,8 @@ export async function discoverCapability(opts: {
   allowOfflineSeed?: boolean;
   /** G2: LLM authors step graph (capped); default false = locators-only. */
   authorSteps?: boolean;
+  /** Visible Chromium during observe (reviewer demo). Default headless. */
+  headed?: boolean;
 }): Promise<DiscoverResult> {
   const { config, root, goal, evidenceDir, seedPath, outPath } = opts;
   ensureDir(join(evidenceDir, 'screenshots'));
@@ -406,7 +408,7 @@ export async function discoverCapability(opts: {
   let compiled: Capability | null = null;
   let mode: 'llm_emit' | 'offline_seed' | 'author_steps' = 'llm_emit';
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: !opts.headed });
   try {
     const page = await browser.newPage();
     const base = config.target.baseUrl.replace(/\/$/, '');

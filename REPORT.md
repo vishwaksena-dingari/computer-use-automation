@@ -38,7 +38,7 @@ npx cua replay capabilities/apply-demo-co-a.json \
   --record-har --har-on-failure --trace-on-failure
 ```
 
-Local: `./scripts/setup.sh`, `./scripts/train.sh`, `./scripts/run.sh`, or `npm run demo:slice`. **One-shot demo:** `npm run demo:reviewer` (happy+exception + G1 Co A/B/C on the **local mock** — not live ATS). Optional Sauce Demo retarget is an experiment only (`./scripts/try-sauce.sh`) — not the core member-lookup slice.
+Local: `./scripts/setup.sh`, `./scripts/train.sh`, `./scripts/run.sh`, or `npm run demo:slice`. **One-shot demo:** `npm run demo:reviewer` (happy+exception + G1 Co A/B/C on the **local mock** — not live ATS). **With discovery:** `npm run demo:reviewer:train` or `bash scripts/demo-reviewer.sh --train --headed` (Ollama required; no offline seed). Optional Sauce Demo retarget is an experiment only (`./scripts/try-sauce.sh`) — not the core member-lookup slice.
 
 ## 8. Stretch — G1 hybrid forms (natural extension)
 

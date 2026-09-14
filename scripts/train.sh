@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Train / discover: observe mock → LLM emits locators → writes capabilities/*.json
-# Usage: ./scripts/train.sh ["goal text"] [--verbose] [--model id] [--allow-offline-seed --seed path]
+# Usage: ./scripts/train.sh ["goal text"] [--headed] [--verbose] [--model id] [--allow-offline-seed --seed path]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

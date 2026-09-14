@@ -3,7 +3,7 @@
 **Destination:** Apply UI engine on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md` (G1–G12).
 
 **Operator contract:** `docs/APPLY.md`  
-**Active sprint:** none — Bridge + Worker harden complete (see PRODUCTIZE). Next work needs a new ticket or G2 unlock.
+**Active sprint:** G2 author-steps prove (scoped) — Apply/Bridge harden complete. Not G3.
 
 ## Tickets
 
@@ -22,7 +22,7 @@
 | T-H-1 | Host re-check + path jail | `done` | H |
 | T-P6-1 | Golden CI + HAR private | `done` | P6 |
 | T-P6-2 | Split replayCapability | `wontfix` (not blocking) | P6 |
-| T-G2-1 | Cart / non-apply author-steps | `wontfix` until unlock | G2 |
+| T-G2-1 | Cart / non-apply author-steps | `partial` — fixture + self-check + `demo:author-steps`; full cart still parked | G2 |
 | T-B-1 | fillFormFlow honors imported FieldMap | `done` | Bridge |
 | T-B-2 | Plan aliases + literal values + surveyPlan | `done` | Bridge |
 | T-B-3 | Nested vault profile flatten | `done` | Bridge |

@@ -94,7 +94,7 @@ export const CODE_DEFAULTS: FileConfig = {
   schemaVersion: 1,
   llm: {
     provider: 'ollama',
-    model: 'qwen3.5:9b',
+    model: 'qwen2.5-coder:7b',
     ollamaBaseUrl: 'http://127.0.0.1:11434',
   },
   target: {

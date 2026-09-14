@@ -36,9 +36,14 @@ Fills the apply UI, pauses on captcha in the same session, Submit only with `--s
 - [x] Golden mock CI: `npm run check:golden`
 - [x] HAR sanitize → private only (auto-delete outside `evidence/private/`)
 
-### G2 cart (parked — G8)
+### G2 cart (parked — G8) — **partial unlock**
 
-Do **not** start until human unlocks.
+Full non-apply “cart” stays parked. **Scoped author-steps prove** is unlocked (E6 already allowed `--author-steps`):
+
+- Offline: `fixtures/g2-authored-member-lookup.json` + `selfCheckAuthorSteps` in `check:forms`
+- Live LLM (optional): `npm run demo:author-steps` / `bash scripts/demo-author-steps.sh --headed` → `capabilities/experiments/` only
+
+Still **not** the product focus: unbounded discover-any-UI (G3 rejected). Focus remains **Apply worker + capped capability factory**.
 
 ## Still never
 

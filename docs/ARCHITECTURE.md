@@ -387,6 +387,8 @@ cua discover --author-steps --goal "…" --out capabilities/experiments/authored
 
 LLM emits Zod-capped `steps` + `targets` (+ optional checkpoints/IO); one repair pass; evidence `author-steps.json`. Replay of the authored artifact is still deterministic (`llmCalls: 0` unless hybrid/HITL).
 
+**Prove:** offline `fixtures/g2-authored-member-lookup.json` via `selfCheckAuthorSteps` (`check:forms`); optional live `npm run demo:author-steps`.
+
 **Apply/ATS shortcut:** if the goal looks like apply and the page is an ATS family, emit a **dynamic shell** (`navigate → wait → fillFormFlow`) with **0 LLM** — field maps stay runtime-dynamic. Prefer this over long fixed fill/click chains.
 
 **Reject:** free tool graphs (G3); LLM on every replay step; hand-maintained per-company step laundry lists.

@@ -50,7 +50,7 @@ schemaVersion: 1
 
 llm:
   provider: ollama                 # ollama | anthropic | openai
-  model: qwen3.5:9b
+  model: qwen2.5-coder:7b
   ollamaBaseUrl: http://127.0.0.1:11434
 
 target:
@@ -93,7 +93,7 @@ evidence:
 
 ```bash
 LLM_PROVIDER=ollama
-LLM_MODEL=qwen3.5:9b
+LLM_MODEL=qwen2.5-coder:7b
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 
 # Optional cloud later:
@@ -116,5 +116,5 @@ Examples:
 config set llm.provider openai
 config set llm.model gpt-4.1
 config set llm.provider ollama
-config set llm.model qwen3.5:9b
+config set llm.model qwen2.5-coder:7b
 ```
