@@ -1,28 +1,28 @@
 {
-  "runId": "replay_mu1fa8ld_2svmqb",
+  "runId": "replay_mu1i0y73_dcyz81",
   "ledger": [
     {
-      "at": "2026-09-14T15:53:38.714Z",
+      "at": "2026-09-14T17:10:24.578Z",
       "stepId": "s1",
       "action": "navigate",
       "ok": true,
       "detail": "http://127.0.0.1:4173/apply-demo/co-a/"
     },
     {
-      "at": "2026-09-14T15:53:38.805Z",
+      "at": "2026-09-14T17:10:24.666Z",
       "stepId": "s2",
       "action": "fillForm",
       "ok": true,
       "detail": "fullName,email,workAuth,whyCompany"
     },
     {
-      "at": "2026-09-14T15:53:38.915Z",
+      "at": "2026-09-14T17:10:24.756Z",
       "stepId": "s3",
       "action": "click",
       "ok": true
     },
     {
-      "at": "2026-09-14T15:53:38.919Z",
+      "at": "2026-09-14T17:10:24.760Z",
       "stepId": "s4",
       "action": "extract",
       "ok": true,
