@@ -18,6 +18,7 @@ import {
 import { applyBindings, bindingsEntryPath } from '../artifact/bindings.js';
 import { loadFieldMapById } from '../artifact/field-map.js';
 import { runFillForm, type FillFormMode } from '../artifact/fill-form.js';
+import { makeCraftAnswer } from '../artifact/craft-answer.js';
 import { getProfilePath, setProfilePath } from '../artifact/profile.js';
 import { buildFillReceipt, writeFillReceipt, unverifiedRequiredKeys, type FillReceipt } from '../artifact/fill-receipt.js';
 import { formOutcomeFromPageText } from '../artifact/form-outcomes.js';
@@ -681,54 +682,15 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             5_000,
             Math.min(180_000, config.limits.runTimeoutMs - (Date.now() - started)),
           );
-          // ponytail: craft/repair caps hard-capped at 5 — raise via formRepairMax only up to that; extract shared form executor if arms diverge further.
-          let craftBudget = Math.min(5, Math.max(0, opts.formRepairMax ?? 3));
-          const profileBlurb = (() => {
-            const skip = /password|secret|token|ssn|cvv/i;
-            const bits: string[] = [];
-            for (const k of profileKeys.slice(0, 40)) {
-              if (skip.test(k)) continue;
-              const v = getProfilePath(profile, k);
-              if (v === undefined || v === null || v === '') continue;
-              const s = String(v);
-              if (s.length > 120) continue;
-              bits.push(`${k}=${s}`);
-            }
-            return bits.join('; ').slice(0, 800);
-          })();
-          const craftAnswer = async ({
-            fieldKey,
-            profilePath,
-            companyContext,
-          }: {
-            fieldKey: string;
-            profilePath: string;
-            companyContext?: string;
-          }) => {
-            if (mode !== 'hybrid') return { value: null, llmCalls: 0 };
-            if (craftBudget <= 0) return { value: null, llmCalls: 0 };
-            if (config.llm.provider !== 'ollama') return { value: null, llmCalls: 0 };
-            craftBudget -= 1;
-            const base = (config.llm.ollamaBaseUrl || 'http://127.0.0.1:11434').replace(/\/$/, '');
-            try {
-              const res = await fetch(`${base}/api/generate`, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                  model: config.llm.model,
-                  stream: false,
-                  prompt: `You fill job-application questions from the applicant profile. Field "${fieldKey}" (${profilePath}). Company: ${companyContext ?? 'n/a'}. Profile: ${profileBlurb || 'n/a'}. Reply with the answer text only — short, truthful, no preamble.`,
-                }),
-                signal: AbortSignal.timeout(craftTimeoutMs),
-              });
-              if (!res.ok) return { value: null, llmCalls: 1 };
-              const j = (await res.json()) as { response?: string };
-              return { value: (j.response || '').trim() || null, llmCalls: 1 };
-            } catch {
-              return { value: null, llmCalls: 1 };
-            }
-          };
-          const maybeCraft = mode === 'hybrid' ? craftAnswer : undefined;
+          // ponytail: one craft factory per arm — separate budgets (S1); do not share across arms.
+          const maybeCraft = makeCraftAnswer({
+            config,
+            mode,
+            profile,
+            profileKeys,
+            budget: opts.formRepairMax ?? 3,
+            timeoutMs: craftTimeoutMs,
+          });
 
           // Dormant repair loop: try map → on stuck repair+retry until ok or budget.
           const formRepairMax = Math.min(5, Math.max(1, opts.formRepairMax ?? 3));
@@ -1023,54 +985,15 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             5_000,
             Math.min(180_000, config.limits.runTimeoutMs - (Date.now() - started)),
           );
-          // ponytail: same craft/repair ceiling as fillForm (max 5); shared executor would collapse the duplicate arm.
-          let craftBudget = Math.min(5, Math.max(0, opts.formRepairMax ?? 3));
-          const profileBlurb = (() => {
-            const skip = /password|secret|token|ssn|cvv/i;
-            const bits: string[] = [];
-            for (const k of profileKeys.slice(0, 40)) {
-              if (skip.test(k)) continue;
-              const v = getProfilePath(profile, k);
-              if (v === undefined || v === null || v === '') continue;
-              const s = String(v);
-              if (s.length > 120) continue;
-              bits.push(`${k}=${s}`);
-            }
-            return bits.join('; ').slice(0, 800);
-          })();
-          const craftAnswer = async ({
-            fieldKey,
-            profilePath,
-            companyContext,
-          }: {
-            fieldKey: string;
-            profilePath: string;
-            companyContext?: string;
-          }) => {
-            if (mode !== 'hybrid') return { value: null, llmCalls: 0 };
-            if (craftBudget <= 0) return { value: null, llmCalls: 0 };
-            if (config.llm.provider !== 'ollama') return { value: null, llmCalls: 0 };
-            craftBudget -= 1;
-            const base = (config.llm.ollamaBaseUrl || 'http://127.0.0.1:11434').replace(/\/$/, '');
-            try {
-              const res = await fetch(`${base}/api/generate`, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                  model: config.llm.model,
-                  stream: false,
-                  prompt: `You fill job-application questions from the applicant profile. Field "${fieldKey}" (${profilePath}). Company: ${companyContext ?? 'n/a'}. Profile: ${profileBlurb || 'n/a'}. Reply with the answer text only — short, truthful, no preamble.`,
-                }),
-                signal: AbortSignal.timeout(craftTimeoutMs),
-              });
-              if (!res.ok) return { value: null, llmCalls: 1 };
-              const j = (await res.json()) as { response?: string };
-              return { value: (j.response || '').trim() || null, llmCalls: 1 };
-            } catch {
-              return { value: null, llmCalls: 1 };
-            }
-          };
-          const maybeCraft = mode === 'hybrid' ? craftAnswer : undefined;
+          // ponytail: one craft factory per arm — separate budgets (S1); do not share across arms.
+          const maybeCraft = makeCraftAnswer({
+            config,
+            mode,
+            profile,
+            profileKeys,
+            budget: opts.formRepairMax ?? 3,
+            timeoutMs: craftTimeoutMs,
+          });
 
           // Bridge: honor imported / --field-map-id FieldMap; repair only fills gaps.
           let seedMap: FieldMap | null = null;
