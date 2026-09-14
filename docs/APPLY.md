@@ -22,13 +22,15 @@ flowchart LR
   IMPORT --> APPLY
   LOCAL["config.local.yaml"] --> CFG[RuntimeConfig]
   CFG --> APPLY
-  APPLY --> FILL["fillFormFlow"]
+  APPLY --> RUN["runCapabilityRequest"]
+  RUN --> FILL["fillFormFlow"]
   FILL -->|CAPTCHA + --escalate| HITL["same-session pause"]
   FILL -->|--submit| SUB["click Submit"]
   FILL -->|default| STOP["stop before Submit"]
   APPLY --> OUT["stdout worker.json + exit code"]
 ```
 
+`apply` / `replay` / `invoke` share `runCapabilityRequest` (writes `result.json`; apply still owns worker summary / exit codes). Hybrid craft/repair LLM goes through `callModel` (Ollama default; Anthropic/OpenAI when configured).
 ## Preconditions
 
 1. `./scripts/setup.sh` (Node 20+, Playwright Chromium).
@@ -199,6 +201,16 @@ Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now
 
 Requires `npm run build` first (wrapper calls `node dist/cli/main.js`, never bare `npx cua`).  
 Missing FieldMap seeds cache under **`.private/field-maps/`** (gitignored) **only after at least one verified fill** (G16 / T-G-5). If you passed `--submit` and a submit click ran, cache also waits for confirmation. Use `--write-field-map` only to promote into tracked `capabilities/field-maps/`. Proposed maps under evidence stay uncapped for debug.
+
+**Factory live matrix (fill-only, 2026-09-14 — gitignored evidence only):**
+
+| Row | Host | Result |
+|---|---|---|
+| B | Ashby Maximor `/application` | exit **0** `filled` → `evidence/private/factory-matrix-ashby-*` |
+| C | Lever 100ms `/apply` | exit **0** `filled` → `evidence/private/factory-matrix-lever-*` |
+| C | Greenhouse Figma job board | exit **4** `field.VERIFY` (location) → `evidence/private/factory-matrix-greenhouse-*` |
+
+Never commit those dirs or `--submit` on live matrix runs.
 
 Location widgets: type **`City, ST`**, select only if the option contains that **city token** (and region when present). No match → skip (optional) / fail (required) — never blind first-hit.
 
