@@ -53,7 +53,7 @@ Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
 Vertical slice: NL goal → LLM discovery → versioned capability artifact → deterministic replay (no LLM) → exceptional business outcome → same-session HITL → `/evidence/` + `REPORT.md`.
 
-Runtime config over redeploy: default **Ollama `qwen3.5:9b`**, switchable to Anthropic/OpenAI; `.env` + `config.yaml` + CLI + `config set` (non-secrets).
+Runtime config over redeploy: default **Ollama `qwen2.5-coder:7b`**, switchable to Anthropic/OpenAI; `.env` + `config.yaml` + CLI + `config set` (non-secrets).
 
 ## Design-first & documentation (mandatory)
 

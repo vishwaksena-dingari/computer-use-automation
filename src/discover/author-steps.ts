@@ -2,6 +2,8 @@
  * @file G2 — Zod-capped step-graph emit (opt-in --author-steps).
  * LLM may propose steps+targets only; CapabilitySchema still fail-closes.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { z } from 'zod';
 import type { Page } from 'playwright';
 import {
@@ -448,3 +450,41 @@ export async function authorStepsFromPage(opts: {
   const capability = compileAuthoredCapability(goal, emit);
   return { capability, llmCalls, note: 'authored_steps', emit };
 }
+
+/**
+ * Offline self-check: ATS shell + fixture emit compile (no Ollama).
+ * Run: `node dist/discover/author-steps.js`
+ */
+export function selfCheckAuthorSteps(root = process.cwd()): void {
+  const shell = authorAtsApplyShell({ goal: 'Apply to this job on Ashby', family: 'ashby' });
+  if (shell.steps.every((s) => s.action !== 'fillFormFlow')) {
+    throw new Error('authorAtsApplyShell missing fillFormFlow');
+  }
+
+  const raw = JSON.parse(
+    readFileSync(join(root, 'fixtures/g2-authored-member-lookup.json'), 'utf8'),
+  ) as unknown;
+  // LLM-ish aliases should normalize (goto → navigate) before Zod.
+  const withAlias = {
+    ...(raw as Record<string, unknown>),
+    steps: [
+      { id: 's0', action: 'goto', urlFrom: 'config.target.entryPath' },
+      ...((raw as { steps: unknown[] }).steps as unknown[]).slice(1),
+    ],
+  };
+  const emit = parseEmitSteps(withAlias);
+  if (emit.steps[0]?.action !== 'navigate') {
+    throw new Error('normalizeAuthoredRaw did not map goto→navigate');
+  }
+  const cap = compileAuthoredCapability('Look up member savings balance', emit);
+  if (cap.template !== 'authored') throw new Error('expected template authored');
+  if (!cap.targets.memberIdField) throw new Error('missing memberIdField');
+  console.log('author-steps self-check ok');
+}
+
+const isMain =
+  typeof process !== 'undefined' &&
+  process.argv[1] &&
+  /author-steps\.(js|ts)$/.test(process.argv[1].replace(/\\/g, '/'));
+if (isMain) selfCheckAuthorSteps();
+

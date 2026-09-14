@@ -15,7 +15,7 @@ Installed and wired for this project (2026-09-11).
 | **graphify** | Ready | CLI `graphify` 0.9.26 + `~/.claude/skills/graphify` | Run `/graphify .` after `src/` exists |
 | **gstack** | Ready | `~/.claude/skills/gstack` (setup complete) | Claude Code slash skills: `/review`, `/qa`, `/ship`, `/browse`, … |
 | **Graft** | Ready (repo-local) | `graft` CLI 0.18.0 + `.cursor/rules/graft.mdc` + MCP | `--no-global` init; graph empty until code lands; `graft/` gitignored |
-| **Ollama** | Ready | Local `qwen3.5:9b` | Default LLM per `DECISIONS.md` |
+| **Ollama** | Ready | Local `qwen2.5-coder:7b` | Default LLM per `DECISIONS.md` |
 
 ## Rebuild / refresh commands
 

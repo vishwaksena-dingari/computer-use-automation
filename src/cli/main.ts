@@ -141,7 +141,11 @@ addGlobalConfigFlags(
         } else {
           prepareChapter(join(root, loaded.config.evidence.dir), '01-discovery');
         }
-        log('info', 'discover start', { goal: opts.goal, authorSteps: Boolean(opts.authorSteps) });
+        log('info', 'discover start', {
+          goal: opts.goal,
+          authorSteps: Boolean(opts.authorSteps),
+          headed: Boolean(opts.headed),
+        });
         const result = await discoverCapability({
           config: loaded.config,
           root,
@@ -151,6 +155,7 @@ addGlobalConfigFlags(
           outPath: out,
           allowOfflineSeed: Boolean(opts.allowOfflineSeed),
           authorSteps: Boolean(opts.authorSteps),
+          headed: Boolean(opts.headed),
         });
         writeJson(join(evidenceDir, 'manifest.json'), {
           goal: opts.goal,
@@ -322,6 +327,7 @@ addGlobalConfigFlags(
             seedPath: '',
             outPath: artPath,
             allowOfflineSeed: false,
+            headed: Boolean(opts.headed),
           });
           writeJson(join(evidenceDir, 'auto-retrain.json'), {
             mode: opts.autonomousRepair ? 'autonomous-repair' : 'auto-retrain',

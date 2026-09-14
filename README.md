@@ -29,6 +29,9 @@ npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
 
 # One-shot: core mock happy+exception + G1 Co A/B/C (local mock only)
 npm run demo:reviewer
+# Same + LLM train first (needs Ollama; no offline seed). Watch UI:
+#   bash scripts/demo-reviewer.sh --train --headed
+#   npm run demo:reviewer:train
 
 # G1 local forms only (Co A, Co B, Co C hybrid repair — not live ATS):
 npm run demo:g1
@@ -57,9 +60,10 @@ npx cua replay capabilities/apply-demo-co-a.json \
   --trace-on-failure \
   --evidence evidence/g1-co-a-receipt
 
-# G2 stretch: LLM authors steps (writes experiments/; does not touch core capability)
-# npx cua discover --author-steps --goal "Look up member savings balance" \
-#   --out capabilities/experiments/authored-capability.json
+# G2 stretch: LLM authors steps (experiments/ only; does not touch graded capability)
+npm run demo:author-steps
+#   bash scripts/demo-author-steps.sh --headed
+# Offline: fixtures/g2-authored-member-lookup.json (in check:forms)
 
 # Ashby-shaped local ATS path (live: ASHBY_APPLY_URL=… ./scripts/try-ashby.sh)
 ./scripts/try-ashby.sh
