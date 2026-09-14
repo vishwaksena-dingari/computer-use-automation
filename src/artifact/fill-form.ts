@@ -295,6 +295,114 @@ function craftFallbackFromProfile(
  * Fill each field-map control from profile. Optional missing → skip.
  * Required missing/unresolvable/unverified → field.UNMAPPED (unless hybrid crafts a value).
  */
+
+type WorkdayFillResult =
+  | { status: 'filled' }
+  | { status: 'fail'; detail: string }
+  | { status: 'fallthrough' };
+
+/** Workday-specific widgets; fallthrough leaves generic kind switch. */
+async function tryFillWorkdayField(
+  page: Page,
+  loc: Awaited<ReturnType<typeof resolveTarget>>,
+  field: FieldMapField,
+  value: string,
+  receipt: FillReceiptEntry[],
+): Promise<WorkdayFillResult> {
+  try {
+    if (
+      /howHeard|hear about/i.test(field.key) &&
+      (await page.locator('[data-automation-id="formField-source"]').count()) > 0
+    ) {
+      const path = howHeardPath(value);
+      const attempts = [
+        path,
+        path[0] === 'Website' && path.length === 1 ? ['Website', 'NVIDIA.COM'] : path,
+        ['Website'],
+        ['Job Board'],
+      ];
+      let ok = false;
+      let chips = '';
+      for (const p of attempts) {
+        ok = await fillWorkdayMultiselect(page, 'formField-source', p);
+        if (ok) {
+          chips = (
+            await page
+              .locator('[data-automation-id="formField-source"] [data-automation-id="selectedItem"]')
+              .allTextContents()
+          ).join(' ');
+          if (/Website|NVIDIA|career|\.com/i.test(value) && /Residency|Udacity/i.test(chips)) {
+            ok = false;
+            continue;
+          }
+          break;
+        }
+      }
+      if (!ok) return { status: 'fail', detail: `Workday source multiselect failed for ${value}` };
+      const verified = await recordVerify(page, loc, field, value, receipt, {
+        actualOverride: chips || value,
+        skipRead: true,
+      });
+      if (!verified && field.required) {
+        return { status: 'fail', detail: `verify failed for ${field.key}` };
+      }
+      return { status: 'filled' };
+    }
+    if (/phoneDeviceType|deviceType/i.test(field.key)) {
+      let ok = await fillWorkdaySelectOne(page, 'formField-phoneType', value);
+      if (!ok) ok = await fillWorkdaySelectOne(page, 'formField-phoneType', 'Home');
+      if (!ok) ok = await fillWorkdaySelectOne(page, 'formField-phoneType', 'Home Cellular');
+      if (!ok) ok = await fillWorkdaySelectOne(page, 'formField-phoneType', 'Mobile');
+      if (!ok) ok = await fillWorkdaySelectOne(page, 'formField-phoneType', 'Cell');
+      if (!ok) return { status: 'fail', detail: `Workday phoneType select failed for ${value}` };
+      const verified = await recordVerify(page, loc, field, value, receipt, {
+        skipRead: true,
+        actualOverride: value,
+      });
+      if (!verified && field.required) {
+        return { status: 'fail', detail: `verify failed for ${field.key}` };
+      }
+      return { status: 'filled' };
+    }
+    const wdInput: Array<[string, string]> = [
+      ['phone', 'formField-phoneNumber'],
+      ['address1', 'formField-addressLine1'],
+      ['city', 'formField-city'],
+      ['postalCode', 'formField-postalCode'],
+      ['firstName', 'formField-legalName--firstName'],
+      ['lastName', 'formField-legalName--lastName'],
+    ];
+    for (const [key, formId] of wdInput) {
+      if (field.key !== key) continue;
+      const ok = await fillWorkdayInput(page, formId, value);
+      if (ok) {
+        const verified = await recordVerify(page, loc, field, value, receipt);
+        if (!verified && field.required) {
+          return { status: 'fail', detail: `verify failed for ${field.key}` };
+        }
+        return { status: 'filled' };
+      }
+      break;
+    }
+    if (field.key === 'state') {
+      const ok = await fillWorkdaySelectOne(page, 'formField-countryRegion', value);
+      if (ok) {
+        const verified = await recordVerify(page, loc, field, value, receipt, {
+          skipRead: true,
+          actualOverride: value,
+        });
+        if (!verified && field.required) {
+          return { status: 'fail', detail: `verify failed for ${field.key}` };
+        }
+        return { status: 'filled' };
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  return { status: 'fallthrough' };
+}
+
 export async function runFillForm(opts: {
   page: Page;
   fieldMap: FieldMap;
@@ -448,95 +556,13 @@ export async function runFillForm(opts: {
     }
     if (field.invertBool) value = applyInvertBool(value);
 
-    // Workday careers forms: nested multiselect / select-one / formField inputs
-    try {
-      if (
-        /howHeard|hear about/i.test(field.key) &&
-        (await page.locator('[data-automation-id="formField-source"]').count()) > 0
-      ) {
-        const path = howHeardPath(value);
-        const attempts = [
-          path,
-          path[0] === 'Website' && path.length === 1 ? ['Website', 'NVIDIA.COM'] : path,
-          ['Website'],
-          ['Job Board'],
-        ];
-        let ok = false;
-        let chips = '';
-        for (const p of attempts) {
-          ok = await fillWorkdayMultiselect(page, 'formField-source', p);
-          if (ok) {
-            chips = (
-              await page
-                .locator('[data-automation-id="formField-source"] [data-automation-id="selectedItem"]')
-                .allTextContents()
-            ).join(' ');
-            if (/Website|NVIDIA|career|\.com/i.test(value) && /Residency|Udacity/i.test(chips)) {
-              ok = false;
-              continue;
-            }
-            break;
-          }
-        }
-        if (!ok) return fail(field.key, field.profilePath, `Workday source multiselect failed for ${value}`);
-        const verified = await recordVerify(page, loc, field, value, receipt, {
-          actualOverride: chips || value,
-          skipRead: true,
-        });
-        if (!verified && field.required) {
-          return fail(field.key, field.profilePath, `verify failed for ${field.key}`);
-        }
-        filled.push(field.key);
-        continue;
-      }
-      if (/phoneDeviceType|deviceType/i.test(field.key)) {
-        let ok = await fillWorkdaySelectOne(page, 'formField-phoneType', value);
-        if (!ok) ok = await fillWorkdaySelectOne(page, 'formField-phoneType', 'Home');
-        if (!ok) ok = await fillWorkdaySelectOne(page, 'formField-phoneType', 'Home Cellular');
-        if (!ok) ok = await fillWorkdaySelectOne(page, 'formField-phoneType', 'Mobile');
-        if (!ok) ok = await fillWorkdaySelectOne(page, 'formField-phoneType', 'Cell');
-        if (!ok) return fail(field.key, field.profilePath, `Workday phoneType select failed for ${value}`);
-        const verified = await recordVerify(page, loc, field, value, receipt, { skipRead: true, actualOverride: value });
-        if (!verified && field.required) return fail(field.key, field.profilePath, `verify failed for ${field.key}`);
-        filled.push(field.key);
-        continue;
-      }
-      const wdInput: Array<[string, string]> = [
-        ['phone', 'formField-phoneNumber'],
-        ['address1', 'formField-addressLine1'],
-        ['city', 'formField-city'],
-        ['postalCode', 'formField-postalCode'],
-        ['firstName', 'formField-legalName--firstName'],
-        ['lastName', 'formField-legalName--lastName'],
-      ];
-      let handled = false;
-      for (const [key, formId] of wdInput) {
-        if (field.key !== key) continue;
-        const ok = await fillWorkdayInput(page, formId, value);
-        if (ok) {
-          const verified = await recordVerify(page, loc, field, value, receipt);
-          if (!verified && field.required) return fail(field.key, field.profilePath, `verify failed for ${field.key}`);
-          filled.push(field.key);
-          handled = true;
-        }
-        break;
-      }
-      if (handled) continue;
-      if (field.key === 'state') {
-        const ok = await fillWorkdaySelectOne(page, 'formField-countryRegion', value);
-        if (ok) {
-          const verified = await recordVerify(page, loc, field, value, receipt, {
-            skipRead: true,
-            actualOverride: value,
-          });
-          if (!verified && field.required) return fail(field.key, field.profilePath, `verify failed for ${field.key}`);
-          filled.push(field.key);
-          continue;
-        }
-      }
-    } catch {
-      /* fall through to generic locators */
+    const wd = await tryFillWorkdayField(page, loc, field, value, receipt);
+    if (wd.status === 'fail') return fail(field.key, field.profilePath, wd.detail);
+    if (wd.status === 'filled') {
+      filled.push(field.key);
+      continue;
     }
+
 
     try {
       if (field.kind === 'checkbox' || field.kind === 'radio') {

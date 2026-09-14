@@ -327,6 +327,33 @@ async function evalCheckpoint(
 /**
  * Execute capability steps with Playwright. llmCalls stays 0 unless HITL locator patch runs.
  */
+
+/** Shared fill-receipt write — keeps unverifiedRequired default + pageUrl consistent. */
+function persistFillReceipt(
+  evidenceDir: string,
+  page: Page,
+  opts: {
+    entries: FillReceipt['entries'];
+    filledKeys: string[];
+    failDetail?: string;
+    skippedOptional?: string[];
+    unverifiedRequired?: string[];
+  },
+): void {
+  writeFillReceipt(
+    evidenceDir,
+    buildFillReceipt({
+      pageUrl: page.url(),
+      entries: opts.entries,
+      filledKeys: opts.filledKeys,
+      unverifiedRequired:
+        opts.unverifiedRequired ?? opts.entries.filter((e) => !e.verified).map((e) => e.key),
+      failDetail: opts.failDetail,
+      skippedOptional: opts.skippedOptional,
+    }),
+  );
+}
+
 export async function replayCapability(opts: ReplayOptions): Promise<ReplayResult> {
   const started = Date.now();
   const capability = applyBindings(opts.capability, opts.bindingsOverlay);
@@ -776,16 +803,16 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
           }
 
           if (!fillResult.ok) {
-            writeFillReceipt(
+            persistFillReceipt(
               evidenceDir,
-              buildFillReceipt({
-                pageUrl: page.url(),
+              page,
+              {
                 entries: fillResult.receipt,
                 filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
                 unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
                 failDetail: fillResult.detail,
                 skippedOptional: fillResult.skippedOptional,
-              }),
+            },
             );
             ledger.push({
               at: new Date().toISOString(),
@@ -845,16 +872,16 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               });
               llmCalls += fillResult.llmCalls;
               if (!fillResult.ok) {
-                writeFillReceipt(
+                persistFillReceipt(
                   evidenceDir,
-                  buildFillReceipt({
-                    pageUrl: page.url(),
+                  page,
+                  {
                     entries: fillResult.receipt,
                     filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
                     unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
                     failDetail: fillResult.detail,
                     skippedOptional: fillResult.skippedOptional,
-                  }),
+                  },
                 );
                 ledger.push({
                   at: new Date().toISOString(),
@@ -866,31 +893,31 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 return finishFormOutcome(fillResult.detail, step.id);
               }
             } else {
-              writeFillReceipt(
+              persistFillReceipt(
                 evidenceDir,
-                buildFillReceipt({
-                  pageUrl: page.url(),
+                page,
+                {
                   entries: fillResult.receipt,
                   filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
                   unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
                   failDetail: fillResult.detail,
                   skippedOptional: fillResult.skippedOptional,
-                }),
+              },
               );
               return finishFormOutcome(fillResult.detail, step.id);
             }
           }
-          writeFillReceipt(
+          persistFillReceipt(
             evidenceDir,
-            buildFillReceipt({
-              pageUrl: page.url(),
+            page,
+            {
               entries: fillResult.receipt,
               filledKeys: fillResult.filled,
               unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
               failDetail:
                 fillResult.filled.length === 0 ? 'empty fill: no fields filled' : undefined,
               skippedOptional: fillResult.skippedOptional,
-            }),
+            },
           );
           // T-W-11: same honesty as fillFormFlow — never SUCCESS with zero fills.
           if (fillResult.filled.length === 0) {
@@ -1178,16 +1205,16 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               }
             }
             if (!fillResult.ok) {
-              writeFillReceipt(
+              persistFillReceipt(
                 evidenceDir,
-                buildFillReceipt({
-                  pageUrl: page.url(),
+                page,
+                {
                   entries: [...allReceiptEntries, ...fillResult.receipt],
                   filledKeys: allFilledKeys,
                   unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
                   failDetail: fillResult.detail,
                   skippedOptional: [...allSkippedOptional, ...fillResult.skippedOptional],
-                }),
+              },
               );
               ledger.push({
                 at: new Date().toISOString(),
@@ -1248,17 +1275,13 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                     ok: false,
                     detail: `submit blocked: unverified required: ${blocked.join(',')}`,
                   });
-                  writeFillReceipt(
-                    evidenceDir,
-                    buildFillReceipt({
-                      pageUrl: page.url(),
-                      entries: allReceiptEntries,
-                      filledKeys: allFilledKeys,
-                      unverifiedRequired: blocked,
-                      failDetail: `submit blocked: unverified required: ${blocked.join(',')}`,
-                      skippedOptional: allSkippedOptional,
-                    }),
-                  );
+                  persistFillReceipt(evidenceDir, page, {
+                    entries: allReceiptEntries,
+                    filledKeys: allFilledKeys,
+                    unverifiedRequired: blocked,
+                    failDetail: `submit blocked: unverified required: ${blocked.join(',')}`,
+                    skippedOptional: allSkippedOptional,
+                  });
                   writeScreenshotManifest(evidenceDir, pageGallery);
                   flushPendingSiteMap('submit blocked unverified required');
                   return finishFormOutcome(
@@ -1370,17 +1393,17 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             }
           }
 
-          writeFillReceipt(
+          persistFillReceipt(
             evidenceDir,
-            buildFillReceipt({
-              pageUrl: page.url(),
+            page,
+            {
               entries: allReceiptEntries,
               filledKeys: allFilledKeys,
               unverifiedRequired: allReceiptEntries.filter((e) => !e.verified).map((e) => e.key),
               failDetail:
                 allFilledKeys.length === 0 ? 'empty fill: no fields filled' : undefined,
               skippedOptional: allSkippedOptional,
-            }),
+            },
           );
           writeScreenshotManifest(evidenceDir, pageGallery);
 
