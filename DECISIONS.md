@@ -20,7 +20,7 @@ Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-
 | C2 | Proxy target | Local hostile mock + Playwright | Deterministic prove without live deps |
 | C4 | Computer-use | Playwright + a11y roles/names | Stable locators; screenshots as evidence |
 | C5 | Language | TypeScript (Node) + Playwright | One process, typed artifacts |
-| C6 | LLM | Default `ollama` + `qwen2.5-coder:7b`; Anthropic/OpenAI switchable | Local-first; 7b coder is reliable for locator JSON without 9b cold-load timeouts; override via `--model` |
+| C6 | LLM | Default `ollama` + `qwen2.5-coder:7b`; Anthropic/OpenAI switchable via `callModel` (`src/llm/`) for discover/repair/author/craft | Local-first; cloud keys from `.env` only; CI stubs never need egress |
 | C7 | Architecture | Single CLI (`discover` / `replay` / `invoke` / `apply` / `import-plan` / `escalate` / `config`) | No service mesh |
 | D1 | Artifact | Versioned JSON + Zod | Reviewable, fail-closed |
 | D2 | Locators | Ranked role/name → text → css | Prefer resilient targets |
