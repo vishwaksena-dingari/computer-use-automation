@@ -149,7 +149,14 @@ Stdout is a single JSON object (also written to `evidence/.../worker.json`):
   "code": null,
   "evidenceDir": "evidence/private/apply_…",
   "runId": "apply_…",
-  "exitCode": 0
+  "exitCode": 0,
+  "mode": "fill-only",
+  "gathered": {
+    "extracts": {},
+    "filled": [{ "key": "email", "profilePath": "email", "verified": true, "actual": "a***@example.test" }],
+    "missingOutputs": [],
+    "submitVerified": false
+  }
 }
 ```
 
@@ -160,8 +167,9 @@ Stdout is a single JSON object (also written to `evidence/.../worker.json`):
 | **3** | `closed` | `form.CLOSED` |
 | **4** | `unmapped` / `verify` / `failed` | `field.UNMAPPED`, `field.VERIFY`, **empty fill** (Overview with no form), other failures |
 
-`worker.json` includes `"mode": "fill-only" | "submit"` (intent from `--submit`) and `outcome` from observed result. `--submit` without a thank-you / received banner → `outcome: filled`, not `submitted`.
+`worker.json` includes `"mode": "fill-only" | "submit"` and **`gathered`** (G14): redacted fill-receipt entries + extracts + `missingOutputs`. On **`--submit` + verified banner** (`outcome: submitted`), `gathered.filled` is empty — primary signal is `submitVerified: true` (G15), not a form harvest. `--submit` without a thank-you / received banner → `outcome: filled`, not `submitted`.
 
+Messy profiles (G13): unknown top-level scalars are parked under `answers.*` by `normalizeApplyProfile` so repair/FieldMaps can still bind them.
 Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now opens Application / Apply (same host only), or exits **4** if still empty.
 
 **Daily live helper** (fill-only unless `--submit`):
@@ -184,8 +192,9 @@ Location widgets: type **`City, ST`**, select only if the option contains that *
 | Flags | Behavior |
 |---|---|
 | default | Fill / advance pages; **stop** when Submit is the only advance |
-| `--submit` | Click Submit when visible; set `submitConfirmed` only if confirmation text/banner appears |
-| `--submit` without confirmation | Flow ends; **`outcome: filled`** (not `submitted`) |
+| `--submit` | Click Submit when visible; set `submitConfirmed` only if confirmation text/banner appears; worker `gathered.submitVerified` |
+| `--submit` without confirmation | Flow ends; **`outcome: filled`** (not `submitted`); do not claim submit |
+| `--submit` + confirmation | **`outcome: submitted`** — verify delivery only; do not treat filled harvest as the primary return (G15) |
 
 Never enable `--submit` in unattended workers unless the job is intentional.
 

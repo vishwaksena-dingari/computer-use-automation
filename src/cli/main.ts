@@ -654,9 +654,13 @@ addGlobalConfigFlags(
           allowSubmit: Boolean(opts.submit),
         });
         writeJson(join(evidenceDir, 'result.json'), result);
+        const missingFromMsg = /missing outputs:\s*(.+)$/i.exec(result.message ?? '');
         const summary = workerSummaryFromReplay(result, {
           submitted: Boolean(opts.submit) && result.ok && Boolean(result.submitConfirmed),
           allowSubmit: Boolean(opts.submit),
+          missingOutputs: missingFromMsg
+            ? missingFromMsg[1]!.split(',').map((s) => s.trim()).filter(Boolean)
+            : [],
         });
         writeJson(join(evidenceDir, 'worker.json'), summary);
         console.log(JSON.stringify(summary, null, 2));

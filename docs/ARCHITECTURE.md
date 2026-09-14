@@ -469,4 +469,14 @@ flowchart TD
 | Golden CI | `npm run check:golden` (incl. bridge-alias fixture) |
 | HAR | Kept only under `evidence/private/` (or `CUA_ALLOW_PUBLIC_HAR=1`) |
 
-Core mock + G1 forms remain frozen at tags `v0.1.0` / `v0.2.0`.
+Core mock + G1 forms remain frozen at tags `v0.1.0` / `v0.2.0`. Apply/train/G2 prove frozen at **`v0.3.0`**.
+
+### Gen — flexible I/O bag (G13–G16)
+
+| Piece | Behavior |
+|---|---|
+| Messy profile | Unknown top-level scalars → `answers.*` (`normalizeApplyProfile`) |
+| Worker return | `gathered`: extracts + fill-receipt entries + `missingOutputs` + `submitVerified` |
+| Form success | `fillForm` / `fillFormFlow` capabilities: page success checkpoint can SUCCESS even if some Capability `outputs[]` empty (gaps listed in message / gathered) |
+| Submit | Confirmation banner ⇒ `submitted`; harvest light (empty `gathered.filled`) |
+| Not in scope | Unbounded any-website explore (G3) |

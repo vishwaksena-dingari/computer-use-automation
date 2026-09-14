@@ -1,14 +1,19 @@
 # Wayfinder map — product track (tracked)
 
-**Destination:** Apply UI engine on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md` (G1–G12).
+**Destination:** Apply UI engine + Gen I/O bag (G13–G16) on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md`.
 
 **Operator contract:** `docs/APPLY.md`  
-**Active sprint:** G2 author-steps prove (scoped) — Apply/Bridge harden complete. Not G3.
+**Active sprint:** Gen (flexible I/O bag) — capped; not G3 any-site agent. Freeze tag `v0.3.0`.
 
 ## Tickets
 
 | Id | Title | Status | Sprint |
 |---|---|---|---|
+| T-G-1 | Worker `gathered` bag + missingOutputs | `done` | Gen |
+| T-G-2 | fillFormFlow soft-success if extracts missing | `done` | Gen |
+| T-G-3 | Messy profile → answers.* parking | `done` | Gen |
+| T-G-4 | Docs submit=verify + gathered | `done` | Gen |
+| T-G-5 | Map cache only after verified fill/submit | `todo` | Gen |
 | T-P0-1 | gitignore local overlay + storageState | `done` | P0 |
 | T-P1-1 | `config.local.yaml` merge | `done` | P1 |
 | T-P1-2 | Profile + vault adapter | `done` | P1 |

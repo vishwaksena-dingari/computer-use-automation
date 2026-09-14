@@ -1544,7 +1544,12 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
 
     const success = await evalCheckpoint(page, capability, capability.successCheckpoint);
     const missing = capability.outputs.filter((o) => !outputs[o.name]?.length);
-    if (success && missing.length === 0) {
+    // Gen G14: form flows succeed on page checkpoint even if some declared extracts are empty;
+    // worker.gathered.missingOutputs carries the gap. Classic extract-only capabilities stay strict.
+    const formFlow = capability.steps.some(
+      (s) => s.action === 'fillForm' || s.action === 'fillFormFlow',
+    );
+    if (success && (missing.length === 0 || formFlow)) {
       await page
         .screenshot({ path: join(evidenceDir, 'screenshots', 'success.png'), fullPage: true })
         .catch(() => undefined);
@@ -1552,7 +1557,10 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
         ok: true,
         status: 'SUCCESS',
         code: null,
-        message: 'Capability completed successfully',
+        message:
+          missing.length && formFlow
+            ? `Capability completed successfully (missing outputs: ${missing.map((m) => m.name).join(',')})`
+            : 'Capability completed successfully',
         outputs,
         error: null,
       });
