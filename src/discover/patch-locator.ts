@@ -10,6 +10,7 @@ import {
 } from '../artifact/schema.js';
 import type { RuntimeConfig } from '../config/schema.js';
 import { log } from '../util/log.js';
+import { callModel } from '../llm/call-model.js';
 
 const PatchSchema = z
   .object({
@@ -56,55 +57,6 @@ function extractJsonObject(text: string): unknown {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function callOllama(
-  config: RuntimeConfig,
-  system: string,
-  user: string,
-): Promise<{ text: string; ok: boolean }> {
-  const url = `${config.llm.ollamaBaseUrl.replace(/\/$/, '')}/api/chat`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: config.llm.model,
-        stream: false,
-        format: {
-          type: 'object',
-          properties: {
-            candidates: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  kind: { type: 'string' },
-                  rank: { type: 'integer' },
-                  role: { type: 'string' },
-                  name: { type: 'string' },
-                  text: { type: 'string' },
-                  exact: { type: 'boolean' },
-                  selector: { type: 'string' },
-                  score: { type: 'number' },
-                },
-                required: ['kind', 'rank'],
-              },
-            },
-          },
-          required: ['candidates'],
-        },
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-    });
-    if (!res.ok) return { ok: false, text: `HTTP ${res.status}` };
-    const body = (await res.json()) as { message?: { content?: string } };
-    return { ok: true, text: body.message?.content ?? '' };
-  } catch (e) {
-    return { ok: false, text: (e as Error).message };
-  }
-}
 
 /**
  * Patch one target's candidates from operator note + live observation.
@@ -126,10 +78,6 @@ export async function patchTargetFromNote(opts: {
   if (!note.trim()) {
     return { patched: false, llmCalls: 0, detail: 'empty resume note' };
   }
-  if (config.llm.provider !== 'ollama') {
-    return { patched: false, llmCalls: 0, detail: 'HITL patch requires ollama provider' };
-  }
-
   const controls = await observeControls(page);
   const pageText = (await page.locator('body').innerText()).slice(0, 1200);
   const system = `Return ONLY JSON {"candidates":[...]} for ONE UI control.
@@ -143,9 +91,31 @@ Prefer label/role/text from observation; css last. No markdown.`;
   });
 
   log('info', 'hitl locator patch', { targetKey, noteChars: note.length });
-  const reply = await callOllama(config, system, user);
+  const reply = await callModel(config, system, user, { json: true, ollamaFormat: {
+    type: 'object',
+    properties: {
+      candidates: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            kind: { type: 'string' },
+            rank: { type: 'integer' },
+            role: { type: 'string' },
+            name: { type: 'string' },
+            text: { type: 'string' },
+            exact: { type: 'boolean' },
+            selector: { type: 'string' },
+            score: { type: 'number' },
+          },
+          required: ['kind', 'rank'],
+        },
+      },
+    },
+    required: ['candidates'],
+  } });
   if (!reply.ok) {
-    return { patched: false, llmCalls: 1, detail: `ollama failed: ${reply.text}` };
+    return { patched: false, llmCalls: 1, detail: `model failed: ${reply.text}` };
   }
   try {
     const parsed = PatchSchema.parse(extractJsonObject(reply.text));

@@ -17,6 +17,7 @@ import { log } from '../util/log.js';
 import { resolveTarget } from '../surface/resolve-locator.js';
 import { observeControls, type ControlHint } from '../surface/observe-controls.js';
 import { authorStepsFromPage } from './author-steps.js';
+import { callModel } from '../llm/call-model.js';
 
 export type DiscoverResult = {
   ok: boolean;
@@ -171,34 +172,6 @@ function capabilitySkeleton(goal: string): Capability {
   });
 }
 
-async function callOllama(
-  config: RuntimeConfig,
-  system: string,
-  user: string,
-): Promise<{ text: string; ok: boolean }> {
-  const url = `${config.llm.ollamaBaseUrl.replace(/\/$/, '')}/api/chat`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: config.llm.model,
-        stream: false,
-        format: OLLAMA_LOCATOR_FORMAT,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-      signal: AbortSignal.timeout(180_000),
-    });
-    if (!res.ok) return { text: `HTTP ${res.status}`, ok: false };
-    const body = (await res.json()) as { message?: { content?: string } };
-    return { text: body.message?.content ?? '', ok: true };
-  } catch (e) {
-    return { text: (e as Error).message, ok: false };
-  }
-}
 
 function extractJsonObject(text: string): unknown {
   const trimmed = text.trim();
@@ -480,15 +453,21 @@ export async function discoverCapability(opts: {
 
     const observation = { goal, pageText, controls };
 
-    if (config.llm.provider === 'ollama') {
-      log('debug', 'discover ollama locator-emit', { model: config.llm.model });
+    const modelOpts = { json: true as const, ollamaFormat: OLLAMA_LOCATOR_FORMAT };
+    {
+      log('debug', 'discover locator-emit', {
+        provider: config.llm.provider,
+        model: config.llm.model,
+      });
       const userPrompt = `From this page observation, emit locator candidates JSON only:\n${JSON.stringify(observation)}`;
-      const reply = await callOllama(config, SYSTEM_EMIT, userPrompt);
+      const reply = await callModel(config, SYSTEM_EMIT, userPrompt, modelOpts);
       if (!reply.ok) {
-        llmNote = `ollama unreachable: ${reply.text}`;
+        llmNote = `${config.llm.provider} unreachable: ${reply.text}`;
         log('warn', 'discover llm failed', { detail: llmNote });
         if (!opts.allowOfflineSeed) {
-          throw new Error(`Discovery LLM failed (${llmNote}). Start Ollama or pass --allow-offline-seed.`);
+          throw new Error(
+            `Discovery LLM failed (${llmNote}). Fix provider/keys or pass --allow-offline-seed.`,
+          );
         }
       } else {
         llmCalls = 1;
@@ -500,10 +479,11 @@ export async function discoverCapability(opts: {
         } catch (e) {
           const err = (e as Error).message;
           log('warn', 'discover emit zod failed; repairing', { detail: err.slice(0, 200) });
-          const repair = await callOllama(
+          const repair = await callModel(
             config,
             SYSTEM_EMIT,
             `Previous JSON failed: ${err}\nObservation:\n${JSON.stringify(observation)}\nEmit corrected targets.candidates JSON only.`,
+            modelOpts,
           );
           llmCalls = 2;
           if (!repair.ok) throw new Error(`Discovery repair failed: ${repair.text}`);
@@ -518,8 +498,6 @@ export async function discoverCapability(opts: {
         }
         compiled = await finalizeLocators(page, goal, controls, llmEmit);
       }
-    } else if (!opts.allowOfflineSeed) {
-      throw new Error('Discovery emit supports ollama by default; use --allow-offline-seed for seed emit');
     }
 
     if (!compiled) {
