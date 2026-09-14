@@ -1,19 +1,19 @@
 {
   "ok": true,
-  "status": "SUCCESS",
-  "code": null,
-  "message": "Capability completed successfully",
-  "outputs": {
-    "confirmation": "Application received (Co C)"
-  },
+  "status": "BUSINESS_OUTCOME",
+  "code": "field.UNMAPPED",
+  "message": "required field locator miss: fullName",
+  "outputs": {},
   "error": null,
   "capabilityId": "apply-demo-co-c",
   "capabilityVersion": "0.1.0",
   "params": {
     "memberId": "M-10042"
   },
-  "runId": "replay_mtz390um_6fdmjd",
+  "runId": "replay_mu1faazf_j2aacu",
   "evidenceDir": "evidence/g1-co-c-autonomy-reprove",
-  "durationMs": 5725,
-  "llmCalls": 0
+  "durationMs": 10226,
+  "llmCalls": 0,
+  "submitConfirmed": false,
+  "submitAttempted": false
 }

@@ -59,11 +59,7 @@ const FEWSHOT: Partial<Record<AtsFamily, { mapId: string; mapRel: string; receip
     mapRel: 'capabilities/field-maps/workday-shaped-auto.json',
     receiptRel: 'evidence/g1-workday-shaped-autonomy-reprove/fill-receipt.json',
   },
-  unknown: {
-    mapId: 'demo-co-a',
-    mapRel: 'capabilities/field-maps/demo-co-a.json',
-    receiptRel: 'evidence/g1-co-a-receipt/fill-receipt.json',
-  },
+  // unknown: no sibling — prefer empty few-shot over baking demo-co-a into every unknown repair
 };
 
 /** Load few-shot sibling map fields + receipt skeleton (no PII values). */
@@ -72,7 +68,7 @@ export function loadRepairFewShot(
   family: AtsFamily,
   excludeMapId: string,
 ): { siblingFields?: unknown[]; siblingReceiptKeys?: unknown[] } {
-  const spec = FEWSHOT[family] ?? FEWSHOT.unknown;
+  const spec = FEWSHOT[family];
   if (!spec) return {};
   // Hold-out: don't few-shot the map we're repairing.
   if (excludeMapId === spec.mapId || excludeMapId.startsWith(`${spec.mapId}-`)) return {};
@@ -1127,6 +1123,57 @@ export function writePrivateFieldMapById(root: string, map: FieldMap): string {
   return path;
 }
 
+/**
+ * G16 / T-G-5: only persist site FieldMaps after at least one verified fill.
+ * Evidence `field-map-proposed*.json` stays uncapped (debug). Submit-intent runs
+ * should also wait for `submitConfirmed` when a submit was attempted.
+ */
+export function shouldPersistSiteFieldMap(opts: {
+  verifiedCount: number;
+  allowSubmit?: boolean;
+  submitAttempted?: boolean;
+  submitConfirmed?: boolean;
+}): boolean {
+  if (opts.verifiedCount < 1) return false;
+  if (opts.allowSubmit && opts.submitAttempted && !opts.submitConfirmed) return false;
+  return true;
+}
+
+export function selfCheckShouldPersistSiteFieldMap(): void {
+  if (shouldPersistSiteFieldMap({ verifiedCount: 0 })) throw new Error('no verify → no persist');
+  if (!shouldPersistSiteFieldMap({ verifiedCount: 1 })) throw new Error('verify → persist');
+  if (
+    shouldPersistSiteFieldMap({
+      verifiedCount: 2,
+      allowSubmit: true,
+      submitAttempted: true,
+      submitConfirmed: false,
+    })
+  ) {
+    throw new Error('submit attempted without confirm → no persist');
+  }
+  if (
+    !shouldPersistSiteFieldMap({
+      verifiedCount: 2,
+      allowSubmit: true,
+      submitAttempted: true,
+      submitConfirmed: true,
+    })
+  ) {
+    throw new Error('submit confirmed → persist');
+  }
+  if (
+    !shouldPersistSiteFieldMap({
+      verifiedCount: 1,
+      allowSubmit: true,
+      submitAttempted: false,
+      submitConfirmed: false,
+    })
+  ) {
+    throw new Error('fill-only with allowSubmit unused → persist');
+  }
+}
+
 /** Write proposed map into an evidence run dir (latest + id-tagged copy). */
 export function writeProposedFieldMap(evidenceDir: string, map: FieldMap): string {
   const safeId = map.id.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'map';
@@ -1144,6 +1191,10 @@ export function selfCheckRepairFewShot(root = process.cwd()): void {
   if (!pack.siblingFields?.length) throw new Error('few-shot ashby siblingFields empty');
   const hold = loadRepairFewShot(root, 'ashby', 'ashby-sciemo-auto');
   if (hold.siblingFields?.length) throw new Error('few-shot hold-out failed');
+  const unk = loadRepairFewShot(root, 'unknown', 'any');
+  if (unk.siblingFields?.length || unk.siblingReceiptKeys?.length) {
+    throw new Error('unknown family must not load demo few-shot');
+  }
 }
 
 /** Self-check: page filter keeps on-page fields only. */
@@ -1435,5 +1486,6 @@ if (process.argv[1]?.endsWith('repair-field-map.ts') || process.argv[1]?.endsWit
   selfCheckDropShadowedBlocksHostileLiteral();
   selfCheckDropShadowedKeepsRequiredPass2();
   selfCheckMergeFileDropsLiteral();
+  selfCheckShouldPersistSiteFieldMap();
   console.log('repair-field-map few-shot self-check ok');
 }

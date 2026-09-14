@@ -3,17 +3,29 @@
 **Destination:** Apply UI engine + Gen I/O bag (G13–G16) on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md`.
 
 **Operator contract:** `docs/APPLY.md`  
-**Active sprint:** Gen (flexible I/O bag) — capped; not G3 any-site agent. Freeze tag `v0.3.0`.
+**Active sprint:** Adapt (G17 submit proof / verify states) — capped; not G3. Freeze tag `v0.3.0`; Gen T-G-1…T-G-5 on `main` (may be uncommitted tip).
 
 ## Tickets
 
 | Id | Title | Status | Sprint |
 |---|---|---|---|
+| T-A-1 | extractSubmitProof text/reference | `done` | Adapt |
+| T-A-2 | submitAttempted + submitProof → gathered | `done` | Adapt |
+| T-A-3 | outcome submit_unconfirmed on click w/o banner | `done` | Adapt |
+| T-A-4 | Docs APPLY/ARCHITECTURE for proof fields | `done` | Adapt |
+| T-A-5 | Mock apply --submit confirmationReference | `done` | Adapt |
+| T-A-6 | prepareApplyProfile raw+normalized clones | `done` | Adapt |
+| T-A-7 | profile-shape.json key-only evidence | `done` | Adapt |
+| T-A-8 | worker phases transform/fill/submit/verify/report | `done` | Adapt |
+| T-A-9 | skippedOptional + missingRequiredPaths gathered | `done` | Adapt |
+| T-A-10 | AtsFamily confirm adapters in submit-proof | `done` | Adapt |
+| T-A-11 | Pre-submit block if required unverified | `done` | Adapt |
+| T-A-12 | unknown ATS: no demo-co-a few-shot | `done` | Adapt |
 | T-G-1 | Worker `gathered` bag + missingOutputs | `done` | Gen |
 | T-G-2 | fillFormFlow soft-success if extracts missing | `done` | Gen |
 | T-G-3 | Messy profile → answers.* parking | `done` | Gen |
 | T-G-4 | Docs submit=verify + gathered | `done` | Gen |
-| T-G-5 | Map cache only after verified fill/submit | `todo` | Gen |
+| T-G-5 | Map cache only after verified fill/submit | `done` | Gen |
 | T-P0-1 | gitignore local overlay + storageState | `done` | P0 |
 | T-P1-1 | `config.local.yaml` merge | `done` | P1 |
 | T-P1-2 | Profile + vault adapter | `done` | P1 |

@@ -36,7 +36,14 @@ function escapeRe(s: string): string {
 export type FillFormMode = 'deterministic' | 'hybrid';
 
 export type FillFormResult =
-  | { ok: true; filled: string[]; llmCalls: number; receipt: FillReceiptEntry[] }
+  | {
+      ok: true;
+      filled: string[];
+      llmCalls: number;
+      receipt: FillReceiptEntry[];
+      /** Optional fields skipped because profile path empty (not a failure). */
+      skippedOptional: string[];
+    }
   | {
       ok: false;
       code: string;
@@ -45,6 +52,7 @@ export type FillFormResult =
       detail: string;
       llmCalls: number;
       receipt: FillReceiptEntry[];
+      skippedOptional: string[];
     };
 
 type CraftFn = (args: {
@@ -304,6 +312,7 @@ export async function runFillForm(opts: {
   let llmCalls = 0;
   const filled: string[] = [];
   const receipt: FillReceiptEntry[] = [];
+  const skippedOptional: string[] = [];
 
   const fail = (fieldKey: string, profilePath: string, detail: string): FillFormResult => ({
     ok: false,
@@ -313,6 +322,7 @@ export async function runFillForm(opts: {
     detail,
     llmCalls,
     receipt,
+    skippedOptional,
   });
 
   // Preflight: required profile gaps before DOM fill (craftable / literal exempt).
@@ -424,6 +434,7 @@ export async function runFillForm(opts: {
       if (field.required) {
         return fail(field.key, valuePath, `required profile path empty: ${valuePath}`);
       }
+      skippedOptional.push(field.key);
       continue;
     }
 
@@ -645,5 +656,5 @@ export async function runFillForm(opts: {
     filled.push(field.key);
   }
 
-  return { ok: true, filled, llmCalls, receipt };
+  return { ok: true, filled, llmCalls, receipt, skippedOptional };
 }

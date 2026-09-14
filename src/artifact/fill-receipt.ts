@@ -29,9 +29,38 @@ export type FillReceipt = {
   entries: FillReceiptEntry[];
   filledKeys: string[];
   unverifiedRequired: string[];
+  /** Optional FieldMap keys skipped when profile path empty (not a failure). */
+  skippedOptional?: string[];
+  /** Required profile paths that blocked the run (actionable minimum ask). */
+  missingRequiredPaths?: string[];
   /** Set when the fill/flow stopped for a known class of failure. */
   blocker?: FillBlocker | null;
 };
+
+/** Keys that are required but present in receipt as unverified (pre-submit gate). */
+export function unverifiedRequiredKeys(
+  entries: Array<{ key: string; verified: boolean }>,
+  requiredKeys: string[],
+): string[] {
+  const req = new Set(requiredKeys);
+  return [
+    ...new Set(entries.filter((e) => req.has(e.key) && !e.verified).map((e) => e.key)),
+  ];
+}
+
+/** Pull required profile paths from a fail detail string. */
+export function parseMissingRequiredPaths(detail: string): string[] {
+  const multi = /missing required profile paths:\s*(.+)$/i.exec(detail);
+  if (multi?.[1]) {
+    return multi[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  const one = /required profile path empty:\s*(.+)$/i.exec(detail);
+  if (one?.[1]) return [one[1].trim()];
+  return [];
+}
 
 /** Map a human `detail` string into a coarse blocker enum. */
 export function classifyFillBlocker(detail: string): FillBlocker | null {
@@ -42,7 +71,7 @@ export function classifyFillBlocker(detail: string): FillBlocker | null {
   if (/multiselect failed|select failed|combobox|react-select|widget/.test(d)) return 'widget';
   if (/missing required profile|required profile path empty|required field (not visible|locator)|empty fill/.test(d))
     return 'missing_required';
-  if (/verify failed|verify mismatch/.test(d)) return 'verify';
+  if (/verify failed|verify mismatch|submit blocked: unverified required/.test(d)) return 'verify';
   return null;
 }
 
@@ -53,7 +82,11 @@ export function buildFillReceipt(opts: {
   filledKeys: string[];
   unverifiedRequired: string[];
   failDetail?: string;
+  skippedOptional?: string[];
 }): FillReceipt {
+  const missingRequiredPaths = opts.failDetail
+    ? parseMissingRequiredPaths(opts.failDetail)
+    : [];
   return {
     schemaVersion: 1,
     at: new Date().toISOString(),
@@ -61,6 +94,8 @@ export function buildFillReceipt(opts: {
     entries: opts.entries,
     filledKeys: opts.filledKeys,
     unverifiedRequired: opts.unverifiedRequired,
+    skippedOptional: opts.skippedOptional?.length ? opts.skippedOptional : undefined,
+    missingRequiredPaths: missingRequiredPaths.length ? missingRequiredPaths : undefined,
     blocker: opts.failDetail ? classifyFillBlocker(opts.failDetail) : null,
   };
 }
@@ -186,6 +221,20 @@ export function selfCheckFillReceipt(): void {
   if (classifyFillBlocker('verify failed for location') !== 'verify') {
     throw new Error('blocker verify');
   }
+  const paths = parseMissingRequiredPaths('missing required profile paths: phone,linkedin');
+  if (paths.join(',') !== 'phone,linkedin') throw new Error('parse missing multi');
+  if (parseMissingRequiredPaths('required profile path empty: email')[0] !== 'email') {
+    throw new Error('parse missing one');
+  }
+  const uv = unverifiedRequiredKeys(
+    [
+      { key: 'email', verified: true },
+      { key: 'phone', verified: false },
+      { key: 'extra', verified: false },
+    ],
+    ['email', 'phone'],
+  );
+  if (uv.join(',') !== 'phone') throw new Error('unverifiedRequiredKeys');
 }
 
 if (process.argv[1]?.endsWith('fill-receipt.ts') || process.argv[1]?.endsWith('fill-receipt.js')) {

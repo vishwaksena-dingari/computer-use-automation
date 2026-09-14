@@ -3,7 +3,7 @@
 Agent pickup for product work on `main`. Tags `v0.1.0` / `v0.2.0` are frozen snapshots — do not retarget them for features.
 
 **Operator contract (flags / exit codes / live runbook):** [`docs/APPLY.md`](./APPLY.md)  
-**Locks:** `DECISIONS.md` (esp. G1–G11). **Map:** `docs/agents/map.md`. **Hygiene:** `docs/REPO-HYGIENE.md`.
+**Locks:** `DECISIONS.md` (esp. G1–G20). **Map:** `docs/agents/map.md`. **Hygiene:** `docs/REPO-HYGIENE.md`.
 
 ## Goal (done when)
 
@@ -15,7 +15,7 @@ npx cua apply --url "$APPLY_URL" \
 # optional: --submit
 ```
 
-Fills the apply UI, pauses on captcha in the same session, Submit only with `--submit`, writes under `evidence/private/` (gitignored). Exit codes: `0` ok, `2` HITL waiting, `3` closed, `4` unmapped/verify fail.
+Fills the apply UI, pauses on captcha in the same session, Submit only with `--submit`, writes under `evidence/private/` (gitignored). Exit codes: `0` ok, `2` HITL waiting, `3` closed, `4` unmapped / verify / `submit_unconfirmed` / fail.
 
 ## Named sprints — **complete**
 
@@ -89,16 +89,56 @@ Unblocks workers dropping parallel UI assist: imported FieldMaps must drive fill
 
 See `docs/agents/map.md` T-W-* / T-B-24–30. Optional re-prove is ops only (not a code gate).
 
-## Gen sprint — flexible I/O bag (G13–G16) — **mostly done**
+## Gen sprint — flexible I/O bag (G13–G16) — **done**
 
-Freeze tag: **`v0.3.0`**. Prior art: ChamPro residual bag + readback; ApplyMate cache-after-verify; avoid LazyApply silent submit / schema-only success.
+Freeze tag: **`v0.3.0`** (pre-Gen). Prior art: ChamPro residual bag + readback; ApplyMate cache-after-verify; avoid LazyApply silent submit / schema-only success. Optional post-Gen tag after green prove.
 
-| Ticket | Intent |
-|---|---|
+| Ticket | Intent | Status |
+|---|---|---|
 | T-G-1 | Worker `gathered` bag (extracts + receipt) + `missingOutputs` | **done** |
 | T-G-2 | FillFormFlow / apply: success checkpoint wins even if some Capability extracts missing | **done** |
 | T-G-3 | Messy profile → `answers.*` parking for unknown scalars | **done** |
 | T-G-4 | Docs: submit = verify confirmation; fill returns bag | **done** |
-| T-G-5 | (later) Map cache write only after verified fill / submitConfirmed | todo |
+| T-G-5 | Site FieldMap cache only after verified fill (+ `submitConfirmed` if submit attempted) | **done** |
 
-**Done when:** `check:forms` green; mock apply `worker.json` includes `gathered`; `--submit` docs match G15.
+**Done when:** `check:forms` green; mock apply `worker.json` includes `gathered`; `--submit` docs match G15; site maps gated by `shouldPersistSiteFieldMap` (G16).
+
+## Adapt sprint — verify ≠ attempt + confirmation proof (G17) — **done**
+
+Generalize submit reporting without G3: reusable `submit-proof` extractor, worker states, mock confirmation id.
+
+| Ticket | Intent | Status |
+|---|---|---|
+| T-A-1 | `extractSubmitProof` + self-check (text / reference) | **done** |
+| T-A-2 | Replay carries `submitAttempted` + `submitProof`; gather into worker | **done** |
+| T-A-3 | `submit_unconfirmed` outcome (exit 4) when click without banner | **done** |
+| T-A-4 | Docs / map / APPLY matrix for proof fields | **done** |
+| T-A-5 | Mock `--submit` prove returns `confirmationReference` | **done** |
+
+**Done when:** `check:forms` green; mock `cua apply … --submit` → `outcome: submitted`, `gathered.confirmationReference` present.
+
+## Adapt+ — raw/normalized + task phases (G18) — **done**
+
+| Ticket | Intent | Status |
+|---|---|---|
+| T-A-6 | `prepareApplyProfile` + deep-clone raw vs normalized | **done** |
+| T-A-7 | Evidence `profile-shape.json` (keys only) | **done** |
+| T-A-8 | Worker `phases[]` transform/fill/submit/verify/report | **done** |
+
+**Done when:** `check:forms` green; mock apply writes `profile-shape.json` and `worker.phases` includes transform→report.
+
+## Adapt++ — soft optional + family confirm (G19) — **done**
+
+| Ticket | Intent | Status |
+|---|---|---|
+| T-A-9 | `skippedOptional` + `missingRequiredPaths` on receipt/gathered | **done** |
+| T-A-10 | AtsFamily confirm phrase / visible-regex adapters | **done** |
+
+**Done when:** `check:forms` green; family self-check; mock `--submit` still `submitted` + confirmationReference.
+
+## Adapt+++ — pre-submit gate + detach unknown few-shot (G20) — **done**
+
+| Ticket | Intent | Status |
+|---|---|---|
+| T-A-11 | Block Submit when required receipt entries unverified | **done** |
+| T-A-12 | `unknown` ATS: no demo-co-a few-shot fallback | **done** |
