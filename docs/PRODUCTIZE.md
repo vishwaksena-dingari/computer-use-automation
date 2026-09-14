@@ -142,3 +142,17 @@ Generalize submit reporting without G3: reusable `submit-proof` extractor, worke
 |---|---|---|
 | T-A-11 | Block Submit when required receipt entries unverified | **done** |
 | T-A-12 | `unknown` ATS: no demo-co-a few-shot fallback | **done** |
+
+## Factory cleanup — shared LLM door + runner (post-`v0.4.0`) — **done**
+
+Council ACT + overridden DEFERs. **Keep** published `fillForm` / `fillFormFlow`. **Reject** C1 merge, C6 ATS registry, C7 SurfaceDriver, S7 rename. Live matrix fill-only only (never `--submit` on live).
+
+| Ticket | Intent | Status |
+|---|---|---|
+| T-F-1…7 | sniff→`allowLlm`, `callModel`, craft factory, receipts/Workday, `fillNow`/`pauseHitl`, `inferFieldMap` | **done** |
+| T-F-8/9 | `runCapabilityRequest` shared by apply → replay/invoke (commands stay separate) | **done** |
+| T-F-10 | Live Ashby Maximor `/application` fill-only | **done** (`evidence/private/factory-matrix-ashby-*`) |
+| T-F-11 | Live Lever 100ms fill-only; Greenhouse Figma attempted (`field.VERIFY`) | **done** / partial GH |
+| T-F-12 | Docs reconcile | **done** |
+
+**Done when:** `check:forms` + `check:golden` green; Ashby matrix exit 0; docs match modules.

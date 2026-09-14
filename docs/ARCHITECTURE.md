@@ -359,7 +359,7 @@ flowchart TD
 | Verify + receipt | After each fill, read-back verify; write `evidence/fill-receipt.json` (redacted). Optional `blocker` enum: `captcha\|closed\|widget\|missing_required\|verify`. Required mismatch → stuck repair |
 | Repair few-shot | When repair LLM wakes, inject sibling green map fields + receipt keys for known `ats-family` (`docs/golden-forms.md`); hold-out skips self mapId; **`unknown` family gets no few-shot** (no demo-co-a default, G20) |
 | Location verify | City/location autocomplete expansions match on city token (`New York, NY` ≈ `New York City…`) |
-| Multipage | `fillFormFlow` page 0 may LLM; pages 1+ heuristics; **stuck** may LLM in the repair loop; craft available per page |
+| Multipage | `fillFormFlow`: engine sets `allowLlm` on page 0 / stuck / retry; routine later pages use heuristics only; craft via per-arm `makeCraftAnswer` |
 | `--write-field-map` | Opt-in persist repaired map to repo |
 | `--form-repair-max` | Cap stuck repair iterations (1–5; default 3) |
 | `--profile` | Invoke/replay context only; never inside Capability JSON (PII / reuse). `WORKDAY_EMAIL`/`PASSWORD` overlay at invoke time |
@@ -487,3 +487,38 @@ Core mock + G1 forms remain frozen at tags `v0.1.0` / `v0.2.0`. Apply/train/G2 p
 | Soft optional + family confirm (G19) | Empty optionals → `skippedOptional`; required gaps → `missingRequiredPaths`; confirm regex/phrases via AtsFamily adapters |
 | Pre-submit gate (G20) | `--submit` refuses click if required keys in receipt are unverified; unknown family has no demo few-shot |
 | Not in scope | Unbounded any-website explore (G3) |
+
+### Factory cleanup — one LLM door, dual fill arms, shared CLI runner
+
+Post-`v0.4.0` hygiene (map T-F-*). **Do not** merge `fillForm` / `fillFormFlow` schemas. Repair LLM gate is an explicit `allowLlm` flag from the engine (no `/fillFormFlow page/` reason sniff). Craft budgets are **per arm** via `makeCraftAnswer`. Deterministic heuristics live in pure `inferFieldMap`; observation + LLM stay in `repairFieldMap`.
+
+```mermaid
+flowchart TD
+  CLI["cua apply | replay | invoke"] --> RUN[runCapabilityRequest]
+  RUN --> ENG[replayCapability]
+  ENG --> FF[fillForm arm]
+  ENG --> FLOW[fillFormFlow arm]
+  FF --> CRAFT1["makeCraftAnswer budget A"]
+  FLOW --> CRAFT2["makeCraftAnswer budget B"]
+  FF --> FILL[runFillForm]
+  FLOW --> FILL
+  FLOW --> REP[repairFieldMap]
+  REP --> INFER[inferFieldMap pure]
+  REP -->|allowLlm| LLM[callModel]
+  CRAFT1 --> LLM
+  CRAFT2 --> LLM
+  LLM --> OLLAMA[ollama]
+  LLM --> ANTH[anthropic]
+  LLM --> OAI[openai]
+```
+
+| Module | Role |
+|---|---|
+| `src/llm/call-model.ts` | Provider-neutral `callModel` + `callOllamaJson`; never throws; CI stubs need no cloud keys |
+| `src/artifact/craft-answer.ts` | `makeCraftAnswer({ budget })` — one budget per factory instance |
+| `src/artifact/infer-field-map.ts` | Pure control→field heuristics |
+| `src/artifact/repair-field-map.ts` | Observe + merge + optional LLM (`allowLlm`) |
+| `src/cli/run-capability-request.ts` | Shared replay + `result.json` (+ optional `worker.json`); no `process.exit` |
+| Engine helpers | `persistFillReceipt`, `fillNow`, `pauseHitl`; Workday via `tryFillWorkdayField` |
+
+**Live matrix (fill-only, gitignored):** Ashby Maximor exit 0; Lever 100ms exit 0; Greenhouse Figma still `field.VERIFY` (location widget) — allowlisted, not a code gate.

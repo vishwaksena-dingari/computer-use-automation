@@ -3,12 +3,24 @@
 **Destination:** Apply UI engine + Gen I/O bag (G13–G16) on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md`.
 
 **Operator contract:** `docs/APPLY.md`  
-**Active sprint:** Adapt (G17 submit proof / verify states) — capped; not G3. Freeze tag `v0.3.0`; Gen T-G-1…T-G-5 on `main` (may be uncommitted tip).
+**Active sprint:** Factory cleanup (T-F-*) — **done** on tip after `v0.4.0`. Prior Adapt G17–G20 done; freeze tags `v0.3.0` / `v0.4.0`. Not G3; keep dual `fillForm` / `fillFormFlow` arms.
 
 ## Tickets
 
 | Id | Title | Status | Sprint |
 |---|---|---|---|
+| T-F-1 | Explicit `allowLlm` (no reason-regex sniff) | `done` | Factory |
+| T-F-2 | Dedupe `callOllamaJson` → `src/llm` | `done` | Factory |
+| T-F-3 | Multi-provider `callModel` + stubs | `done` | Factory |
+| T-F-4 | Per-arm `makeCraftAnswer` budgets | `done` | Factory |
+| T-F-5 | `persistFillReceipt` + `tryFillWorkdayField` | `done` | Factory |
+| T-F-6 | Engine `fillNow` + `pauseHitl` | `done` | Factory |
+| T-F-7 | Pure `inferFieldMap` module | `done` | Factory |
+| T-F-8 | `runCapabilityRequest`; apply on runner | `done` | Factory |
+| T-F-9 | Wire replay/invoke to shared runner | `done` | Factory |
+| T-F-10 | Live Ashby fill-only matrix (Maximor) | `done` (gitignored `evidence/private/factory-matrix-ashby-*`) | Factory |
+| T-F-11 | Live Lever fill-only (+ Greenhouse attempt) | `done` Lever exit 0; Greenhouse `field.VERIFY` (allowlisted) | Factory |
+| T-F-12 | ARCHITECTURE / APPLY / map reconcile | `done` | Factory |
 | T-A-1 | extractSubmitProof text/reference | `done` | Adapt |
 | T-A-2 | submitAttempted + submitProof → gathered | `done` | Adapt |
 | T-A-3 | outcome submit_unconfirmed on click w/o banner | `done` | Adapt |
