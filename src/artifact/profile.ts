@@ -176,6 +176,70 @@ export function normalizeApplyProfile(raw: Record<string, unknown>): Record<stri
     hoistEdu('endYear', 'eduToYear');
     hoistEdu('gpa', 'gpa');
   }
+
+  // G13: park unknown top-level scalars under answers.* for FieldMap/repair.
+  const knownTop = new Set([
+    'schemaVersion',
+    'fullName',
+    'firstName',
+    'lastName',
+    'email',
+    'phone',
+    'resumePath',
+    'linkedin',
+    'portfolio',
+    'location',
+    'city',
+    'state',
+    'region',
+    'country',
+    'postalCode',
+    'address1',
+    'startDate',
+    'workAuth',
+    'work_auth',
+    'workAuthorization',
+    'work_authorization',
+    'company',
+    'howHeard',
+    'phoneDeviceType',
+    'password',
+    'school',
+    'degree',
+    'fieldOfStudy',
+    'eduFromYear',
+    'eduToYear',
+    'gpa',
+    'education',
+    'identity',
+    'contact',
+    'personal',
+    'flags',
+    'answers',
+    'sponsorship',
+    'name',
+    'full_name',
+    'linkedinUrl',
+    'linkedin_url',
+    'resume',
+    'resume_path',
+    'phone_number',
+    'mobile',
+  ]);
+  if (!out.answers || typeof out.answers !== 'object' || Array.isArray(out.answers)) {
+    out.answers = {};
+  }
+  const answersBag = out.answers as Record<string, unknown>;
+  for (const [k, v] of Object.entries(out)) {
+    if (knownTop.has(k)) continue;
+    if (v === undefined || v === null) continue;
+    if (typeof v === 'object') continue;
+    if (answersBag[k] === undefined) answersBag[k] = v;
+  }
+  if (Object.keys(answersBag).length === 0 && !raw.answers) {
+    delete out.answers;
+  }
+
   return out;
 }
 
@@ -352,6 +416,17 @@ export function selfCheckProfileFlags(): void {
   if (isOpaqueProfilePath('region', [])) throw new Error('region must be allowlisted');
   const flags = vault.flags as Record<string, unknown> | undefined;
   if (flags?.sponsorshipNo !== 'yes') throw new Error('vault sponsorship.required→sponsorshipNo');
+
+  const messy = normalizeApplyProfile({
+    fullName: 'Ada',
+    email: 'ada@example.com',
+    customScreeningQ: 'Remote only',
+    whyUs: 'Mission fit',
+  });
+  const messyAns = messy.answers as Record<string, unknown> | undefined;
+  if (messyAns?.customScreeningQ !== 'Remote only') throw new Error('G13 park customScreeningQ');
+  if (messyAns?.whyUs !== 'Mission fit') throw new Error('G13 park whyUs');
+  if (messy.fullName !== 'Ada') throw new Error('G13 keep known top-level');
 
   const contact = normalizeApplyProfile({
     contact: { name: 'Casey Contact', phone: '555-0100' },

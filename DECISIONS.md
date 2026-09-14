@@ -4,9 +4,9 @@
 
 ## Destination
 
-**Now:** Apply UI engine — discover/import → versioned Capability + FieldMap → deterministic Playwright fill/replay → same-session HITL → receipts under `/evidence/` (private live runs gitignored).
+**Now:** Apply UI engine + **Gen** flexible I/O bag (G13–G16) — discover/import → versioned Capability + FieldMap → deterministic fill/replay → worker `gathered` / submit-verify → HITL → evidence.
 
-**Baseline kept:** local hostile member-lookup mock (`v0.1.0` tag) + G1 form stretch (`v0.2.0` tag). Tags freeze snapshots; `main` continues.
+**Baseline kept:** local hostile member-lookup mock (`v0.1.0`) + G1 forms (`v0.2.0`) + Apply/train/G2 prove (`v0.3.0`). Tags freeze snapshots; `main` continues.
 
 Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-tenant runtime.
 
@@ -47,12 +47,16 @@ Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-
 | G5 | Auth | `session.storageStatePath` first-class (docs + CLI + gitignore); not a new subsystem | Login-once reuse |
 | G6 | Submit | `--submit` **default off**; fill-only unless flag | Irreversible apply is explicit |
 | G7 | Worker CLI | Target: `cua apply` (+ `import-plan`) with exit codes 0/2/3/4 | One command for callers |
-| G8 | G2 cart / non-apply flows | **Parked** until Apply worker path works | Wrong product week |
+| G8 | G2 cart / non-apply flows | **Partial** — author-steps prove unlocked; full cart still light | Apply worker path works; Gen uses FieldMaps not free explore |
 | G9 | Reliability pack | Light frozen local fail fixtures (CAPTCHA/CLOSED) OK | Demo named outcomes without live ATS |
 | G10 | Repo voice | Tracked docs/code reference **this product only** — no other apps, no prior-art writeups, no assignment framing | Clean private product tree |
 | G11 | Hygiene | See `docs/REPO-HYGIENE.md` | Every agent keeps tip clean |
 | G12 | Plan → fill | Imported FieldMap is seed for `fillFormFlow`; repair adds gaps only | Dead plan bridge blocked workers |
 | G12a | Plan literals | FieldMap `literal` may hold resolved plan answers; treat those maps as **private** (D7 carve-out). Prefer `.private/` / gitignored outputs | Workers need plan values without baking vault into Capability |
+| G13 | Flexible input bag | Profile/plan may be messy JSON; `normalizeApplyProfile` hoists aliases and parks unknown scalar keys under `answers.*` for FieldMap/repair | Random vault shapes without a second planner |
+| G14 | Related outputs bag | Worker `gathered` returns extracts + verified fill-receipt entries (+ `missingOutputs`); page/receipt is truth | Callers get related results even when some declared extracts are absent |
+| G15 | Submit = verify | With `--submit`, success means confirmation observed (`submitConfirmed`); do not harvest form values as the primary return | Irreversible apply proves delivery, not data scrape |
+| G16 | Per-site map storage | LLM/heuristics infer control→profile wiring; persist FieldMap under repo jail (`.private/` / write-field-map); replay uses map | Teach once per site without unbounded explore (G3 still rejected) |
 
 ## Explicitly out of scope (hold until new lock)
 

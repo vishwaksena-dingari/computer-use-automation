@@ -88,3 +88,17 @@ Unblocks workers dropping parallel UI assist: imported FieldMaps must drive fill
 ### Worker harden + review follow-ups — **done**
 
 See `docs/agents/map.md` T-W-* / T-B-24–30. Optional re-prove is ops only (not a code gate).
+
+## Gen sprint — flexible I/O bag (G13–G16) — **mostly done**
+
+Freeze tag: **`v0.3.0`**. Prior art: ChamPro residual bag + readback; ApplyMate cache-after-verify; avoid LazyApply silent submit / schema-only success.
+
+| Ticket | Intent |
+|---|---|
+| T-G-1 | Worker `gathered` bag (extracts + receipt) + `missingOutputs` | **done** |
+| T-G-2 | FillFormFlow / apply: success checkpoint wins even if some Capability extracts missing | **done** |
+| T-G-3 | Messy profile → `answers.*` parking for unknown scalars | **done** |
+| T-G-4 | Docs: submit = verify confirmation; fill returns bag | **done** |
+| T-G-5 | (later) Map cache write only after verified fill / submitConfirmed | todo |
+
+**Done when:** `check:forms` green; mock apply `worker.json` includes `gathered`; `--submit` docs match G15.
