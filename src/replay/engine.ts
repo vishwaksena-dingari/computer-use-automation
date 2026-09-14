@@ -354,6 +354,60 @@ function persistFillReceipt(
   );
 }
 
+/** Common runFillForm bag — callers pass fieldMap + skipInvisibleRequired explicitly. */
+function fillNow(
+  bag: {
+    page: Page;
+    profile: Record<string, unknown>;
+    mode: FillFormMode;
+    config: RuntimeConfig;
+    root: string;
+    companyContext?: string;
+    craftAnswer?: Parameters<typeof runFillForm>[0]['craftAnswer'];
+  },
+  fieldMap: FieldMap,
+  extra?: { skipInvisibleRequired?: boolean },
+) {
+  return runFillForm({
+    page: bag.page,
+    fieldMap,
+    profile: bag.profile,
+    mode: bag.mode,
+    config: bag.config,
+    root: bag.root,
+    companyContext: bag.companyContext,
+    craftAnswer: bag.craftAnswer,
+    skipInvisibleRequired: extra?.skipInvisibleRequired,
+  });
+}
+
+/** Screenshot + intervention write for pause paths (resume wiring stays at call site). */
+async function pauseHitl(opts: {
+  evidenceDir: string;
+  page: Page;
+  runId: string;
+  capabilityId: string;
+  stepId: string;
+  reasonCode: PauseReason;
+  reasonDetail: string;
+}): Promise<void> {
+  const shot = join(opts.evidenceDir, 'hitl', 'pause.png');
+  await opts.page.screenshot({ path: shot, fullPage: true }).catch(() => undefined);
+  writeIntervention(opts.evidenceDir, {
+    schemaVersion: 1,
+    runId: opts.runId,
+    mode: 'replay',
+    reasonCode: opts.reasonCode,
+    reasonDetail: opts.reasonDetail,
+    capabilityId: opts.capabilityId,
+    stepId: opts.stepId,
+    pageUrl: opts.page.url(),
+    screenshotPath: 'hitl/pause.png',
+    owner: 'paused',
+    pausedAt: new Date().toISOString(),
+  });
+}
+
 export async function replayCapability(opts: ReplayOptions): Promise<ReplayResult> {
   const started = Date.now();
   const capability = applyBindings(opts.capability, opts.bindingsOverlay);
@@ -718,6 +772,15 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             budget: opts.formRepairMax ?? 3,
             timeoutMs: craftTimeoutMs,
           });
+          const fillBag = {
+            page: page!,
+            profile,
+            mode,
+            config,
+            root,
+            companyContext: opts.companyContext,
+            craftAnswer: maybeCraft,
+          };
 
           // Dormant repair loop: try map → on stuck repair+retry until ok or budget.
           const formRepairMax = Math.min(5, Math.max(1, opts.formRepairMax ?? 3));
@@ -765,16 +828,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             }
           }
 
-          let fillResult = await runFillForm({
-            page: activePage,
-            fieldMap: fieldMap!,
-            profile,
-            mode,
-            config,
-            root,
-            companyContext: opts.companyContext,
-            craftAnswer: maybeCraft,
-          });
+          let fillResult = await fillNow(fillBag, fieldMap!);
           llmCalls += fillResult.llmCalls;
 
           let lastFailDetail = fillResult.ok ? '' : fillResult.detail;
@@ -786,16 +840,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               ok: false,
               detail: `retry after repair: ${fillResult.detail}`,
             });
-            fillResult = await runFillForm({
-              page: activePage,
-              fieldMap: fieldMap!,
-              profile,
-              mode,
-              config,
-              root,
-              companyContext: opts.companyContext,
-              craftAnswer: maybeCraft,
-            });
+            fillResult = await fillNow(fillBag, fieldMap!);
             llmCalls += fillResult.llmCalls;
             // No progress → stop burning repairs (same failure after map change).
             if (!fillResult.ok && fillResult.detail === lastFailDetail) break;
@@ -825,20 +870,14 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               .screenshot({ path: join(evidenceDir, 'screenshots', 'terminal.png'), fullPage: true })
               .catch(() => undefined);
             if (opts.escalateOnPolicy) {
-              const shot = join(evidenceDir, 'hitl', 'pause.png');
-              await page.screenshot({ path: shot, fullPage: true }).catch(() => undefined);
-              writeIntervention(evidenceDir, {
-                schemaVersion: 1,
+              await pauseHitl({
+                evidenceDir,
+                page,
                 runId,
-                mode: 'replay',
-                reasonCode: 'STUCK' as PauseReason,
-                reasonDetail: fillResult.detail,
                 capabilityId: capability.id,
                 stepId: step.id,
-                pageUrl: page.url(),
-                screenshotPath: 'hitl/pause.png',
-                owner: 'paused',
-                pausedAt: new Date().toISOString(),
+                reasonCode: 'STUCK',
+                reasonDetail: fillResult.detail,
               });
               console.error(`HITL pause (${runId}): STUCK — ${fillResult.detail}`);
               console.error(`  screenshot: hitl/pause.png`);
@@ -860,16 +899,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 const path = fillResult.profilePath.split(',')[0]?.trim();
                 if (path) setProfilePath(profile, path, resumed.note.trim());
               }
-              fillResult = await runFillForm({
-                page,
-                fieldMap,
-                profile,
-                mode,
-                config,
-                root,
-                companyContext: opts.companyContext,
-                craftAnswer: maybeCraft,
-              });
+              fillResult = await fillNow(fillBag, fieldMap);
               llmCalls += fillResult.llmCalls;
               if (!fillResult.ok) {
                 persistFillReceipt(
@@ -1021,6 +1051,15 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             budget: opts.formRepairMax ?? 3,
             timeoutMs: craftTimeoutMs,
           });
+          const fillBag = {
+            page: page!,
+            profile,
+            mode,
+            config,
+            root,
+            companyContext: opts.companyContext,
+            craftAnswer: maybeCraft,
+          };
 
           // Bridge: honor imported / --field-map-id FieldMap; repair only fills gaps.
           let seedMap: FieldMap | null = null;
@@ -1145,17 +1184,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               pageGallery,
             );
 
-            let fillResult = await runFillForm({
-              page: page!,
-              fieldMap: repair.map,
-              profile,
-              mode,
-              config,
-              root,
-              companyContext: opts.companyContext,
-              craftAnswer: maybeCraft,
-              skipInvisibleRequired: true,
-            });
+            let fillResult = await fillNow(fillBag, repair.map, { skipInvisibleRequired: true });
             llmCalls += fillResult.llmCalls;
             // Dormant stuck loop (allows LLM even on page>0); stop on success, budget, or no progress.
             const flowRepairMax = Math.min(5, Math.max(1, opts.formRepairMax ?? 3));
@@ -1186,17 +1215,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   ok: true,
                   detail: `stuck page ${pageIdx} #${flowRepairs}: ${stuckRepair.note}`,
                 });
-                fillResult = await runFillForm({
-                  page: page!,
-                  fieldMap: stuckRepair.map,
-                  profile,
-                  mode,
-                  config,
-                  root,
-                  companyContext: opts.companyContext,
-                  craftAnswer: maybeCraft,
-                  skipInvisibleRequired: true,
-                });
+                fillResult = await fillNow(fillBag, stuckRepair.map, { skipInvisibleRequired: true });
                 llmCalls += fillResult.llmCalls;
                 if (!fillResult.ok && fillResult.detail === lastDetail) break;
                 lastDetail = fillResult.ok ? '' : fillResult.detail;
@@ -1348,15 +1367,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   atsFamily,
                 });
                 llmCalls += retryRepair.llmCalls;
-                const retryFill = await runFillForm({
-                  page,
-                  fieldMap: retryRepair.map,
-                  profile,
-                  mode,
-                  config,
-                  root,
-                  companyContext: opts.companyContext,
-                  craftAnswer: maybeCraft,
+                const retryFill = await fillNow(fillBag, retryRepair.map, {
                   skipInvisibleRequired: true,
                 });
                 llmCalls += retryFill.llmCalls;
