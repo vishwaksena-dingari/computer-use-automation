@@ -326,6 +326,19 @@ async function callOllamaJson(
 }
 
 /**
+ * Whether repair should skip the LLM call.
+ * `allowLlm: false` = routine multipage later pages (explicit; never parse reason strings).
+ * Also skip when heuristics already cover all required extras.
+ */
+export function shouldSkipRepairLlm(opts: {
+  allowLlm?: boolean;
+  uncoveredRequiredCount: number;
+}): boolean {
+  if (opts.allowLlm === false) return true;
+  return opts.uncoveredRequiredCount === 0;
+}
+
+/**
  * Observe page + heuristics (primary) + optional one LLM call to patch field-map.
  */
 export async function repairFieldMap(opts: {
@@ -335,6 +348,11 @@ export async function repairFieldMap(opts: {
   config: RuntimeConfig;
   profileKeys: string[];
   reason?: string;
+  /**
+   * When false, skip LLM (routine fillFormFlow pages after the first).
+   * Stuck/retry/bootstrap leave true or omit. Default true — never infer from reason text.
+   */
+  allowLlm?: boolean;
   /** Project root — loads golden sibling few-shot when set. */
   root?: string;
   atsFamily?: AtsFamily;
@@ -367,13 +385,13 @@ export async function repairFieldMap(opts: {
   });
 
   let llmCalls = 0;
-  // Multipage happy path: LLM only on page 0. Stuck/retry always may use LLM.
-  // Skip LLM when heuristics already cover required extras (avoid 180s timeout on wrong model).
-  const reason = opts.reason ?? '';
+  // Multipage: caller sets allowLlm=false on later pages; stuck/retry pass true.
+  // Also skip when heuristics already cover required extras (avoid 180s timeout on wrong model).
   const uncoveredRequired = findExtraControls(controls, map).filter((c) => c.required);
-  const skipLlm =
-    (/fillFormFlow page [1-9]/i.test(reason) && !/stuck|retry/i.test(reason)) ||
-    uncoveredRequired.length === 0;
+  const skipLlm = shouldSkipRepairLlm({
+    allowLlm: opts.allowLlm,
+    uncoveredRequiredCount: uncoveredRequired.length,
+  });
   if (!skipLlm) {
     const reply = await callOllamaJson(opts.config, SYSTEM, user);
     if (reply.ok) {
@@ -1139,6 +1157,25 @@ export function shouldPersistSiteFieldMap(opts: {
   return true;
 }
 
+export function selfCheckShouldSkipRepairLlm(): void {
+  if (!shouldSkipRepairLlm({ allowLlm: false, uncoveredRequiredCount: 3 })) {
+    throw new Error('allowLlm false must skip');
+  }
+  if (shouldSkipRepairLlm({ allowLlm: true, uncoveredRequiredCount: 3 })) {
+    throw new Error('allowLlm true with gaps must not skip');
+  }
+  if (shouldSkipRepairLlm({ uncoveredRequiredCount: 2 })) {
+    throw new Error('default allowLlm with gaps must not skip');
+  }
+  if (!shouldSkipRepairLlm({ allowLlm: true, uncoveredRequiredCount: 0 })) {
+    throw new Error('zero uncovered required must skip');
+  }
+  // Reason strings must not matter — only the explicit flag.
+  if (shouldSkipRepairLlm({ allowLlm: true, uncoveredRequiredCount: 1 })) {
+    throw new Error('explicit allow must win over any historical reason sniff');
+  }
+}
+
 export function selfCheckShouldPersistSiteFieldMap(): void {
   if (shouldPersistSiteFieldMap({ verifiedCount: 0 })) throw new Error('no verify → no persist');
   if (!shouldPersistSiteFieldMap({ verifiedCount: 1 })) throw new Error('verify → persist');
@@ -1487,5 +1524,6 @@ if (process.argv[1]?.endsWith('repair-field-map.ts') || process.argv[1]?.endsWit
   selfCheckDropShadowedKeepsRequiredPass2();
   selfCheckMergeFileDropsLiteral();
   selfCheckShouldPersistSiteFieldMap();
+  selfCheckShouldSkipRepairLlm();
   console.log('repair-field-map few-shot self-check ok');
 }
