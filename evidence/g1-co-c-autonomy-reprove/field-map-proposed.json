@@ -11,19 +11,14 @@
       "kind": "text",
       "targets": [
         {
-          "kind": "css",
-          "rank": 1,
-          "selector": "#legalName"
-        },
-        {
           "kind": "label",
-          "rank": 2,
-          "name": "Legal name"
+          "rank": 1,
+          "name": "Full name"
         },
         {
           "kind": "css",
-          "rank": 3,
-          "selector": "input[name='legalName']"
+          "rank": 2,
+          "selector": "#fullName"
         }
       ]
     },
@@ -57,24 +52,15 @@
       "kind": "select",
       "targets": [
         {
-          "kind": "css",
-          "rank": 1,
-          "selector": "#workAuth"
-        },
-        {
           "kind": "label",
-          "rank": 2,
+          "rank": 1,
           "name": "Work authorization"
         },
         {
           "kind": "css",
-          "rank": 3,
-          "selector": "select[name='workAuth']"
+          "rank": 2,
+          "selector": "#workAuth"
         }
-      ],
-      "enumHints": [
-        "Authorized",
-        "Needs sponsorship"
       ]
     },
     {
@@ -101,7 +87,7 @@
       ]
     },
     {
-      "key": "additional",
+      "key": "whyCompany",
       "required": false,
       "profilePath": "answers.whyCompany",
       "kind": "textarea",
@@ -125,5 +111,5 @@
       "craft": "llm"
     }
   ],
-  "updatedAt": "2026-09-13T00:41:18.960Z"
+  "updatedAt": "2026-09-14T15:53:46.591Z"
 }

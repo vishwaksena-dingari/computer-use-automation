@@ -4,7 +4,7 @@
   "code": null,
   "message": "Capability completed successfully",
   "outputs": {
-    "confirmation": "Application received (Co A)"
+    "confirmation": "Application received (Co A). Confirmation #: COA-DEMO-1"
   },
   "error": null,
   "capabilityId": "apply-demo-co-a",
@@ -12,8 +12,10 @@
   "params": {
     "memberId": "M-10042"
   },
-  "runId": "replay_mtz38yvl_jiis0c",
+  "runId": "replay_mu1fa8ld_2svmqb",
   "evidenceDir": "evidence/g1-co-a-receipt",
-  "durationMs": 477,
-  "llmCalls": 0
+  "durationMs": 1083,
+  "llmCalls": 0,
+  "submitConfirmed": false,
+  "submitAttempted": false
 }

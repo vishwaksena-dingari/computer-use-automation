@@ -1,6 +1,18 @@
 # Apply UI — operator & worker guide
 
-Canonical reference for `cua apply` / `cua import-plan`. Roadmap/locks: `docs/PRODUCTIZE.md`, `DECISIONS.md` (G1–G12). Hygiene: `docs/REPO-HYGIENE.md`.
+Canonical reference for `cua apply` / `cua import-plan`. Roadmap/locks: `docs/PRODUCTIZE.md`, `DECISIONS.md` (G1–G20). Hygiene: `docs/REPO-HYGIENE.md`.
+
+## Operator triangle (what you supply)
+
+| You give | How | Notes |
+|---|---|---|
+| **URL** | `--url` | Page to open; live hosts need `config.local.yaml` allowlist |
+| **Profile** | `--profile` | Fill values; vault JSON OK → `normalizeApplyProfile` / `answers.*` |
+| **Wiring** | `--field-map-id` and/or `--plan-json` | Else auto seed + repair; never bake PII into Capability |
+
+**Outputs are read after the run** (not authored ahead): stdout / `worker.json` (`outcome`, `exitCode`, `phases`, `gathered`), `fill-receipt.json`, `profile-shape.json` (key names only), screenshots under `evidence/private/<runId>/`.
+
+Optional: `--submit` (irreversible), `--escalate` (CAPTCHA HITL), resume via `resumePath` under `.private/`. **Never commit** `.private/` or career-data vault files — copy with `scripts/copy-vault-private.sh` only.
 
 ```mermaid
 flowchart LR
@@ -151,11 +163,14 @@ Stdout is a single JSON object (also written to `evidence/.../worker.json`):
   "runId": "apply_…",
   "exitCode": 0,
   "mode": "fill-only",
+  "phases": ["transform", "fill", "verify", "report"],
   "gathered": {
     "extracts": {},
     "filled": [{ "key": "email", "profilePath": "email", "verified": true, "actual": "a***@example.test" }],
     "missingOutputs": [],
-    "submitVerified": false
+    "submitVerified": false,
+    "submitAttempted": false,
+    "submitVerifyState": "not_requested"
   }
 }
 ```
@@ -165,9 +180,9 @@ Stdout is a single JSON object (also written to `evidence/.../worker.json`):
 | **0** | `filled` or `submitted` | `SUCCESS`; **`submitted` only if `--submit` and confirmation banner observed** |
 | **2** | `captcha` or `paused` | HITL pause / `form.CAPTCHA` (use `--escalate`) |
 | **3** | `closed` | `form.CLOSED` |
-| **4** | `unmapped` / `verify` / `failed` | `field.UNMAPPED`, `field.VERIFY`, **empty fill** (Overview with no form), other failures |
+| **4** | `unmapped` / `verify` / `submit_unconfirmed` / `failed` | `field.UNMAPPED`, `field.VERIFY`, **empty fill**, **Submit clicked without confirmation**, other failures |
 
-`worker.json` includes `"mode": "fill-only" | "submit"` and **`gathered`** (G14): redacted fill-receipt entries + extracts + `missingOutputs`. On **`--submit` + verified banner** (`outcome: submitted`), `gathered.filled` is empty — primary signal is `submitVerified: true` (G15), not a form harvest. `--submit` without a thank-you / received banner → `outcome: filled`, not `submitted`.
+`worker.json` includes `"mode": "fill-only" | "submit"`, **`phases`** (G18: transform/fill/submit/verify/report that actually ran), and **`gathered`** (G14/G17/G19): redacted fill-receipt entries + extracts + `missingOutputs` + `submitVerifyState` + optional `skippedOptional` / `missingRequiredPaths` / confirmation fields. On **`--submit` + verified banner** (`outcome: submitted`), `gathered.filled` is empty — primary signal is `submitVerified: true` plus optional `confirmationText` / `confirmationReference` (G15/G17). `--submit` with click but no thank-you banner → **`outcome: submit_unconfirmed`** (exit 4), not `submitted`. If required receipt keys are still unverified, Submit is **not clicked** (G20) → typically `outcome: verify` / exit 4. Apply also writes **`profile-shape.json`** (key names only — no PII values).
 
 Messy profiles (G13): unknown top-level scalars are parked under `answers.*` by `normalizeApplyProfile` so repair/FieldMaps can still bind them.
 Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now opens Application / Apply (same host only), or exits **4** if still empty.
@@ -183,7 +198,7 @@ Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now
 ```
 
 Requires `npm run build` first (wrapper calls `node dist/cli/main.js`, never bare `npx cua`).  
-Missing FieldMap seeds cache under **`.private/field-maps/`** (gitignored). Use `--write-field-map` only to promote into tracked `capabilities/field-maps/`.
+Missing FieldMap seeds cache under **`.private/field-maps/`** (gitignored) **only after at least one verified fill** (G16 / T-G-5). If you passed `--submit` and a submit click ran, cache also waits for confirmation. Use `--write-field-map` only to promote into tracked `capabilities/field-maps/`. Proposed maps under evidence stay uncapped for debug.
 
 Location widgets: type **`City, ST`**, select only if the option contains that **city token** (and region when present). No match → skip (optional) / fail (required) — never blind first-hit.
 
@@ -192,9 +207,11 @@ Location widgets: type **`City, ST`**, select only if the option contains that *
 | Flags | Behavior |
 |---|---|
 | default | Fill / advance pages; **stop** when Submit is the only advance |
-| `--submit` | Click Submit when visible; set `submitConfirmed` only if confirmation text/banner appears; worker `gathered.submitVerified` |
-| `--submit` without confirmation | Flow ends; **`outcome: filled`** (not `submitted`); do not claim submit |
-| `--submit` + confirmation | **`outcome: submitted`** — verify delivery only; do not treat filled harvest as the primary return (G15) |
+| `--submit` | Click Submit when visible **only if** required receipt keys are verified (G20); set `submitConfirmed` only if confirmation text/banner appears; worker `gathered.submitVerified` |
+| `--submit` without confirmation | Flow ends; **`outcome: submit_unconfirmed`** (exit **4**) if Submit was clicked; do not claim submit |
+| `--submit` + confirmation | **`outcome: submitted`** — verify delivery; `gathered.confirmationText` / `confirmationReference` when scrapeable; harvest light (G15/G17) |
+| `--submit` but Submit never shown | **`outcome: filled`** (fill succeeded; submit not attempted) |
+| `--submit` blocked pre-click | Required fields in receipt still unverified → no click; **`outcome: verify`** (exit **4**) |
 
 Never enable `--submit` in unattended workers unless the job is intentional.
 

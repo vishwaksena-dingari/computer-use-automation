@@ -27,7 +27,7 @@ flowchart TB
   subgraph USER["User-facing (Operator + Calling agent)"]
     ENV[".env — API keys"]
     CFG["config.yaml — provider, model, allowlist, target, limits"]
-    CLI["CLI `cua` — discover / replay / invoke / escalate / config"]
+    CLI["CLI `cua` — discover / replay / invoke / apply / import-plan / escalate / config"]
     CAP_IO["Capability invoke — typed params in, result out"]
     BROWSER["Headed browser — only during HITL takeover"]
     EVIDENCE["/evidence — logs, screenshots, artifacts to inspect"]
@@ -357,7 +357,7 @@ flowchart TD
 | Dormant craft LLM (both modes) | Wakes only for empty dynamic fields (`craft:llm`, required `answers.*` / textarea). Prompt includes **profile context** (secrets skipped). Cap ≈ `--form-repair-max`. Profile values still win when present. |
 | `--mode hybrid` / `deterministic` | Same repair + craft dormancy; mode kept for CLI compat. Use **hybrid** when the map may be stale (Co C) or essays need craft; Co A/B happy path stays deterministic |
 | Verify + receipt | After each fill, read-back verify; write `evidence/fill-receipt.json` (redacted). Optional `blocker` enum: `captcha\|closed\|widget\|missing_required\|verify`. Required mismatch → stuck repair |
-| Repair few-shot | When repair LLM wakes, inject sibling green map fields + receipt keys for same `ats-family` (`docs/golden-forms.md`); hold-out skips self mapId |
+| Repair few-shot | When repair LLM wakes, inject sibling green map fields + receipt keys for known `ats-family` (`docs/golden-forms.md`); hold-out skips self mapId; **`unknown` family gets no few-shot** (no demo-co-a default, G20) |
 | Location verify | City/location autocomplete expansions match on city token (`New York, NY` ≈ `New York City…`) |
 | Multipage | `fillFormFlow` page 0 may LLM; pages 1+ heuristics; **stuck** may LLM in the repair loop; craft available per page |
 | `--write-field-map` | Opt-in persist repaired map to repo |
@@ -443,7 +443,8 @@ flowchart TD
   fill --> cache["seed miss → .private/field-maps only"]
   ok --> sub{--submit?}
   sub -->|yes + banner| submitted[outcome submitted]
-  sub -->|yes no banner| filledOnly[outcome filled — not submitted]
+  sub -->|yes clicked no banner| unconf[outcome submit_unconfirmed exit 4]
+  sub -->|blocked unverified required| verifyBlock[outcome verify exit 4]
 ```
 
 | Guard | Behavior |
@@ -452,8 +453,9 @@ flowchart TD
 | Location typeahead | Needle `City, ST`; **require** whole-city token match (+ region when present); else skip/fail — no blind Enter |
 | Empty fill | Never SUCCESS when `filledKeys` is empty (`fillForm` **and** `fillFormFlow`); receipt includes `failDetail` |
 | Overview → form | Click Application / Apply (≤~2s poll, T-W-13); **re-assert host** against allowlist |
-| Seed cache | Missing seed → write **`.private/field-maps/<id>.json`** only; `--write-field-map` → tracked `capabilities/field-maps/` |
-| Submit claim | `outcome: submitted` only when confirmation text/banner observed (`submitConfirmed`) |
+| Seed cache | Missing seed → write **`.private/field-maps/<id>.json`** only after verified fill (G16); `--write-field-map` → tracked |
+| Submit claim | `outcome: submitted` only when confirmation text/banner observed; click without banner → `submit_unconfirmed` |
+| Pre-submit | Unverified required keys in receipt → do not click Submit (G20) |
 | Live wrapper | `apply-live.sh` → `node dist/cli/main.js`; always rewrite `resumePath` when resume copied |
 | Page gallery | `fillFormFlow` writes `00-after-open-form` + `page-{N}-before/after-fill` under `screenshots/` + `screenshots-manifest.json` |
 
@@ -479,4 +481,9 @@ Core mock + G1 forms remain frozen at tags `v0.1.0` / `v0.2.0`. Apply/train/G2 p
 | Worker return | `gathered`: extracts + fill-receipt entries + `missingOutputs` + `submitVerified` |
 | Form success | `fillForm` / `fillFormFlow` capabilities: page success checkpoint can SUCCESS even if some Capability `outputs[]` empty (gaps listed in message / gathered) |
 | Submit | Confirmation banner ⇒ `submitted`; harvest light (empty `gathered.filled`) |
+| Site FieldMap persist | G16 / T-G-5: `shouldPersistSiteFieldMap` — need ≥1 verified fill; if `--submit` clicked submit, also need `submitConfirmed`. Evidence `field-map-proposed*` uncapped. |
+| Submit proof (G17) | `extractSubmitProof` → `gathered.confirmationText` / `confirmationReference`; `submitVerifyState`; click without banner → `submit_unconfirmed` |
+| Profile shape (G18) | `prepareApplyProfile` keeps raw+normalized clones; evidence `profile-shape.json` keys only; worker `phases` |
+| Soft optional + family confirm (G19) | Empty optionals → `skippedOptional`; required gaps → `missingRequiredPaths`; confirm regex/phrases via AtsFamily adapters |
+| Pre-submit gate (G20) | `--submit` refuses click if required keys in receipt are unverified; unknown family has no demo few-shot |
 | Not in scope | Unbounded any-website explore (G3) |

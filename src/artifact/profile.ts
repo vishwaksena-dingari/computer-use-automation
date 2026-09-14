@@ -1,6 +1,12 @@
 /**
  * @file Applicant profile helpers for fillForm (G1) + vault-shaped normalize (P1).
+ * Adapt/G18: preserve raw + normalized; key-only shape report for evidence (no PII values).
  */
+
+/** JSON deep clone so normalize cannot mutate the caller's raw object. */
+export function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
 
 function readPath(profile: Record<string, unknown>, path: string): unknown {
   const parts = path.split('.').filter(Boolean);
@@ -466,6 +472,59 @@ export function selfCheckProfileFlags(): void {
   if (cf?.workAuthYes !== 'yes') throw new Error('career legally_authorized→workAuthYes');
   if (cf?.sponsorshipNo !== 'no') throw new Error('career require_sponsorship→sponsorshipNo');
   if (career.fieldOfStudy !== 'CS') throw new Error('career education.discipline');
+
+  const rawIn = {
+    name: 'Raw Keep',
+    customQ: 'keep me',
+    nested: { a: 1 },
+  };
+  const bundle = prepareApplyProfile(rawIn);
+  rawIn.name = 'MUTATED';
+  (rawIn.nested as { a: number }).a = 99;
+  if (bundle.raw.name !== 'Raw Keep') throw new Error('prepare must deep-clone raw');
+  if ((bundle.raw.nested as { a: number }).a !== 1) throw new Error('prepare nested clone');
+  if (bundle.normalized.fullName !== 'Raw Keep') throw new Error('prepare normalize alias');
+  const shape = profileShapeReport(bundle);
+  if (!shape.parkedAnswerKeys.includes('customQ')) throw new Error('shape parked customQ');
+  if (!shape.rawTopKeys.includes('name')) throw new Error('shape raw keys');
+  if (!shape.normalizedTopKeys.includes('fullName')) throw new Error('shape normalized keys');
+}
+
+/**
+ * Raw + normalized pair for reuse (G18). Both sides are deep clones of the input.
+ */
+export type ApplyProfileBundle = {
+  raw: Record<string, unknown>;
+  normalized: Record<string, unknown>;
+};
+
+/** Clone raw, normalize a separate clone — original caller object is untouched. */
+export function prepareApplyProfile(raw: Record<string, unknown>): ApplyProfileBundle {
+  const rawClone = cloneJson(raw);
+  return { raw: rawClone, normalized: normalizeApplyProfile(cloneJson(raw)) };
+}
+
+/** Key-only inventory for evidence (no values — safe if chapter is copied). */
+export type ProfileShapeReport = {
+  schemaVersion: 1;
+  rawTopKeys: string[];
+  normalizedTopKeys: string[];
+  parkedAnswerKeys: string[];
+};
+
+export function profileShapeReport(bundle: ApplyProfileBundle): ProfileShapeReport {
+  const answers =
+    bundle.normalized.answers &&
+    typeof bundle.normalized.answers === 'object' &&
+    !Array.isArray(bundle.normalized.answers)
+      ? (bundle.normalized.answers as Record<string, unknown>)
+      : {};
+  return {
+    schemaVersion: 1,
+    rawTopKeys: Object.keys(bundle.raw).sort(),
+    normalizedTopKeys: Object.keys(bundle.normalized).sort(),
+    parkedAnswerKeys: Object.keys(answers).sort(),
+  };
 }
 
 if (process.argv[1]?.endsWith('profile.ts') || process.argv[1]?.endsWith('profile.js')) {

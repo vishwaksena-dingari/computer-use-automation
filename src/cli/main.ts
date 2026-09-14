@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @file Operator CLI entry: discover | replay | invoke | escalate | config.
+ * @file Operator CLI entry: discover | replay | invoke | apply | import-plan | escalate | config.
  */
 import { Command } from 'commander';
 import { join, resolve, dirname } from 'node:path';
@@ -9,7 +9,7 @@ import { flattenForShow, loadConfig, validateConfig, type CliConfigOverrides } f
 import { setConfigValue } from '../config/set.js';
 import { findProjectRoot, repoRelative, resolveUnderRoot } from '../config/paths.js';
 import { loadCapability, sha256File, findCapabilityPathById } from '../artifact/load.js';
-import { normalizeApplyProfile } from '../artifact/profile.js';
+import { prepareApplyProfile, profileShapeReport } from '../artifact/profile.js';
 import {
   importPlanToFieldMap,
   importPlanToFieldMapWithStats,
@@ -41,8 +41,14 @@ function cliFromOpts(opts: Record<string, unknown>): CliConfigOverrides {
 
 /** Load applicant profile JSON; path must resolve under project root (realpath). */
 function loadProfileJson(root: string, profilePath: string): Record<string, unknown> {
+  return loadProfileBundle(root, profilePath).normalized;
+}
+
+/** Raw + normalized bundle (G18); raw is preserved for shape evidence, not mutated. */
+function loadProfileBundle(root: string, profilePath: string) {
   const abs = resolveUnderRoot(root, profilePath, { realpath: true });
-  return normalizeApplyProfile(JSON.parse(readFileSync(abs, 'utf8')) as Record<string, unknown>);
+  const parsed = JSON.parse(readFileSync(abs, 'utf8')) as Record<string, unknown>;
+  return prepareApplyProfile(parsed);
 }
 
 /**
@@ -622,8 +628,10 @@ addGlobalConfigFlags(
         writeFileSync(capPath, `${JSON.stringify(capability, null, 2)}\n`, 'utf8');
 
         let profile: Record<string, unknown> | undefined;
+        let profileBundle: ReturnType<typeof prepareApplyProfile> | undefined;
         if (opts.profile) {
-          profile = applyAtsEnvOverrides(loadProfileJson(root, opts.profile as string));
+          profileBundle = loadProfileBundle(root, opts.profile as string);
+          profile = applyAtsEnvOverrides(profileBundle.normalized);
         }
         const runId = newRunId('apply');
         const evidenceDir = resolveUnderRoot(
@@ -633,6 +641,10 @@ addGlobalConfigFlags(
         );
         ensureEvidence(evidenceDir);
         ensureDir(join(root, 'evidence', 'private'));
+        if (profileBundle) {
+          // Key-only shape — no PII values (D7 / G18).
+          writeJson(join(evidenceDir, 'profile-shape.json'), profileShapeReport(profileBundle));
+        }
 
         const result = await replayCapability({
           capability,
@@ -658,6 +670,7 @@ addGlobalConfigFlags(
         const summary = workerSummaryFromReplay(result, {
           submitted: Boolean(opts.submit) && result.ok && Boolean(result.submitConfirmed),
           allowSubmit: Boolean(opts.submit),
+          hasProfile: Boolean(profile),
           missingOutputs: missingFromMsg
             ? missingFromMsg[1]!.split(',').map((s) => s.trim()).filter(Boolean)
             : [],

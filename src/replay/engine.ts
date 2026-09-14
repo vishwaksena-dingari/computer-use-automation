@@ -19,14 +19,16 @@ import { applyBindings, bindingsEntryPath } from '../artifact/bindings.js';
 import { loadFieldMapById } from '../artifact/field-map.js';
 import { runFillForm, type FillFormMode } from '../artifact/fill-form.js';
 import { getProfilePath, setProfilePath } from '../artifact/profile.js';
-import { buildFillReceipt, writeFillReceipt, type FillReceipt } from '../artifact/fill-receipt.js';
+import { buildFillReceipt, writeFillReceipt, unverifiedRequiredKeys, type FillReceipt } from '../artifact/fill-receipt.js';
 import { formOutcomeFromPageText } from '../artifact/form-outcomes.js';
+import { extractSubmitProof, submitConfirmVisibleRegex } from '../artifact/submit-proof.js';
 import {
   filterFieldMapToControls,
   repairFieldMap,
   writeFieldMapById,
   writePrivateFieldMapById,
   writeProposedFieldMap,
+  shouldPersistSiteFieldMap,
 } from '../artifact/repair-field-map.js';
 import { observeControls } from '../surface/observe-controls.js';
 import { detectAtsFamily } from '../surface/detect-ats.js';
@@ -167,6 +169,10 @@ export type ReplayResult = {
   autoRetrainAttempts?: number;
   /** True only when --submit and a confirmation banner was observed. */
   submitConfirmed?: boolean;
+  /** True when --submit path clicked a Submit control (may still be unconfirmed). */
+  submitAttempted?: boolean;
+  /** Scraped confirmation text / reference when available (Adapt). */
+  submitProof?: { text?: string; reference?: string; matchedPhrase?: string };
 };
 
 export type ReplayOptions = {
@@ -328,6 +334,8 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
   const outputs: Record<string, string> = {};
   let llmCalls = 0;
   let submitConfirmed = false;
+  let submitAttempted = false;
+  let submitProof: { text?: string; reference?: string; matchedPhrase?: string } | undefined;
 
   ensureDir(join(evidenceDir, 'screenshots'));
   ensureDir(join(evidenceDir, 'hitl'));
@@ -448,6 +456,8 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
       durationMs: Date.now() - started,
       llmCalls,
       submitConfirmed: partial.submitConfirmed ?? submitConfirmed,
+      submitAttempted: partial.submitAttempted ?? submitAttempted,
+      submitProof: partial.submitProof ?? submitProof,
     };
     log(partial.ok ? 'info' : 'warn', 'replay finish', {
       status: partial.status,
@@ -740,7 +750,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             fieldMap = repair.map;
             llmCalls += repair.llmCalls;
             writeProposedFieldMap(evidenceDir, fieldMap);
-            if (opts.writeFieldMap) writeFieldMapById(root, fieldMap);
+            // T-G-5: never persist site maps on repair alone — wait for verified fill.
             ledger.push({
               at: new Date().toISOString(),
               stepId: step.id,
@@ -811,6 +821,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
                 unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
                 failDetail: fillResult.detail,
+                skippedOptional: fillResult.skippedOptional,
               }),
             );
             ledger.push({
@@ -879,6 +890,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                     filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
                     unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
                     failDetail: fillResult.detail,
+                    skippedOptional: fillResult.skippedOptional,
                   }),
                 );
                 ledger.push({
@@ -899,6 +911,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   filledKeys: fillResult.receipt.filter((e) => e.verified).map((e) => e.key),
                   unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
                   failDetail: fillResult.detail,
+                  skippedOptional: fillResult.skippedOptional,
                 }),
               );
               return finishFormOutcome(fillResult.detail, step.id);
@@ -913,6 +926,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
               failDetail:
                 fillResult.filled.length === 0 ? 'empty fill: no fields filled' : undefined,
+              skippedOptional: fillResult.skippedOptional,
             }),
           );
           // T-W-11: same honesty as fillFormFlow — never SUCCESS with zero fills.
@@ -925,6 +939,18 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               detail: 'empty fill: no fields filled',
             });
             return finishFormOutcome('empty fill: no fields filled', step.id);
+          }
+          // T-G-5: fillForm has no in-step submit; apply multipage+submit uses fillFormFlow.
+          const verifiedCount = fillResult.receipt.filter((e) => e.verified).length;
+          if (opts.writeFieldMap && shouldPersistSiteFieldMap({ verifiedCount })) {
+            writeFieldMapById(root, fieldMap!);
+            ledger.push({
+              at: new Date().toISOString(),
+              stepId: step.id,
+              action: 'fillForm',
+              ok: true,
+              detail: `persisted FieldMap ${mapId} after verified fill (write-field-map)`,
+            });
           }
           ledger.push({
             at: new Date().toISOString(),
@@ -948,6 +974,50 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
           const pagesFilled: string[] = [];
           const allReceiptEntries: FillReceipt['entries'] = [];
           const allFilledKeys: string[] = [];
+          const allSkippedOptional: string[] = [];
+          /** T-G-5: hold site map until verified fill (+ submitConfirmed if submit attempted). */
+          let pendingSiteMap: FieldMap | null = null;
+          let pendingSeedWasMissing = false;
+          const flushPendingSiteMap = (reason: string): void => {
+            if (!pendingSiteMap) return;
+            const verifiedCount = allReceiptEntries.filter((e) => e.verified).length;
+            if (
+              !shouldPersistSiteFieldMap({
+                verifiedCount,
+                allowSubmit: opts.allowSubmit,
+                submitAttempted,
+                submitConfirmed,
+              })
+            ) {
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: true,
+                detail: `skipped site FieldMap persist (${reason}; verified=${verifiedCount} submitAttempted=${submitAttempted} submitConfirmed=${submitConfirmed})`,
+              });
+              return;
+            }
+            if (opts.writeFieldMap) {
+              writeFieldMapById(root, pendingSiteMap);
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: true,
+                detail: `persisted FieldMap ${mapId} after verified fill (write-field-map)`,
+              });
+            } else if (pendingSeedWasMissing) {
+              writePrivateFieldMapById(root, pendingSiteMap);
+              ledger.push({
+                at: new Date().toISOString(),
+                stepId: step.id,
+                action: 'fillFormFlow',
+                ok: true,
+                detail: `persisted FieldMap ${mapId} after verified fill (.private seed cache)`,
+              });
+            }
+          };
           const craftTimeoutMs = Math.max(
             5_000,
             Math.min(180_000, config.limits.runTimeoutMs - (Date.now() - started)),
@@ -1108,6 +1178,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 detail: `page ${pageIdx}: repair failed (${observed.length} controls): ${(e as Error).message}`,
               });
               writeScreenshotManifest(evidenceDir, pageGallery);
+              flushPendingSiteMap('early fail repair');
               throw e;
             }
             llmCalls += repair.llmCalls;
@@ -1188,6 +1259,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   filledKeys: allFilledKeys,
                   unverifiedRequired: fillResult.receipt.filter((e) => !e.verified).map((e) => e.key),
                   failDetail: fillResult.detail,
+                  skippedOptional: [...allSkippedOptional, ...fillResult.skippedOptional],
                 }),
               );
               ledger.push({
@@ -1198,6 +1270,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 detail: `page ${pageIdx}: ${fillResult.detail}`,
               });
               writeScreenshotManifest(evidenceDir, pageGallery);
+              flushPendingSiteMap('early fail page fill');
               return finishFormOutcome(fillResult.detail, step.id);
             }
             await captureEvidenceShot(
@@ -1209,27 +1282,14 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             pagesFilled.push(`p${pageIdx}:{${fillResult.filled.join(',')}}`);
             allReceiptEntries.push(...fillResult.receipt);
             allFilledKeys.push(...fillResult.filled.map((k) => `p${pageIdx}:${k}`));
+            allSkippedOptional.push(...fillResult.skippedOptional);
 
-            // Cache: --write-field-map → tracked; seed miss → .private only (T-W-10).
-            if (pageIdx === 0 && fillResult.filled.length > 0) {
-              if (opts.writeFieldMap) {
-                writeFieldMapById(root, { ...workingMap, id: mapId });
-                ledger.push({
-                  at: new Date().toISOString(),
-                  stepId: step.id,
-                  action: 'fillFormFlow',
-                  ok: true,
-                  detail: `persisted FieldMap ${mapId} (write-field-map)`,
-                });
-              } else if (seedWasMissing) {
-                writePrivateFieldMapById(root, { ...workingMap, id: mapId });
-                ledger.push({
-                  at: new Date().toISOString(),
-                  stepId: step.id,
-                  action: 'fillFormFlow',
-                  ok: true,
-                  detail: `persisted FieldMap ${mapId} (.private seed cache)`,
-                });
+            // T-G-5: stage latest map after any page with verified fills.
+            {
+              const verifiedCount = fillResult.receipt.filter((e) => e.verified).length;
+              if (verifiedCount > 0 && (opts.writeFieldMap || seedWasMissing)) {
+                pendingSiteMap = { ...workingMap, id: mapId };
+                pendingSeedWasMissing = seedWasMissing;
               }
             }
 
@@ -1248,10 +1308,42 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             });
             if ((await submitOnly.count()) > 0) {
               if (opts.allowSubmit) {
+                // G20: never click Submit while required fills in the receipt are unverified.
+                const requiredKeys = (seedMap ?? workingMap).fields
+                  .filter((f) => f.required)
+                  .map((f) => f.key);
+                const blocked = unverifiedRequiredKeys(allReceiptEntries, requiredKeys);
+                if (blocked.length) {
+                  ledger.push({
+                    at: new Date().toISOString(),
+                    stepId: step.id,
+                    action: 'fillFormFlow',
+                    ok: false,
+                    detail: `submit blocked: unverified required: ${blocked.join(',')}`,
+                  });
+                  writeFillReceipt(
+                    evidenceDir,
+                    buildFillReceipt({
+                      pageUrl: page.url(),
+                      entries: allReceiptEntries,
+                      filledKeys: allFilledKeys,
+                      unverifiedRequired: blocked,
+                      failDetail: `submit blocked: unverified required: ${blocked.join(',')}`,
+                      skippedOptional: allSkippedOptional,
+                    }),
+                  );
+                  writeScreenshotManifest(evidenceDir, pageGallery);
+                  flushPendingSiteMap('submit blocked unverified required');
+                  return finishFormOutcome(
+                    `submit blocked: unverified required: ${blocked.join(',')}`,
+                    step.id,
+                  );
+                }
+                submitAttempted = true;
                 await submitOnly.first().click({ timeout: 8_000 }).catch(() => undefined);
                 await page.waitForTimeout(800);
                 const defaultSubmit = page
-                  .getByText(/application received|thank you for applying|submitted/i)
+                  .getByText(submitConfirmVisibleRegex(atsFamily))
                   .filter({ visible: true });
                 const customSubmit = successBanner
                   ? page.getByText(successBanner, { exact: true }).filter({ visible: true })
@@ -1259,13 +1351,20 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 submitConfirmed =
                   (await defaultSubmit.count()) > 0 ||
                   Boolean(customSubmit && (await customSubmit.count()) > 0);
+                const bodyText = await page
+                  .locator('body')
+                  .innerText()
+                  .then((t) => t.slice(0, 8000))
+                  .catch(() => '');
+                const proof = extractSubmitProof(bodyText, atsFamily);
+                if (proof.text || proof.reference) submitProof = proof;
                 ledger.push({
                   at: new Date().toISOString(),
                   stepId: step.id,
                   action: 'fillFormFlow',
                   ok: submitConfirmed,
                   detail: submitConfirmed
-                    ? 'submit confirmed (banner)'
+                    ? `submit confirmed (banner)${proof.reference ? ` ref=${proof.reference}` : ''}`
                     : 'submit clicked but confirmation not observed',
                 });
               }
@@ -1314,6 +1413,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   pagesFilled.push(`p${pageIdx}-retry:{${retryFill.filled.join(',')}}`);
                   allReceiptEntries.push(...retryFill.receipt);
                   allFilledKeys.push(...retryFill.filled.map((k) => `p${pageIdx}-retry:${k}`));
+                  allSkippedOptional.push(...retryFill.skippedOptional);
                   // Stay on this page — outer loop advances once we re-observe next iteration.
                 }
               } catch {
@@ -1329,6 +1429,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   detail: `page ${pageIdx} still required: ${errs.slice(0, 5).join(' | ')}`,
                 });
                 writeScreenshotManifest(evidenceDir, pageGallery);
+                flushPendingSiteMap('early fail required after advance');
                 return finishFormOutcome(
                   `required after advance: ${errs.slice(0, 5).join(' | ')}`,
                   step.id,
@@ -1350,6 +1451,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               unverifiedRequired: allReceiptEntries.filter((e) => !e.verified).map((e) => e.key),
               failDetail:
                 allFilledKeys.length === 0 ? 'empty fill: no fields filled' : undefined,
+              skippedOptional: allSkippedOptional,
             }),
           );
           writeScreenshotManifest(evidenceDir, pageGallery);
@@ -1365,6 +1467,8 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
             });
             return finishFormOutcome('empty fill: no fields filled', step.id);
           }
+
+          flushPendingSiteMap('flow success');
 
           ledger.push({
             at: new Date().toISOString(),

@@ -4,7 +4,7 @@
 
 ## Destination
 
-**Now:** Apply UI engine + **Gen** flexible I/O bag (G13–G16) — discover/import → versioned Capability + FieldMap → deterministic fill/replay → worker `gathered` / submit-verify → HITL → evidence.
+**Now:** Apply UI engine + **Gen** flexible I/O bag (G13–G16) + **Adapt** submit proof / phases / soft-optional / pre-submit gate (G17–G20) — discover/import → versioned Capability + FieldMap → deterministic fill/replay → worker `gathered` / submit-verify → HITL → evidence.
 
 **Baseline kept:** local hostile member-lookup mock (`v0.1.0`) + G1 forms (`v0.2.0`) + Apply/train/G2 prove (`v0.3.0`). Tags freeze snapshots; `main` continues.
 
@@ -21,7 +21,7 @@ Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-
 | C4 | Computer-use | Playwright + a11y roles/names | Stable locators; screenshots as evidence |
 | C5 | Language | TypeScript (Node) + Playwright | One process, typed artifacts |
 | C6 | LLM | Default `ollama` + `qwen2.5-coder:7b`; Anthropic/OpenAI switchable | Local-first; 7b coder is reliable for locator JSON without 9b cold-load timeouts; override via `--model` |
-| C7 | Architecture | Single CLI (`discover` / `replay` / `escalate` / `config`; later `apply` / `import-plan`) | No service mesh |
+| C7 | Architecture | Single CLI (`discover` / `replay` / `invoke` / `apply` / `import-plan` / `escalate` / `config`) | No service mesh |
 | D1 | Artifact | Versioned JSON + Zod | Reviewable, fail-closed |
 | D2 | Locators | Ranked role/name → text → css | Prefer resilient targets |
 | D3 | Outcomes | `SUCCESS` \| `BUSINESS_OUTCOME` \| `RECOVERABLE` \| `HARD_FAILURE` | Caller can branch |
@@ -56,7 +56,11 @@ Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-
 | G13 | Flexible input bag | Profile/plan may be messy JSON; `normalizeApplyProfile` hoists aliases and parks unknown scalar keys under `answers.*` for FieldMap/repair | Random vault shapes without a second planner |
 | G14 | Related outputs bag | Worker `gathered` returns extracts + verified fill-receipt entries (+ `missingOutputs`); page/receipt is truth | Callers get related results even when some declared extracts are absent |
 | G15 | Submit = verify | With `--submit`, success means confirmation observed (`submitConfirmed`); do not harvest form values as the primary return | Irreversible apply proves delivery, not data scrape |
-| G16 | Per-site map storage | LLM/heuristics infer control→profile wiring; persist FieldMap under repo jail (`.private/` / write-field-map); replay uses map | Teach once per site without unbounded explore (G3 still rejected) |
+| G16 | Per-site map storage | LLM/heuristics infer control→profile wiring; persist FieldMap only after verified fill (and `submitConfirmed` if submit was attempted); jail under `.private/` / `--write-field-map` | Teach once per site without unbounded explore (G3 still rejected) |
+| G17 | Submit proof + verify states | After `--submit`, scrape confirmation text / labeled reference into `gathered`; `submitVerifyState` distinguishes not_requested / not_attempted / attempted_unconfirmed / verified; click without banner → `submit_unconfirmed` (exit 4), never `submitted` | Attempted ≠ succeeded; return useful proof when present |
+| G18 | Raw+normalized profile + phases | `prepareApplyProfile` keeps deep-cloned raw alongside normalized; evidence `profile-shape.json` is key-only (no PII values); worker `phases` lists transform/fill/submit/verify/report that actually ran | Preserve input meaning; report task shape without over-collecting |
+| G19 | Soft optional + family confirm adapters | Empty optional profile paths skip (listed in `skippedOptional`); required gaps surface as `missingRequiredPaths`; submit confirm regex/phrases keyed by `AtsFamily` adapters in `submit-proof.ts` | Don't block on optional; isolate site quirks; ask only for true minimums |
+| G20 | Pre-submit sufficiency + unknown few-shot | Before `--submit` click, refuse if receipt has unverified required keys; `unknown` ATS family loads no demo-co-a few-shot (family adapters only) | Never submit on assumption; no single-site default in repair |
 
 ## Explicitly out of scope (hold until new lock)
 
@@ -80,7 +84,7 @@ Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-
 
 ## Runtime config
 
-`.env` + `config.yaml` + **`config.local.yaml` (gitignored, planned)** + CLI + `config show|validate|set`. Secrets never via `config set`.
+`.env` + `config.yaml` + **`config.local.yaml` (gitignored, shipped)** + CLI + `config show|validate|set`. Secrets never via `config set`.
 
 ## Agent pickup
 

@@ -97,12 +97,13 @@ docker compose run --rm cua            # discover + happy + exception against co
 ## Docs
 
 - `REPORT.md` — design write-up (core mock + §8 G1 stretch)  
-- `DECISIONS.md` — locked choices (E6–E9 form policy)  
-- `docs/ARCHITECTURE.md` — map; **§10c** = G1 hybrid forms  
+- `DECISIONS.md` — locked choices (core + product G1–G20; forms E6–E8, G3 rejected)  
+- `docs/ARCHITECTURE.md` — map; Apply / Gen / Adapt sections  
+- `docs/APPLY.md` — **operator contract** (flags, exit codes, triangle, submit matrix)  
 - `docs/golden-forms.md` — local vs live regression pack  
 - `docs/form-failure-pack.md` — known fail → repair/HITL/outcome  
 - `docs/TRAINING.md` — retrain commands + failure behavior  
-- `evidence/README.md` — evidence bag map  
+- `evidence/README.md` — evidence bag map
 
 ## Safety
 
