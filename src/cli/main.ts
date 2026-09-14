@@ -17,12 +17,12 @@ import {
 } from '../artifact/import-plan.js';
 import { authorAtsApplyShell } from '../discover/author-steps.js';
 import { detectAtsFamily } from '../surface/detect-ats.js';
-import { replayCapability } from '../replay/engine.js';
 import { discoverCapability } from '../discover/emit.js';
 import { writeResume } from '../session/hitl.js';
 import { newRunId, prepareChapter, writeJson, ensureDir } from '../evidence/store.js';
 import { configureLog, log } from '../util/log.js';
 import { workerSummaryFromReplay } from './worker-exit.js';
+import { runCapabilityRequest } from './run-capability-request.js';
 
 function cliFromOpts(opts: Record<string, unknown>): CliConfigOverrides {
   return {
@@ -277,7 +277,8 @@ addGlobalConfigFlags(
         let autoRetrainAttempts = 0;
 
         const runOnce = async () =>
-          replayCapability({
+          (
+            await runCapabilityRequest({
             capability,
             config: loaded.config,
             root,
@@ -302,7 +303,8 @@ addGlobalConfigFlags(
             harRetainOnFailure: Boolean(opts.harOnFailure),
             traceOnFailure: Boolean(opts.traceOnFailure),
             allowSubmit: Boolean(opts.submit),
-          });
+          })
+          ).result;
 
         log('info', 'replay start', {
           capabilityId: capability.id,
@@ -352,7 +354,6 @@ addGlobalConfigFlags(
           result = { ...result, autoRetrainAttempts };
         }
 
-        writeJson(join(evidenceDir, 'result.json'), result);
         writeJson(join(evidenceDir, 'manifest.json'), {
           artifactPath: repoRelative(root, artPath),
           artifactSha256: sha256File(artPath),
@@ -362,6 +363,7 @@ addGlobalConfigFlags(
           autoRetrainAttempts,
           bindings: opts.bindings ? repoRelative(root, opts.bindings) : null,
         });
+        // result.json already written by runCapabilityRequest
         log('info', 'replay done', {
           status: result.status,
           code: result.code,
@@ -447,7 +449,7 @@ addGlobalConfigFlags(
         }
 
         log('info', 'invoke start', { id, memberId: params.memberId, runId });
-        const result = await replayCapability({
+        const { result } = await runCapabilityRequest({
           capability,
           config: loaded.config,
           root,
@@ -480,7 +482,6 @@ addGlobalConfigFlags(
           evidenceDir: result.evidenceDir,
           llmCalls: result.llmCalls,
         };
-        writeJson(join(evidenceDir, 'result.json'), result);
         writeJson(join(evidenceDir, 'manifest.json'), {
           mode: 'invoke',
           artifactPath: repoRelative(root, artPath),
@@ -646,7 +647,7 @@ addGlobalConfigFlags(
           writeJson(join(evidenceDir, 'profile-shape.json'), profileShapeReport(profileBundle));
         }
 
-        const result = await replayCapability({
+        const { result } = await runCapabilityRequest({
           capability,
           config: loaded.config,
           root,
@@ -665,9 +666,8 @@ addGlobalConfigFlags(
           traceOnFailure: Boolean(opts.traceOnFailure),
           allowSubmit: Boolean(opts.submit),
         });
-        writeJson(join(evidenceDir, 'result.json'), result);
         const missingFromMsg = /missing outputs:\s*(.+)$/i.exec(result.message ?? '');
-        const summary = workerSummaryFromReplay(result, {
+        const summaryFinal = workerSummaryFromReplay(result, {
           submitted: Boolean(opts.submit) && result.ok && Boolean(result.submitConfirmed),
           allowSubmit: Boolean(opts.submit),
           hasProfile: Boolean(profile),
@@ -675,9 +675,9 @@ addGlobalConfigFlags(
             ? missingFromMsg[1]!.split(',').map((s) => s.trim()).filter(Boolean)
             : [],
         });
-        writeJson(join(evidenceDir, 'worker.json'), summary);
-        console.log(JSON.stringify(summary, null, 2));
-        process.exitCode = summary.exitCode;
+        writeJson(join(evidenceDir, 'worker.json'), summaryFinal);
+        console.log(JSON.stringify(summaryFinal, null, 2));
+        process.exitCode = summaryFinal.exitCode;
       } catch (e) {
         log('error', (e as Error).message);
         console.error((e as Error).message);
