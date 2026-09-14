@@ -16,6 +16,7 @@ import { parseCapability } from '../artifact/load.js';
 import type { RuntimeConfig } from '../config/schema.js';
 import { observeControls } from '../surface/observe-controls.js';
 import { log } from '../util/log.js';
+import { callOllamaJson } from '../llm/call-model.js';
 
 const EmitStepsSchema = z
   .object({
@@ -244,35 +245,6 @@ function extractJsonObject(text: string): unknown {
   }
 }
 
-async function callOllamaJson(
-  config: RuntimeConfig,
-  system: string,
-  user: string,
-): Promise<{ text: string; ok: boolean }> {
-  if (config.llm.provider !== 'ollama') return { text: 'non-ollama', ok: false };
-  const url = `${config.llm.ollamaBaseUrl.replace(/\/$/, '')}/api/chat`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: config.llm.model,
-        stream: false,
-        format: 'json',
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-      signal: AbortSignal.timeout(180_000),
-    });
-    if (!res.ok) return { text: `HTTP ${res.status}`, ok: false };
-    const body = (await res.json()) as { message?: { content?: string } };
-    return { text: body.message?.content ?? '', ok: true };
-  } catch (e) {
-    return { text: (e as Error).message, ok: false };
-  }
-}
 
 function parseEmitSteps(raw: unknown): z.infer<typeof EmitStepsSchema> {
   const normalized = normalizeAuthoredRaw(raw);

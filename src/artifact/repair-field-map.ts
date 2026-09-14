@@ -18,6 +18,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isOpaqueProfilePath } from './profile.js';
 import { resolveUnderRoot } from '../config/paths.js';
+import { callOllamaJson } from '../llm/call-model.js';
 
 const SYSTEM = `You repair application form field-maps. Reply with JSON only:
 {"fields":[{"key":"...","required":true,"profilePath":"...","kind":"text|textarea|select|checkbox|radio|file","targets":[{"kind":"label"|"css"|"role"|"placeholder",...}],"craft":"llm"?}]}
@@ -293,36 +294,6 @@ export function isNegatedSponsorshipQuestion(text: string): boolean {
   return /without\s+(requiring\s+)?sponsorship|not\s+require\s+sponsorship|no\s+sponsorship\s+required/i.test(
     text,
   );
-}
-
-async function callOllamaJson(
-  config: RuntimeConfig,
-  system: string,
-  user: string,
-): Promise<{ text: string; ok: boolean }> {
-  if (config.llm.provider !== 'ollama') return { text: 'non-ollama', ok: false };
-  const url = `${config.llm.ollamaBaseUrl.replace(/\/$/, '')}/api/chat`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: config.llm.model,
-        stream: false,
-        format: 'json',
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-      signal: AbortSignal.timeout(180_000),
-    });
-    if (!res.ok) return { text: `HTTP ${res.status}`, ok: false };
-    const body = (await res.json()) as { message?: { content?: string } };
-    return { text: body.message?.content ?? '', ok: true };
-  } catch (e) {
-    return { text: (e as Error).message, ok: false };
-  }
 }
 
 /**
