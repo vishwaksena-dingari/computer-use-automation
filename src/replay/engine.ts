@@ -744,6 +744,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
               config,
               profileKeys,
               reason,
+              allowLlm: true,
               root,
               atsFamily,
             });
@@ -1166,6 +1167,8 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                 config,
                 profileKeys,
                 reason: `fillFormFlow page ${pageIdx}`,
+                // Multipage happy path: LLM on page 0 only; later pages heuristics unless stuck/retry.
+                allowLlm: pageIdx === 0,
                 root,
                 atsFamily,
               });
@@ -1219,6 +1222,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   config,
                   profileKeys,
                   reason: `fillFormFlow stuck page ${pageIdx}: ${fillResult.detail}`,
+                  allowLlm: true,
                   root,
                   atsFamily,
                 });
@@ -1393,6 +1397,7 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   config,
                   profileKeys,
                   reason: `fillFormFlow page ${pageIdx} retry`,
+                  allowLlm: true,
                   root,
                   atsFamily,
                 });
