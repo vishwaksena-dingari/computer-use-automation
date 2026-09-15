@@ -2,9 +2,16 @@
 
 Capability factory: **discover once (LLM) → versioned artifact → deterministic Playwright replay (no LLM)** against a local hostile bank-ish mock.
 
+## Start here (reviewers)
+
+1. `./scripts/setup.sh` then `npm run mock` (leave running — http://127.0.0.1:4173/member-lookup/).
+2. Reuse the saved capability (no LLM): `./scripts/run.sh M-10042` then `./scripts/run.sh M-99999` (add `--headed` to watch).
+3. Read **`REPORT.md`** (design) and **`evidence/01-discovery`**, **`02-replay-happy`**, **`03-replay-exception`**.
+4. Optional — watch LLM discovery (needs Ollama): `./scripts/train.sh` or `bash scripts/demo-reviewer.sh --train --headed`.
+
 **Core path:** member-lookup mock — `train` / `run` / evidence `01–03`.  
 **Forms stretch:** G1 apply demos — `npm run demo:g1` / `demo:reviewer`.  
-**Product track:** `cua apply` / `import-plan` — **`docs/APPLY.md`** (flags, exit codes, live runbook) · `docs/PRODUCTIZE.md` (status).
+**Product track (stretch):** `cua apply` / `import-plan` — **`docs/APPLY.md`** · `docs/PRODUCTIZE.md` (not required for the core demo).
 
 ## Quick start (host)
 

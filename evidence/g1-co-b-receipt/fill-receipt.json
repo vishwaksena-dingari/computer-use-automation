@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "at": "2026-09-14T22:43:54.308Z",
+  "at": "2026-09-15T23:14:37.349Z",
   "pageUrl": "http://127.0.0.1:4173/apply-demo/co-b/",
   "entries": [
     {
@@ -9,7 +9,8 @@
       "kind": "text",
       "expected": "Alex Applicant",
       "actual": "Alex Applicant",
-      "verified": true
+      "verified": true,
+      "source": "profile"
     },
     {
       "key": "email",
@@ -17,7 +18,8 @@
       "kind": "text",
       "expected": "a***@example.test",
       "actual": "a***@example.test",
-      "verified": true
+      "verified": true,
+      "source": "profile"
     },
     {
       "key": "phone",
@@ -25,7 +27,8 @@
       "kind": "text",
       "expected": "+1-555-0100",
       "actual": "+1-555-0100",
-      "verified": true
+      "verified": true,
+      "source": "profile"
     },
     {
       "key": "background",
@@ -33,7 +36,8 @@
       "kind": "textarea",
       "expected": "Built typed browser workflows and care about evidence.",
       "actual": "Built typed browser workflows and care about evidence.",
-      "verified": true
+      "verified": true,
+      "source": "profile"
     }
   ],
   "filledKeys": [

@@ -12,9 +12,9 @@
   "params": {
     "memberId": "M-10042"
   },
-  "runId": "replay_mu3a1lf2_ttfzcn",
+  "runId": "replay_mu3afc7g_s89uij",
   "evidenceDir": "evidence/02-replay-happy",
-  "durationMs": 4839,
+  "durationMs": 4615,
   "llmCalls": 0,
   "submitConfirmed": false,
   "submitAttempted": false
