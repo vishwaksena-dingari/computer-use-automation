@@ -1,11 +1,11 @@
 {
   "artifactPath": "capabilities/lookup-member-savings-balance.json",
-  "artifactSha256": "7b983bfaa2e3be54edd28e9535a41c482a99e9f29516bc95bb9063c785455e9f",
+  "artifactSha256": "ab0e1089a70dc971980cfae96ac7642b9c8519efba727946148f5bb8afe9b1ff",
   "params": {
     "memberId": "M-10042"
   },
   "llmCalls": 0,
-  "runId": "replay_mtz0u5jr_juuine",
+  "runId": "replay_mu1ttulu_j7p2z1",
   "autoRetrainAttempts": 0,
   "bindings": null
 }

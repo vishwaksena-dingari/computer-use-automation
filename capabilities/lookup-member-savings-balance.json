@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "surface": "web",
   "name": "Lookup member savings balance",
-  "description": "LLM-grounded capability for: Look up member savings balance (llm-emitted 2026-09-12)",
+  "description": "LLM-grounded capability for: Look up member savings balance (llm-emitted 2026-09-14)",
   "goalTemplate": "Look up member {{memberId}} and read their current savings balance",
   "bindings": {},
   "inputs": [
@@ -107,19 +107,27 @@
         {
           "kind": "label",
           "rank": 4,
-          "name": "Member ID",
-          "text": "Member ID"
-        },
-        {
-          "kind": "text",
-          "rank": 5,
           "text": "Member ID"
         },
         {
           "kind": "role",
+          "rank": 5,
+          "role": "textbox"
+        },
+        {
+          "kind": "role",
           "rank": 6,
-          "name": "member_id",
-          "selector": "[data-field='member_id']"
+          "role": "textinput"
+        },
+        {
+          "kind": "placeholder",
+          "rank": 7,
+          "text": "e.g. M-10042"
+        },
+        {
+          "kind": "css",
+          "rank": 102,
+          "selector": "input[name='member_id']"
         }
       ]
     },
@@ -140,10 +148,9 @@
           "selector": "button[type='submit']"
         },
         {
-          "kind": "label",
+          "kind": "role",
           "rank": 3,
-          "name": "Search",
-          "text": "Search"
+          "role": "button"
         },
         {
           "kind": "text",
@@ -151,10 +158,9 @@
           "text": "Search"
         },
         {
-          "kind": "role",
-          "rank": 5,
-          "name": "search",
-          "selector": "[data-field='search']"
+          "kind": "css",
+          "rank": 101,
+          "selector": "button:contains('Search')"
         }
       ]
     },
@@ -168,9 +174,14 @@
           "selector": "[data-field='savingsBalance']"
         },
         {
-          "kind": "text",
+          "kind": "css",
           "rank": 2,
-          "text": "savings balance"
+          "selector": "span[name='savings_balance']"
+        },
+        {
+          "kind": "css",
+          "rank": 3,
+          "selector": "div[data-field='savings_balance']"
         }
       ]
     },
@@ -190,9 +201,14 @@
           "exact": true
         },
         {
-          "kind": "text",
+          "kind": "css",
           "rank": 3,
-          "text": "not found"
+          "selector": "div[role='alert']"
+        },
+        {
+          "kind": "css",
+          "rank": 4,
+          "selector": "div[name='not_found']"
         }
       ]
     }

@@ -1,10 +1,10 @@
 {
   "ok": true,
   "artifactPath": "capabilities/lookup-member-savings-balance.json",
-  "artifactSha256": "7b983bfaa2e3be54edd28e9535a41c482a99e9f29516bc95bb9063c785455e9f",
+  "artifactSha256": "ab0e1089a70dc971980cfae96ac7642b9c8519efba727946148f5bb8afe9b1ff",
   "llmCalls": 1,
   "provider": "ollama",
-  "model": "llama3.2:3b",
+  "model": "qwen2.5-coder:7b",
   "message": "LLM emitted locators; capability skeleton merged in code",
   "evidenceDir": "evidence/01-discovery"
 }

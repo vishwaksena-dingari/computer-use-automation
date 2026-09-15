@@ -10,9 +10,9 @@
   "params": {
     "memberId": "M-10042"
   },
-  "runId": "replay_mu1jgypm_tzvoz1",
+  "runId": "replay_mu1txuy8_so4iny",
   "evidenceDir": "evidence/g1-co-c-autonomy-reprove",
-  "durationMs": 10634,
+  "durationMs": 11295,
   "llmCalls": 0,
   "submitConfirmed": false,
   "submitAttempted": false
