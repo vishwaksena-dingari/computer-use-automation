@@ -17,6 +17,10 @@ export type FillReceiptEntry = {
   actual: string;
   verified: boolean;
   detail?: string;
+  /** How the fill value was obtained (audit craft vs vault). */
+  source?: 'craft' | 'profile' | 'literal';
+  /** Snippet of the question text used for craft (capped). */
+  questionText?: string;
 };
 
 /** Machine-readable stop reason for evidence / prove dashboards (null = happy or unclassified). */

@@ -2,7 +2,10 @@
  * @file Pure helpers: scrape submit confirmation proof from page text (Adapt / G15+/G19).
  * Baseline patterns are generic; ATS family adapters add extras without core hard-coding.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { AtsFamily } from '../surface/detect-ats.js';
+import { findProjectRoot } from '../config/paths.js';
 
 /** Proof returned to callers after a submit attempt (may be partial). */
 export type SubmitProof = {
@@ -166,6 +169,34 @@ export function selfCheckSubmitProof(): void {
   }
   if (confirmPhraseResForFamily('ashby').length <= CONFIRM_PHRASE_BASE.length) {
     throw new Error('ashby must add family extras');
+  }
+
+  // Letter E: live-shaped synthetic banners (no PII) — family extract + reference.
+  const root = findProjectRoot();
+  const shaped = (name: string) =>
+    readFileSync(join(root, 'fixtures', 'submit-proof', name), 'utf8');
+  const ashbyFx = extractSubmitProof(shaped('ashby-shaped.txt'), 'ashby');
+  if (!ashbyFx.reference || !/ASH-DEMO-SHAPE-1/i.test(ashbyFx.reference)) {
+    throw new Error('ashby-shaped reference');
+  }
+  if (!ashbyFx.matchedPhrase) throw new Error('ashby-shaped phrase');
+  const leverFx = extractSubmitProof(shaped('lever-shaped.txt'), 'lever');
+  if (!leverFx.reference || !/LEV-DEMO-SHAPE-9/i.test(leverFx.reference)) {
+    throw new Error('lever-shaped reference');
+  }
+  if (!leverFx.matchedPhrase) throw new Error('lever-shaped phrase');
+  const ghFx = extractSubmitProof(shaped('greenhouse-shaped.txt'), 'greenhouse');
+  if (!ghFx.reference || !/GH-DEMO-SHAPE-42/i.test(ghFx.reference)) {
+    throw new Error('greenhouse-shaped reference');
+  }
+  if (!ghFx.matchedPhrase) throw new Error('greenhouse-shaped phrase');
+  const wdFx = extractSubmitProof(shaped('workday-shaped.txt'), 'workday');
+  if (!wdFx.reference || !/WD-DEMO-SHAPE-7/i.test(wdFx.reference)) {
+    throw new Error('workday-shaped reference');
+  }
+  if (!wdFx.matchedPhrase) throw new Error('workday-shaped phrase');
+  if (!submitConfirmVisibleRegex('greenhouse').test(shaped('greenhouse-shaped.txt'))) {
+    throw new Error('greenhouse visible regex vs fixture');
   }
 }
 

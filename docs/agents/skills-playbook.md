@@ -1,11 +1,8 @@
 # Skills playbook — project overlay
 
-**This file specializes [`agent-os/`](../../agent-os/README.md) for the computer-use project.**  
-Universal routers: `agent-os/PLAYBOOK.md` · factory desk: `agent-os/FACTORY.md` · PRD intake: `agent-os/FROM-PRD.md` · capabilities: `agent-os/CAPABILITIES.md` · install: `agent-os/TOOLING.md` · setup: `agent-os/SETUP.md`.
+Phase / sprint routing for this computer-use repo. Read with: `DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCTIZE.md`, tracked map `docs/agents/map.md`.
 
-`CLAUDE.md` points here for **project** phase/sprint detail. Prefer this overlay + agent-os over inventing a new process.
-
-Read with: `DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCTIZE.md`, tracked map `docs/agents/map.md`.
+`CLAUDE.md` points here for **project** phase detail. Prefer this playbook over inventing a new process.
 
 ---
 
@@ -16,7 +13,7 @@ Read with: `DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCTIZE.md`, tracked
 3. **Build via implementation routing** → named sprints + intensity I0–I4 (not review-everything).  
 4. **Build thin / decide thin** → ponytail + anti-thrash (one council max per fork).  
 5. **Prove** → evidence chapters + browser/webapp testing, not screenshots alone.  
-6. **Tooling is installed** — see `docs/agents/tooling-ready.md` + `agent-os/TOOLING.md`. Do not run every tool every turn.
+6. **Tooling is installed** — see `docs/agents/tooling-ready.md`. Do not run every tool every turn.
 
 ---
 
@@ -311,6 +308,5 @@ F3 (Zod) and F4 (`computer-use-automation` / `cua`) **locked** 2026-09-11. No op
 
 ## Maintenance
 
-When adding a skill to the **universal** kit: update `agent-os/TOOLING.md` + `agent-os/PLAYBOOK.md` if routing changes.  
-When adding a **project-only** skill/sprint: update **this overlay** and the one-line pointer in `CLAUDE.md`.  
+When adding a **project-only** skill/sprint: update **this playbook** and the one-line pointer in `CLAUDE.md`.  
 Do not duplicate long skill text into `CLAUDE.md`.

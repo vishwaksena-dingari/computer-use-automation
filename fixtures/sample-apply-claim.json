@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "url": "http://127.0.0.1:4173/apply-demo/co-a/",
+  "profile": "fixtures/applicant-profile.json",
+  "fieldMapId": "demo-co-a",
+  "submit": false,
+  "ats": "auto"
+}

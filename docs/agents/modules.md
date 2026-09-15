@@ -1,6 +1,5 @@
 # Modules — this repo’s public surfaces
 
-Process rule (universal): `agent-os/MODULES.md` or skill `references/modules.md`.
 **Fill this file** so an amnesiac agent can navigate without dumping `src/`.
 
 Use these words only: **module**, **interface**, **implementation**, **depth**,

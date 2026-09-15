@@ -1,12 +1,60 @@
 #!/usr/bin/env bash
 # Copy career-data vault profile (+ optional resume) into gitignored .private/ for cua apply.
 # Path jail requires files under the interface-ai repo; normalizeApplyProfile reads vault keys as-is.
+# Letter B: --vault-root resolves relative PROFILE/RESUME under career-data before copy.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROFILE_SRC="${1:-}"
-RESUME_SRC="${2:-}"
+PROFILE_SRC=""
+RESUME_SRC=""
+VAULT_ROOT=""
+
+usage() {
+  echo "usage: $0 [--vault-root DIR] /path/to/apply-profile.json [/path/to/resume.pdf]" >&2
+  exit 1
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --vault-root)
+      VAULT_ROOT="${2:-}"
+      shift 2
+      ;;
+    -h|--help) usage ;;
+    *)
+      if [[ -z "$PROFILE_SRC" ]]; then
+        PROFILE_SRC="$1"
+      elif [[ -z "$RESUME_SRC" ]]; then
+        RESUME_SRC="$1"
+      else
+        usage
+      fi
+      shift
+      ;;
+  esac
+done
+
+resolve_src() {
+  local p="$1"
+  if [[ -z "$p" ]]; then
+    echo ""
+    return
+  fi
+  if [[ "$p" = /* ]]; then
+    echo "$p"
+    return
+  fi
+  if [[ -n "$VAULT_ROOT" ]]; then
+    echo "$VAULT_ROOT/$p"
+    return
+  fi
+  echo "$p"
+}
+
+PROFILE_SRC="$(resolve_src "$PROFILE_SRC")"
+RESUME_SRC="$(resolve_src "$RESUME_SRC")"
+
 if [[ -z "$PROFILE_SRC" || ! -f "$PROFILE_SRC" ]]; then
-  echo "usage: $0 /path/to/apply-profile.json [/path/to/resume.pdf]" >&2
+  echo "usage: $0 [--vault-root DIR] /path/to/apply-profile.json [/path/to/resume.pdf]" >&2
   exit 1
 fi
 umask 077
@@ -38,4 +86,8 @@ os.replace(tmp, path)
 print("Set resumePath → .private/resume.pdf")
 PY
 fi
+if [[ -n "$VAULT_ROOT" ]]; then
+  echo "vault-root: $VAULT_ROOT"
+fi
 echo "Next: ./scripts/apply-live.sh --url \"\$APPLY_URL\" --headed --escalate"
+# Or: npx cua apply --claim-json .private/claim.json

@@ -23,6 +23,7 @@ export type WorkerOutcome =
   | 'closed'
   | 'unmapped'
   | 'verify'
+  | 'duplicate'
   | 'failed'
   | 'paused';
 
@@ -174,6 +175,9 @@ export function workerSummaryFromReplay(
   } else if (code === 'form.CLOSED') {
     outcome = 'closed';
     exitCode = 3;
+  } else if (code === 'form.DUPLICATE') {
+    outcome = 'duplicate';
+    exitCode = 4;
   } else if (code === 'field.UNMAPPED') {
     outcome = 'unmapped';
     exitCode = 4;
@@ -276,6 +280,18 @@ export function selfCheckWorkerExit(): void {
     { includeGathered: false },
   );
   if (closed.exitCode !== 3) throw new Error('closed exit');
+  const dup = workerSummaryFromReplay(
+    {
+      ...base,
+      ok: true,
+      status: 'BUSINESS_OUTCOME',
+      code: 'form.DUPLICATE',
+      message: 'submit refused: already recorded',
+      paused: false,
+    },
+    { includeGathered: false },
+  );
+  if (dup.exitCode !== 4 || dup.outcome !== 'duplicate') throw new Error('duplicate exit');
   const ok = workerSummaryFromReplay(
     {
       ...base,

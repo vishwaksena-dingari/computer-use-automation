@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @file Operator CLI entry: discover | replay | invoke | apply | import-plan | escalate | config.
+ * @file Operator CLI entry: discover | replay | invoke | apply | import-plan | escalate | last | doctor | config.
  */
 import { Command } from 'commander';
 import { join, resolve, dirname } from 'node:path';
@@ -10,6 +10,8 @@ import { setConfigValue } from '../config/set.js';
 import { findProjectRoot, repoRelative, resolveUnderRoot } from '../config/paths.js';
 import { loadCapability, sha256File, findCapabilityPathById } from '../artifact/load.js';
 import { prepareApplyProfile, profileShapeReport } from '../artifact/profile.js';
+import { parseApplyClaim, resolveApplyClaim, claimFromUiAssistItem } from '../artifact/apply-claim.js';
+import { stageResumeIntoPrivate } from '../artifact/stage-resume.js';
 import {
   importPlanToFieldMap,
   importPlanToFieldMapWithStats,
@@ -20,9 +22,11 @@ import { detectAtsFamily } from '../surface/detect-ats.js';
 import { discoverCapability } from '../discover/emit.js';
 import { writeResume } from '../session/hitl.js';
 import { newRunId, prepareChapter, writeJson, ensureDir } from '../evidence/store.js';
+import { listRecentWorkerRuns } from '../evidence/last-runs.js';
 import { configureLog, log } from '../util/log.js';
 import { workerSummaryFromReplay } from './worker-exit.js';
 import { runCapabilityRequest } from './run-capability-request.js';
+import { runDoctorChecks } from './doctor.js';
 
 function cliFromOpts(opts: Record<string, unknown>): CliConfigOverrides {
   return {
@@ -566,7 +570,9 @@ addGlobalConfigFlags(
   program
     .command('apply')
     .description('Worker apply: navigate URL → fillFormFlow (optional plan import); Submit only with --submit')
-    .requiredOption('--url <url>', 'apply form URL')
+    .option('--url <url>', 'apply form URL (required unless --claim-json)')
+    .option('--claim-json <path>', 'one-item apply claim (schemaVersion 1; career-data handshake)')
+    .option('--item-json <path>', 'career-data queue item (url|apply_url + paths.pdf); needs --profile')
     .option('--ats <family>', 'auto|ashby|lever|greenhouse|workday', 'auto')
     .option('--profile <path>', 'applicant profile JSON')
     .option('--plan-json <path>', 'optional upstream plan → FieldMap')
@@ -575,6 +581,7 @@ addGlobalConfigFlags(
     .option('--company-context <text>', 'optional company blurb for hybrid craft')
     .option('--escalate', 'pause same session on captcha/policy/stuck')
     .option('--submit', 'click Submit when visible (default off)')
+    .option('--no-submit', 'force fill-only even if claim.submit is true')
     .option('--evidence <dir>', 'evidence directory')
     .option('--write-field-map', 'persist repaired field-map')
     .option('--form-repair-max <n>', 'dormant stuck repair loop (1–5)', '3')
@@ -584,7 +591,106 @@ addGlobalConfigFlags(
     .action(async (opts) => {
       try {
         configureLog({ verbose: Boolean(opts.verbose) });
-        const url = String(opts.url);
+        const rootEarly = findProjectRoot();
+        let claimOpts: {
+          url?: string;
+          profile?: string;
+          planJson?: string;
+          resume?: string;
+          ats?: string;
+          submit?: boolean;
+          headed?: boolean;
+          escalate?: boolean;
+          fieldMapId?: string;
+          mode?: string;
+        } = {
+          url: opts.url as string | undefined,
+          profile: opts.profile as string | undefined,
+          planJson: opts.planJson as string | undefined,
+          ats: opts.ats as string | undefined,
+          // --no-submit wins; else --submit true; else undefined → claim
+          submit: opts.noSubmit ? false : opts.submit !== undefined ? Boolean(opts.submit) : undefined,
+          headed: opts.headed !== undefined ? Boolean(opts.headed) : undefined,
+          escalate: opts.escalate !== undefined ? Boolean(opts.escalate) : undefined,
+          fieldMapId: opts.fieldMapId as string | undefined,
+          mode: opts.mode as string | undefined,
+        };
+        if (opts.claimJson && opts.itemJson) {
+          throw new Error('apply: use only one of --claim-json or --item-json');
+        }
+        if (opts.itemJson) {
+          if (!claimOpts.profile) {
+            throw new Error('apply --item-json requires --profile (path under repo after vault copy)');
+          }
+          const itemPath = resolveUnderRoot(rootEarly, opts.itemJson as string, { realpath: true });
+          const itemRaw = JSON.parse(readFileSync(itemPath, 'utf8')) as {
+            url?: string;
+            apply_url?: string;
+            paths?: { pdf?: string };
+          };
+          const fromItem = claimFromUiAssistItem({
+            item: itemRaw,
+            profile: claimOpts.profile,
+            planJson: claimOpts.planJson,
+            submit: claimOpts.submit,
+          });
+          const resolved = resolveApplyClaim(fromItem, {
+            url: claimOpts.url,
+            profile: claimOpts.profile,
+            planJson: claimOpts.planJson,
+            ats: claimOpts.ats,
+            submit: claimOpts.submit,
+            headed: claimOpts.headed,
+            escalate: claimOpts.escalate,
+            fieldMapId: claimOpts.fieldMapId,
+            mode: claimOpts.mode,
+          });
+          claimOpts = {
+            url: resolved.url,
+            profile: resolved.profile,
+            planJson: resolved.planJson,
+            resume: resolved.resume,
+            ats: resolved.ats,
+            submit: resolved.submit,
+            headed: resolved.headed,
+            escalate: resolved.escalate,
+            fieldMapId: resolved.fieldMapId,
+            mode: resolved.mode,
+          };
+        } else if (opts.claimJson) {
+          const claimPath = resolveUnderRoot(rootEarly, opts.claimJson as string, { realpath: true });
+          const claimRaw = JSON.parse(readFileSync(claimPath, 'utf8')) as unknown;
+          const resolved = resolveApplyClaim(parseApplyClaim(claimRaw), {
+            url: claimOpts.url,
+            profile: claimOpts.profile,
+            planJson: claimOpts.planJson,
+            ats: claimOpts.ats,
+            submit: claimOpts.submit,
+            headed: claimOpts.headed,
+            escalate: claimOpts.escalate,
+            fieldMapId: claimOpts.fieldMapId,
+            mode: claimOpts.mode,
+          });
+          claimOpts = {
+            url: resolved.url,
+            profile: resolved.profile,
+            planJson: resolved.planJson,
+            resume: resolved.resume,
+            ats: resolved.ats,
+            submit: resolved.submit,
+            headed: resolved.headed,
+            escalate: resolved.escalate,
+            fieldMapId: resolved.fieldMapId,
+            mode: resolved.mode,
+          };
+          if (resolved.vaultRoot) {
+            log('info', `claim vaultRoot noted (stage via copy-vault-private): ${resolved.vaultRoot}`);
+          }
+        }
+        if (!claimOpts.url) {
+          throw new Error('apply requires --url, --claim-json, or --item-json with url');
+        }
+        const url = String(claimOpts.url);
         let parsedUrl: URL;
         try {
           parsedUrl = new URL(url);
@@ -592,7 +698,7 @@ addGlobalConfigFlags(
           throw new Error(`invalid --url: ${url}`);
         }
         const loaded = loadConfig({
-          ...cliFromOpts(opts),
+          ...cliFromOpts({ ...opts, headed: claimOpts.headed ?? opts.headed }),
           baseUrl: parsedUrl.origin,
         });
         // entryPath must include path+search for navigate
@@ -606,12 +712,12 @@ addGlobalConfigFlags(
         }
         const root = loaded.root;
         const family =
-          opts.ats && opts.ats !== 'auto'
-            ? String(opts.ats)
+          claimOpts.ats && claimOpts.ats !== 'auto'
+            ? String(claimOpts.ats)
             : detectAtsFamily(url);
-        let mapId = opts.fieldMapId as string | undefined;
-        if (opts.planJson) {
-          const planPath = resolveUnderRoot(root, opts.planJson as string, { realpath: true });
+        let mapId = claimOpts.fieldMapId;
+        if (claimOpts.planJson) {
+          const planPath = resolveUnderRoot(root, claimOpts.planJson, { realpath: true });
           const raw = JSON.parse(readFileSync(planPath, 'utf8')) as unknown;
           mapId = mapId ?? `imported-${family}`;
           const map = importPlanToFieldMap(raw, { id: mapId, platform: family });
@@ -630,9 +736,14 @@ addGlobalConfigFlags(
 
         let profile: Record<string, unknown> | undefined;
         let profileBundle: ReturnType<typeof prepareApplyProfile> | undefined;
-        if (opts.profile) {
-          profileBundle = loadProfileBundle(root, opts.profile as string);
+        if (claimOpts.profile) {
+          profileBundle = loadProfileBundle(root, claimOpts.profile);
           profile = applyAtsEnvOverrides(profileBundle.normalized);
+        }
+        const stagedResume = stageResumeIntoPrivate(root, claimOpts.resume);
+        if (stagedResume && profile) {
+          profile = { ...profile, resumePath: stagedResume };
+          log('info', `staged resume → ${stagedResume}`);
         }
         const runId = newRunId('apply');
         const evidenceDir = resolveUnderRoot(
@@ -647,6 +758,9 @@ addGlobalConfigFlags(
           writeJson(join(evidenceDir, 'profile-shape.json'), profileShapeReport(profileBundle));
         }
 
+        const allowSubmit = Boolean(claimOpts.submit);
+        const escalate = Boolean(claimOpts.escalate);
+        const headed = Boolean(claimOpts.headed || escalate);
         const { result } = await runCapabilityRequest({
           capability,
           config: loaded.config,
@@ -654,22 +768,22 @@ addGlobalConfigFlags(
           params: {},
           runId,
           evidenceDir,
-          headed: Boolean(opts.headed || opts.escalate),
-          escalateOnPolicy: Boolean(opts.escalate),
+          headed,
+          escalateOnPolicy: escalate,
           profile,
-          mode: parseFillMode(String(opts.mode ?? 'deterministic')),
+          mode: parseFillMode(String(claimOpts.mode ?? 'deterministic')),
           companyContext: opts.companyContext as string | undefined,
           writeFieldMap: Boolean(opts.writeFieldMap),
           formRepairMax: parseFormRepairMax(opts.formRepairMax),
           recordHarPath: opts.recordHar ? join(evidenceDir, 'network.har') : undefined,
           harRetainOnFailure: Boolean(opts.harOnFailure),
           traceOnFailure: Boolean(opts.traceOnFailure),
-          allowSubmit: Boolean(opts.submit),
+          allowSubmit,
         });
         const missingFromMsg = /missing outputs:\s*(.+)$/i.exec(result.message ?? '');
         const summaryFinal = workerSummaryFromReplay(result, {
-          submitted: Boolean(opts.submit) && result.ok && Boolean(result.submitConfirmed),
-          allowSubmit: Boolean(opts.submit),
+          submitted: allowSubmit && result.ok && Boolean(result.submitConfirmed),
+          allowSubmit,
           hasProfile: Boolean(profile),
           missingOutputs: missingFromMsg
             ? missingFromMsg[1]!.split(',').map((s) => s.trim()).filter(Boolean)
@@ -727,6 +841,41 @@ escalate
   });
 
 const configCmd = program.command('config').description('Runtime config show / validate / set');
+
+addGlobalConfigFlags(
+  program
+    .command('last')
+    .description('Summarize newest evidence/private worker.json runs (no PII values)')
+    .option('--limit <n>', 'how many chapters', '5')
+    .action((opts) => {
+      try {
+        const limit = Math.max(1, Math.min(50, Number(opts.limit) || 5));
+        const rows = listRecentWorkerRuns(findProjectRoot(), limit);
+        console.log(JSON.stringify({ ok: true, runs: rows }, null, 2));
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exitCode = 1;
+      }
+    }),
+);
+
+addGlobalConfigFlags(
+  program
+    .command('doctor')
+    .description('Local env checks for apply (build, config, playwright)')
+    .action(() => {
+      try {
+        const checks = runDoctorChecks();
+        for (const c of checks) console.log(JSON.stringify(c));
+        const requiredBad = checks.filter((c) => c.required && !c.ok);
+        console.log(JSON.stringify({ ok: requiredBad.length === 0, failed: requiredBad.map((c) => c.check) }));
+        process.exitCode = requiredBad.length ? 1 : 0;
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exitCode = 1;
+      }
+    }),
+);
 
 addGlobalConfigFlags(
   configCmd

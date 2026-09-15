@@ -59,7 +59,52 @@ type CraftFn = (args: {
   fieldKey: string;
   profilePath: string;
   companyContext?: string;
+  questionText?: string;
 }) => Promise<{ value: string | null; llmCalls: number }>;
+
+/** Prefer map label/role/placeholder text; cap length (DOM labels are untrusted). */
+function questionTextFromTargets(field: FieldMapField): string | undefined {
+  for (const t of field.targets) {
+    const raw =
+      (t.kind === 'label' || t.kind === 'role' || t.kind === 'placeholder' ? t.name : undefined) ||
+      t.text ||
+      t.name;
+    if (typeof raw === 'string' && raw.trim()) {
+      const s = raw.replace(/\s+/g, ' ').trim();
+      return s.length > 500 ? `${s.slice(0, 500)}…` : s;
+    }
+  }
+  return undefined;
+}
+
+/** Cheap DOM fallback when map has only css targets. */
+async function questionTextFromLoc(
+  loc: Awaited<ReturnType<typeof resolveTarget>>,
+): Promise<string | undefined> {
+  const aria = await loc.getAttribute('aria-label').catch(() => null);
+  if (aria?.trim()) {
+    const s = aria.trim();
+    return s.length > 500 ? `${s.slice(0, 500)}…` : s;
+  }
+  const fromDom = await loc
+    .evaluate((el) => {
+      const html = el as HTMLElement;
+      const id = html.id;
+      if (id) {
+        const lab = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+        const t = lab?.textContent?.replace(/\s+/g, ' ').trim();
+        if (t) return t.slice(0, 500);
+      }
+      const parentLab = html.closest('label');
+      const pt = parentLab?.textContent?.replace(/\s+/g, ' ').trim();
+      if (pt) return pt.slice(0, 500);
+      const block = html.closest('fieldset, [class*="field"], [class*="question"], [data-testid]');
+      const q = block?.querySelector('label, legend, p, h3, h4, span');
+      return q?.textContent?.replace(/\s+/g, ' ').trim()?.slice(0, 500) || '';
+    })
+    .catch(() => '');
+  return fromDom || undefined;
+}
 
 function jailPath(root: string, value: string): string {
   return resolveUploadUnderRoot(root, value);
@@ -176,18 +221,23 @@ function isLocationField(field: { key: string; profilePath: string }): boolean {
   return /location/i.test(field.key) || /location/i.test(field.profilePath);
 }
 
+/**
+ * Prefer `.select__single-value` inside *this* field's `.select__control`
+ * (or the element itself if already the control). Never walk ancestors with a
+ * bare `querySelector` — sibling phone Country dial-code (`+1`) poisoned GH location VERIFY.
+ * Passed into Playwright `evaluate` so self-check and production share one body.
+ */
+export function pickReactSelectDisplay(el: {
+  closest(sel: string): { querySelector(sel: string): { textContent: string | null } | null } | null;
+  querySelector(sel: string): { textContent: string | null } | null;
+}): string {
+  const root = el.closest('.select__control') ?? el;
+  const v = root.querySelector('.select__single-value')?.textContent?.trim();
+  return v || '';
+}
+
 async function readComboboxDisplay(loc: Awaited<ReturnType<typeof resolveTarget>>): Promise<string> {
-  const single = await loc
-    .evaluate((el) => {
-      let cur: HTMLElement | null = el as HTMLElement;
-      for (let i = 0; i < 10 && cur; i++) {
-        const v = cur.querySelector('.select__single-value')?.textContent?.trim();
-        if (v) return v;
-        cur = cur.parentElement;
-      }
-      return '';
-    })
-    .catch(() => '');
+  const single = await loc.evaluate(pickReactSelectDisplay).catch(() => '');
   if (single) return single;
   return (await loc.inputValue().catch(() => '')) || '';
 }
@@ -254,7 +304,12 @@ async function recordVerify(
   field: FieldMapField,
   value: string,
   receipt: FillReceiptEntry[],
-  opts?: { actualOverride?: string; skipRead?: boolean },
+  opts?: {
+    actualOverride?: string;
+    skipRead?: boolean;
+    source?: FillReceiptEntry['source'];
+    questionText?: string;
+  },
 ): Promise<boolean> {
   const actualRaw = opts?.skipRead
     ? (opts.actualOverride ?? value)
@@ -268,6 +323,8 @@ async function recordVerify(
     actual: redactForReceipt(field.profilePath, actualRaw),
     verified,
     detail: verified ? undefined : 'verify mismatch after fill',
+    ...(opts?.source ? { source: opts.source } : {}),
+    ...(opts?.questionText ? { questionText: opts.questionText.slice(0, 200) } : {}),
   });
   return verified;
 }
@@ -508,21 +565,28 @@ export async function runFillForm(opts: {
 
     // Plan literals never drive file uploads; file values always from resumePath.
     const valuePath = profilePathForField(field);
-    let raw =
+    const hadLiteral =
       field.kind !== 'file' &&
       field.literal !== undefined &&
       field.literal !== null &&
-      String(field.literal).trim() !== ''
-        ? field.literal
-        : getProfilePath(profile, valuePath);
+      String(field.literal).trim() !== '';
+    let raw = hadLiteral ? field.literal : getProfilePath(profile, valuePath);
+    let fillSource: FillReceiptEntry['source'] = hadLiteral
+      ? 'literal'
+      : raw !== undefined && raw !== null && String(raw).trim() !== ''
+        ? 'profile'
+        : undefined;
+    let craftQuestion: string | undefined;
     // Dormant craft: wake when empty + craft:llm (or required answers.* / textarea) and craftAnswer wired.
     if ((raw === undefined || raw === null || String(raw).trim() === '') && fieldWantsCraft(field, Boolean(opts.craftAnswer))) {
       let crafted: { value: string | null; llmCalls: number } = { value: null, llmCalls: 0 };
+      craftQuestion = questionTextFromTargets(field) ?? (await questionTextFromLoc(loc));
       try {
         crafted = await opts.craftAnswer!({
           fieldKey: field.key,
           profilePath: field.profilePath,
           companyContext: opts.companyContext,
+          questionText: craftQuestion,
         });
       } catch {
         crafted = { value: null, llmCalls: 1 };
@@ -536,6 +600,7 @@ export async function runFillForm(opts: {
       }
       setProfilePath(profile, field.profilePath, value);
       raw = value;
+      fillSource = crafted.value ? 'craft' : 'profile';
     }
 
     if (raw === undefined || raw === null || String(raw).trim() === '') {
@@ -668,13 +733,17 @@ export async function runFillForm(opts: {
       value,
       receipt,
       field.kind === 'file'
-        ? { skipRead: true, actualOverride: '[file-set]' }
+        ? { skipRead: true, actualOverride: '[file-set]', source: fillSource, questionText: craftQuestion }
         : field.kind === 'radio' || field.kind === 'checkbox'
           ? // Ashby yes/no are buttons — inputValue/isChecked often false after click
-            { skipRead: true, actualOverride: value }
+            { skipRead: true, actualOverride: value, source: fillSource, questionText: craftQuestion }
           : (await loc.getAttribute('role').catch(() => null)) === 'combobox'
-            ? { actualOverride: await readComboboxDisplay(loc) }
-            : undefined,
+            ? {
+                actualOverride: await readComboboxDisplay(loc),
+                source: fillSource,
+                questionText: craftQuestion,
+              }
+            : { source: fillSource, questionText: craftQuestion },
     );
     if (!verified && field.required) {
       return fail(field.key, field.profilePath, `verify failed for ${field.key}: value did not stick`);
@@ -683,4 +752,56 @@ export async function runFillForm(opts: {
   }
 
   return { ok: true, filled, llmCalls, receipt, skippedOptional };
+}
+
+/** Self-check: scoped react-select read; plain autocomplete falls through (empty). */
+export function selfCheckPickReactSelectDisplay(): void {
+  const phoneValue = { textContent: '+1' };
+  const locValue = { textContent: 'St. Johns, FL' };
+  const locControl = {
+    querySelector(sel: string) {
+      return sel === '.select__single-value' ? locValue : null;
+    },
+  };
+  // Input inside location control; form-wide querySelector would see phone +1 first.
+  const locEl = {
+    closest(sel: string) {
+      return sel === '.select__control' ? locControl : null;
+    },
+    querySelector(sel: string) {
+      return sel === '.select__single-value' ? phoneValue : null;
+    },
+  };
+  const plainAutocomplete = {
+    closest(_sel: string) {
+      return null;
+    },
+    querySelector(_sel: string) {
+      return null;
+    },
+  };
+  if (pickReactSelectDisplay(locEl) !== 'St. Johns, FL') {
+    throw new Error('pickReactSelectDisplay: must prefer own control over sibling +1');
+  }
+  if (pickReactSelectDisplay(plainAutocomplete) !== '') {
+    throw new Error('pickReactSelectDisplay: plain autocomplete must return empty → inputValue');
+  }
+  const whitespaceOnly = {
+    closest(sel: string) {
+      return sel === '.select__control'
+        ? { querySelector: (_s: string) => ({ textContent: '   ' }) }
+        : null;
+    },
+    querySelector(_sel: string) {
+      return null;
+    },
+  };
+  if (pickReactSelectDisplay(whitespaceOnly) !== '') {
+    throw new Error('pickReactSelectDisplay: whitespace-only must be empty');
+  }
+}
+
+if (process.argv[1]?.endsWith('fill-form.ts') || process.argv[1]?.endsWith('fill-form.js')) {
+  selfCheckPickReactSelectDisplay();
+  console.log('fill-form self-check ok');
 }

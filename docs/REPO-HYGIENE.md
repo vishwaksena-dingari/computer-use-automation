@@ -25,8 +25,6 @@ Every agent, every commit. Product voice only.
 
 Allowed: npm/runtime deps (Playwright, Zod, Ollama), ATS **family** names as domain (Ashby/Lever/Greenhouse/Workday) when they are features of *this* CLI, links inside **this** GitHub repo.
 
-`agent-os/TOOLING.md` may list optional agent-tool install URLs (process kit). Do not put competitor apply products there.
-
 ## Pre-commit scan (agent)
 
 ```bash

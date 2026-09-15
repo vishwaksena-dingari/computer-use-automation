@@ -154,11 +154,17 @@ function fieldCoversControl(f: FieldMapField, c: ControlHint): boolean {
       const ln = t.name.toLowerCase();
       if (label && ln === label) return true;
       if (question && (question.includes(ln) || ln.includes(question))) return true;
+      // Partial label match — Ashby questions are long; seeds often use a distinctive phrase.
+      if (label && (label.includes(ln) || ln.includes(label))) return true;
     }
     if (t.kind === 'css' && t.selector) {
       const sel = t.selector;
       if (id && (sel === `#${c.id}` || sel.replace(/^#/, '') === id)) return true;
       if (name && (sel.includes(`name='${name}'`) || sel.includes(`name="${name}"`))) return true;
+      // Playwright :has-text("…") needles — keep seed radios that scope by question phrase.
+      const needles = [...sel.matchAll(/has-text\(["']([^"']+)["']\)/gi)].map((m) => m[1]!.toLowerCase());
+      const content = needles.find((n) => n !== 'yes' && n !== 'no');
+      if (content && (label.includes(content) || question.includes(content))) return true;
     }
     if (name && f.key.toLowerCase() === name) return true;
     if (f.kind === 'file' && c.widget === 'file') return true;
@@ -374,7 +380,11 @@ export async function repairFieldMap(opts: {
           if (isOpaqueProfilePath(n.profilePath, opts.profileKeys)) continue;
           llmFields.push(n);
         }
-        if (llmFields.length) map = mergeFieldMap(map, llmFields, opts.mapId, { mode: 'replace' });
+        if (llmFields.length) {
+          // Seed/import present → gaps only (Bridge). Bootstrap (null seed) may replace.
+          const mode = opts.fieldMap ? 'add' : 'replace';
+          map = mergeFieldMap(map, llmFields, opts.mapId, { mode });
+        }
       } catch {
         /* keep heuristics */
       }

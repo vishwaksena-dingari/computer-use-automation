@@ -349,12 +349,12 @@ flowchart TD
 |---|---|
 | `fillForm` step | Zod arm; `fieldMapRef` + profile; **preflight** all empty required profile paths (except craftable) before touching controls; skip optional; `field.UNMAPPED` / `field.VERIFY` / `form.*` if gap |
 | Select snap | Observe captures option labels → `enumHints`; fill snaps profile value to live `<option>` / hints (exact → casefold → yes/no → contains). Greenhouse: optional boards-api `?questions=true` merges option labels onto empty select/combobox controls |
-| Combobox / react-select | Open `.select__control`, type, pick option; verify via `.select__single-value` (input often stays empty) |
+| Combobox / react-select | Open `.select__control`, type, pick option; verify via `.select__single-value` **scoped to that control** (never ancestor `querySelector` — sibling phone Country `+1` poisoned GH location). Plain autocomplete falls through to `inputValue()` |
 | Sponsorship polarity | Negated “without requiring sponsorship” → Yes when `flags.sponsorshipNo` truthy; positive “require sponsorship?” → `invertBool` so truthy maps to No |
 | Profile aliases | `fullName` → `firstName`/`lastName` when split fields asked |
 | Field-maps | `capabilities/field-maps/<id>.json` |
 | Dormant repair loop (both modes) | Happy path = **0 LLM**. Stuck → repair+retry up to `--form-repair-max` (default **3**, hard cap **5**). Stops early if the same failure detail repeats (no progress). Persist with `--write-field-map`. Not unbounded G3. |
-| Dormant craft LLM (both modes) | Wakes only for empty dynamic fields (`craft:llm`, required `answers.*` / textarea). Prompt includes **profile context** (secrets skipped). Cap ≈ `--form-repair-max`. Profile values still win when present. |
+| Dormant craft LLM (`--mode hybrid` only) | Wakes only for empty dynamic fields (`craft:llm`, required `answers.*` / textarea). Prompt includes **live question text** (map label/role → cheap DOM `aria-label`/label) delimited as untrusted input + **profile blurb** (long values truncated, secrets skipped). Cap ≈ `--form-repair-max` (hard ≤5). Empty/EMPTY → refuse (required fails). Profile/literal values still win when present. Receipt may tag `source: craft` + question snippet. Not a separate essay subsystem (G23; G3 still rejected). |
 | `--mode hybrid` / `deterministic` | Same repair + craft dormancy; mode kept for CLI compat. Use **hybrid** when the map may be stale (Co C) or essays need craft; Co A/B happy path stays deterministic |
 | Verify + receipt | After each fill, read-back verify; write `evidence/fill-receipt.json` (redacted). Optional `blocker` enum: `captcha\|closed\|widget\|missing_required\|verify`. Required mismatch → stuck repair |
 | Repair few-shot | When repair LLM wakes, inject sibling green map fields + receipt keys for known `ats-family` (`docs/golden-forms.md`); hold-out skips self mapId; **`unknown` family gets no few-shot** (no demo-co-a default, G20) |
@@ -423,6 +423,27 @@ flowchart LR
   fill --> banner[successBanner done-check]
 ```
 
+### Bridge-2 — one-item claim → `cua apply` (T-L-3 / letters B–D)
+
+Replaces career-data `ui_assist_playwright.py` once deletion criterion is met (`.scratch/land-python-assist-deletion-criterion.md`).
+
+```mermaid
+flowchart LR
+  hunt["career-data claim item"] --> copy["copy-vault-private --vault-root"]
+  copy --> claim[".private claim + profile"]
+  claim --> apply["cua apply --claim-json"]
+  apply --> worker["worker.json + exit 0/2/3/4"]
+```
+
+| Letter | This-repo surface |
+|---|---|
+| B vault roots | `copy-vault-private.sh --vault-root` resolves relative profile/resume under career-data, copies into `.private/` |
+| C one-item JSON | `ApplyClaimSchema` / `parseApplyClaim` / `cua apply --claim-json` (`fixtures/sample-apply-claim.json`) |
+| D plan + hints | claim `planJson` → existing `importPlanToFieldMap` seed (playbook `--plan-out`) |
+| E submit fixtures | `fixtures/submit-proof/{ashby,lever,greenhouse,workday}-shaped.txt` exercised by `selfCheckSubmitProof` |
+
+CLI flags override claim fields. Path jail unchanged: fill only reads under the cua project root.
+
 ### Worker harden — live ATS honesty (post T-B-7)
 
 Live Ashby Overview URLs returned SUCCESS with an empty receipt; vault `location` objects filled as `[object Object]`.
@@ -455,8 +476,10 @@ flowchart TD
 | Overview → form | Click Application / Apply (≤~2s poll, T-W-13); **re-assert host** against allowlist |
 | Seed cache | Missing seed → write **`.private/field-maps/<id>.json`** only after verified fill (G16); `--write-field-map` → tracked |
 | Submit claim | `outcome: submitted` only when confirmation text/banner observed; click without banner → `submit_unconfirmed` |
-| Pre-submit | Unverified required keys in receipt → do not click Submit (G20) |
+| Pre-submit | Unverified required keys in receipt → do not click Submit (G20). Same job URL + profile email already in `.private/submit-ledger.json` → refuse (G21). Ashby Overview and `/application` share one ledger key. |
 | Live wrapper | `apply-live.sh` → `node dist/cli/main.js`; always rewrite `resumePath` when resume copied |
+| One-item claim (T-L-3) | `ApplyClaimSchema` + `cua apply --claim-json` / `--item-json` (url/profile/planJson/submit/vaultRoot); CLI flags override claim; stage vault via `copy-vault-private.sh --vault-root`; item/claim `resume` → `.private/resume.*`; shim `scripts/cua-apply-from-item.sh`; live `--submit` via `apply-live.sh` needs `CUA_LIVE_SUBMIT_GO=1` |
+| `cua last` | Newest private `worker.json` chapters (exit/outcome/mode/submitVerifyState only) |
 | Page gallery | `fillFormFlow` writes `00-after-open-form` + `page-{N}-before/after-fill` under `screenshots/` + `screenshots-manifest.json` |
 
 **Act-on locks (D0, 2026-09-13 reviews):** T-W-8 observe submit · T-W-9 fail-closed location · T-W-10 private seed cache · T-W-12 resume rewrite · T-W-14 origin check · T-W-15 local CLI. No tracked Maximor-specific `auto-ashby.json`.
@@ -521,4 +544,4 @@ flowchart TD
 | `src/cli/run-capability-request.ts` | Shared replay + `result.json` (+ optional `worker.json`); no `process.exit` |
 | Engine helpers | `persistFillReceipt`, `fillNow`, `pauseHitl`; Workday via `tryFillWorkdayField` |
 
-**Live matrix (fill-only, gitignored):** Ashby Maximor exit 0; Lever 100ms exit 0; Greenhouse Figma still `field.VERIFY` (location widget) — allowlisted, not a code gate.
+**Live matrix (fill-only, gitignored):** Ashby Maximor exit 0; Lever 100ms exit 0; Greenhouse Figma exit 0 after T-L-1 (scoped `.select__control` display read).

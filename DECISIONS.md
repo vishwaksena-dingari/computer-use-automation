@@ -45,8 +45,8 @@ Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-
 | G3 | Profile | Expand apply-profile schema + optional vault adapter; never bake PII into Capability | Reuse + privacy |
 | G4 | Config overlay | `config.yaml` + gitignored `config.local.yaml` (merge) | Live hosts/secrets without polluting defaults |
 | G5 | Auth | `session.storageStatePath` first-class (docs + CLI + gitignore); not a new subsystem | Login-once reuse |
-| G6 | Submit | `--submit` **default off**; fill-only unless flag | Irreversible apply is explicit |
-| G7 | Worker CLI | Target: `cua apply` (+ `import-plan`) with exit codes 0/2/3/4 | One command for callers |
+| G6 | Submit | `--submit` **default off**; fill-only unless flag. `scripts/apply-live.sh` / `cua-apply-from-item.sh` also require `CUA_LIVE_SUBMIT_GO=1` | Irreversible apply is explicit (flag + env GO) |
+| G7 | Worker CLI | Target: `cua apply` (+ `import-plan` / `doctor` / `last`) with exit codes 0/2/3/4 | One command for callers |
 | G8 | G2 cart / non-apply flows | **Partial** — author-steps prove unlocked; full cart still light | Apply worker path works; Gen uses FieldMaps not free explore |
 | G9 | Reliability pack | Light frozen local fail fixtures (CAPTCHA/CLOSED) OK | Demo named outcomes without live ATS |
 | G10 | Repo voice | Tracked docs/code reference **this product only** — no other apps, no prior-art writeups, no assignment framing | Clean private product tree |
@@ -61,6 +61,9 @@ Not: hunter/queue product, payment checkout, unbounded repair loops, SaaS multi-
 | G18 | Raw+normalized profile + phases | `prepareApplyProfile` keeps deep-cloned raw alongside normalized; evidence `profile-shape.json` is key-only (no PII values); worker `phases` lists transform/fill/submit/verify/report that actually ran | Preserve input meaning; report task shape without over-collecting |
 | G19 | Soft optional + family confirm adapters | Empty optional profile paths skip (listed in `skippedOptional`); required gaps surface as `missingRequiredPaths`; submit confirm regex/phrases keyed by `AtsFamily` adapters in `submit-proof.ts` | Don't block on optional; isolate site quirks; ask only for true minimums |
 | G20 | Pre-submit sufficiency + unknown few-shot | Before `--submit` click, refuse if receipt has unverified required keys; `unknown` ATS family loads no demo-co-a few-shot (family adapters only) | Never submit on assumption; no single-site default in repair |
+| G21 | Double-submit guard | Before `--submit` click, refuse if `.private/submit-ledger.json` already recorded the same job URL (host+path+search) + profile email; Ashby Overview≡`/application`/`/overview` share a key; refuse returns explicit `form.DUPLICATE` (no page-body sniff). Record on click (confirmed or not). Delete the ledger file to reset | Irreversible apply must not fire twice for the same opening |
+| G22 | One-item claim handshake | `cua apply --claim-json` / `--item-json` + vault `--vault-root` copy + resume stage into `.private/`; career-data Python UI assist deleted only per `.scratch/land-python-assist-deletion-criterion.md` | Kill dual drivers / retyping |
+| G23 | Hybrid essay craft | Harden existing `makeCraftAnswer` (not a new essay product): pass live `questionText` (map label → DOM), truncate long profile blurbs (do not skip), refuse/EMPTY when ungrounded, budget ≤5; plan/profile literals still win; evidence tags `source: craft`; never write craft into FieldMap literals. G3 still rejected | Per-company essays without blind fieldKey invent / G3 |
 
 ## Explicitly out of scope (hold until new lock)
 

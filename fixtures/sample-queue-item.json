@@ -1,0 +1,4 @@
+{
+  "url": "http://127.0.0.1:4173/apply-demo/co-a/",
+  "paths": { "pdf": "fixtures/resume.txt" }
+}

@@ -1,6 +1,6 @@
 # Apply UI — operator & worker guide
 
-Canonical reference for `cua apply` / `cua import-plan`. Roadmap/locks: `docs/PRODUCTIZE.md`, `DECISIONS.md` (G1–G20). Hygiene: `docs/REPO-HYGIENE.md`.
+Canonical reference for `cua apply` / `cua import-plan`. Roadmap/locks: `docs/PRODUCTIZE.md`, `DECISIONS.md` (G1–G21). Hygiene: `docs/REPO-HYGIENE.md`.
 
 ## Operator triangle (what you supply)
 
@@ -49,6 +49,18 @@ npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
   --field-map-id demo-co-a
 ```
 
+One-item claim (career-data handshake / T-L-3):
+
+```bash
+npx cua apply --claim-json fixtures/sample-apply-claim.json
+# career-data queue item shape (needs profile already under repo):
+npx cua apply --item-json fixtures/sample-queue-item.json \
+  --profile fixtures/applicant-profile.json \
+  --field-map-id demo-co-a --no-submit
+# Stage vault first if paths live outside the repo:
+# ./scripts/copy-vault-private.sh --vault-root ~/Developer/career-data path/to/profile.json path/to/resume.pdf
+```
+
 ### Import plan then apply
 
 ```bash
@@ -70,9 +82,15 @@ npx cua apply --url "$APPLY_URL" \
   --headed --escalate \
   --storage-state .private/storage-state.json
 # add --submit only when you intentionally want Submit clicked
+# scripts/apply-live.sh --submit also requires CUA_LIVE_SUBMIT_GO=1
 ```
 
 Golden CI (mock only): `npm run check:golden`.
+
+`cua doctor` — build/config/allowed_hosts/path_jail/playwright (+ optional fixtures/.private) as JSON lines; exit 1 if required checks fail.  
+`cua last [--limit N]` — newest `evidence/private/*/worker.json` summaries (outcome/exit/mode only; no PII values).
+
+Live attended submit runbook: `.scratch/land-live-submit-runbook.md`. One-item shim: `scripts/cua-apply-from-item.sh`.
 
 ---
 
@@ -122,15 +140,17 @@ Worker entry: set target from `--url`, optional import, write experiment Capabil
 
 | Flag | Required | Default | Notes |
 |---|---|---|---|
-| `--url <url>` | yes | — | Full apply URL; origin → `target.baseUrl`, path+search → `entryPath`; host auto-added to allowlist via CLI layer |
+| `--url <url>` | if no claim/item | — | Full apply URL; origin → `target.baseUrl`, path+search → `entryPath`; host auto-added to allowlist via CLI layer |
+| `--claim-json <path>` | no | — | One-item claim (`schemaVersion: 1`); supplies url/profile/plan/submit (T-L-3) |
+| `--item-json <path>` | no | — | Career-data queue item (`url`/`apply_url` + `paths.pdf`); requires `--profile` |
 | `--ats <family>` | no | `auto` | `auto` uses URL/body detect; else force family |
 | `--profile <path>` | no | — | Repo-relative; vault aliases normalized |
 | `--plan-json <path>` | no | — | Import → FieldMap id `imported-<family>` (or `--field-map-id`) |
 | `--field-map-id <id>` | no | `auto-<family>` or imported id | Must exist under `capabilities/field-maps/` unless just imported |
 | `--mode <mode>` | no | `deterministic` | `hybrid` enables craft/repair LLM when stuck / empty craft fields |
-| `--company-context <text>` | no | — | Hybrid craft context |
+| `--company-context <text>` | no | — | Hybrid craft company/role blurb (with live question text from the form) |
 | `--escalate` | no | off | Same-session HITL on captcha/policy/stuck; implies headed |
-| `--submit` | no | **off** | Click visible Submit / Submit Application (DECISIONS G6) |
+| `--submit` / `--no-submit` | no | **off** | Click Submit (G6). `--no-submit` forces fill-only even when claim.submit is true |
 | `--evidence <dir>` | no | `evidence/private/<runId>` | Prefer private; gitignored |
 | `--write-field-map` | no | off | Persist repaired maps |
 | `--form-repair-max <n>` | no | `3` | Stuck repair loop 1–5 |
@@ -182,9 +202,9 @@ Stdout is a single JSON object (also written to `evidence/.../worker.json`):
 | **0** | `filled` or `submitted` | `SUCCESS`; **`submitted` only if `--submit` and confirmation banner observed** |
 | **2** | `captcha` or `paused` | HITL pause / `form.CAPTCHA` (use `--escalate`) |
 | **3** | `closed` | `form.CLOSED` |
-| **4** | `unmapped` / `verify` / `submit_unconfirmed` / `failed` | `field.UNMAPPED`, `field.VERIFY`, **empty fill**, **Submit clicked without confirmation**, other failures |
+| **4** | `unmapped` / `verify` / `submit_unconfirmed` / `duplicate` / `failed` | `field.UNMAPPED`, `field.VERIFY`, **empty fill**, **Submit clicked without confirmation**, **G21 double-submit refuse** (`form.DUPLICATE`), other failures |
 
-`worker.json` includes `"mode": "fill-only" | "submit"`, **`phases`** (G18: transform/fill/submit/verify/report that actually ran), and **`gathered`** (G14/G17/G19): redacted fill-receipt entries + extracts + `missingOutputs` + `submitVerifyState` + optional `skippedOptional` / `missingRequiredPaths` / confirmation fields. On **`--submit` + verified banner** (`outcome: submitted`), `gathered.filled` is empty — primary signal is `submitVerified: true` plus optional `confirmationText` / `confirmationReference` (G15/G17). `--submit` with click but no thank-you banner → **`outcome: submit_unconfirmed`** (exit 4), not `submitted`. If required receipt keys are still unverified, Submit is **not clicked** (G20) → typically `outcome: verify` / exit 4. Apply also writes **`profile-shape.json`** (key names only — no PII values).
+`worker.json` includes `"mode": "fill-only" | "submit"`, **`phases`** (G18: transform/fill/submit/verify/report that actually ran), and **`gathered`** (G14/G17/G19): redacted fill-receipt entries + extracts + `missingOutputs` + `submitVerifyState` + optional `skippedOptional` / `missingRequiredPaths` / confirmation fields. On **`--submit` + verified banner** (`outcome: submitted`), `gathered.filled` is empty — primary signal is `submitVerified: true` plus optional `confirmationText` / `confirmationReference` (G15/G17). `--submit` with click but no thank-you banner → **`outcome: submit_unconfirmed`** (exit 4), not `submitted`. If required receipt keys are still unverified, Submit is **not clicked** (G20) → typically `outcome: verify` / exit 4. A second `--submit` for the same job URL + profile email is **refused** from `.private/submit-ledger.json` (G21; delete the file to reset). Apply also writes **`profile-shape.json`** (key names only — no PII values).
 
 Messy profiles (G13): unknown top-level scalars are parked under `answers.*` by `normalizeApplyProfile` so repair/FieldMaps can still bind them.
 Prefer Ashby **`/application`** URLs; Overview alone used to false-green — now opens Application / Apply (same host only), or exits **4** if still empty.
@@ -208,7 +228,7 @@ Missing FieldMap seeds cache under **`.private/field-maps/`** (gitignored) **onl
 |---|---|---|
 | B | Ashby Maximor `/application` | exit **0** `filled` → `evidence/private/factory-matrix-ashby-*` |
 | C | Lever 100ms `/apply` | exit **0** `filled` → `evidence/private/factory-matrix-lever-*` |
-| C | Greenhouse Figma job board | exit **4** `field.VERIFY` (location) → `evidence/private/factory-matrix-greenhouse-*` |
+| C | Greenhouse Figma job board | exit **0** `filled` **fill-only** (2026-09-14 land: scoped react-select read; run `factory-matrix-greenhouse-20260914-230335`) |
 
 Never commit those dirs or `--submit` on live matrix runs.
 
@@ -219,7 +239,7 @@ Location widgets: type **`City, ST`**, select only if the option contains that *
 | Flags | Behavior |
 |---|---|
 | default | Fill / advance pages; **stop** when Submit is the only advance |
-| `--submit` | Click Submit when visible **only if** required receipt keys are verified (G20); set `submitConfirmed` only if confirmation text/banner appears; worker `gathered.submitVerified` |
+| `--submit` | Click Submit when visible **only if** required receipt keys are verified (G20) **and** job+profile not already in submit ledger (G21); set `submitConfirmed` only if confirmation text/banner appears; worker `gathered.submitVerified` |
 | `--submit` without confirmation | Flow ends; **`outcome: submit_unconfirmed`** (exit **4**) if Submit was clicked; do not claim submit |
 | `--submit` + confirmation | **`outcome: submitted`** — verify delivery; `gathered.confirmationText` / `confirmationReference` when scrapeable; harvest light (G15/G17) |
 | `--submit` but Submit never shown | **`outcome: filled`** (fill succeeded; submit not attempted) |

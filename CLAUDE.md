@@ -1,72 +1,37 @@
 # Computer-Use Automation
 
 Capability-factory CLI: discover → versioned capability → deterministic Playwright replay.
-**Product track:** Apply UI engine — start at `docs/APPLY.md` + `docs/PRODUCTIZE.md` + `docs/agents/map.md`.
+
+**Start here:** `README.md` (setup + demo) · `REPORT.md` (design) · `evidence/01-discovery` … `03-replay-exception`.  
+**Product track (stretch):** Apply UI — `docs/APPLY.md` + `docs/PRODUCTIZE.md` + `docs/agents/map.md`.  
 Local scratch (gitignored): `.scratch/`. Hygiene: `docs/REPO-HYGIENE.md`. Locks: `DECISIONS.md`.
 
-## Agent OS (portable — any project)
-
-Universal process kit: **`agent-os/`** (Layer B — vendored from the Agent OS library).
-Machine skill (Layer A): `~/.claude/skills/agent-os` / `~/.agents/skills/agent-os`.
+## Project docs for agents
 
 | Doc | Use |
 |---|---|
-| `agent-os/SETUP.md` | Setup grilling / adopt / invoke |
-| `agent-os/README.md` | Adopt / start order |
-| `agent-os/FROM-PRD.md` | PRD or idea → wayfinder → grill → council → lock |
-| `agent-os/FACTORY.md` | Product → Program Design → Architecture → Vertical Slices |
-| `agent-os/PLAYBOOK.md` | Decision + implementation intensity (D0–D3 / I0–I4) |
-| `agent-os/MODULES.md` | Interface-first deep modules |
-| `agent-os/DUAL-SKILL.md` | Two similar skills → two agents → merge |
-| `agent-os/CAPABILITIES.md` | gstack/pstack jobs: dispatch or portable |
-| `agent-os/PORTABLE.md` | Methods when host lacks Task/bins |
-| `agent-os/SKILL-ROOTS.md` | Point any harness at installed skill folders |
-| `agent-os/TOOLING.md` | Install + GitHub links |
-| `agent-os/BUNDLE.md` | What is universal vs this project |
+| `docs/agents/map.md` | Tracked pickup map |
+| `docs/agents/skills-playbook.md` | Phase / sprint routing for this repo |
+| `docs/agents/tooling-ready.md` | Install / readiness checklist |
+| `docs/ARCHITECTURE.md` | System architecture |
+| `DECISIONS.md` | Locked product decisions |
 
-This project’s **overlay** (sprints, phase matrix): `docs/agents/skills-playbook.md`.
-Tracked map: `docs/agents/map.md`. Locks: `DECISIONS.md`.
+Optional local issues under gitignored `.scratch/`. Triage labels: `docs/agents/triage-labels.md`. Domain: `CONTEXT.md` + `docs/adr/`.
 
-## Agent skills
+## Build discipline
 
-### Skills playbook (what to use when)
-
-Follow `docs/agents/skills-playbook.md` for phase routing (decide → design → build → prove → write-up).  
-Install/readiness checklist: `docs/agents/tooling-ready.md` (this repo) + `agent-os/TOOLING.md` (sources).
-
-Do not invent parallel process mid-task. Prefer playbook phases over installing more tools.
-
-### Issue tracker / map
-
-Tracked pickup map: `docs/agents/map.md`. Optional local issues under gitignored `.scratch/` — see `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Default roles: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
-
-### Build discipline defaults
-
-- Coding sessions: **ponytail** at `full` (project rule `.cursor/rules/ponytail.mdc`).
-- High-stakes design forks: **llm-council** then wayfinder ticket answer.
-- After `src/` exists: `graft build` and optional `/graphify .`
-- Milestone review (Claude Code): optional gstack `/review` `/qa`; Cursor uses playbook + browser tools.
-- Local build clock (gitignored): `progress.html` — agents update `#progress-state` when closing a sprint or logging focused hours.
-- **How to run agents / branches / commits:** `docs/agents/skills-playbook.md` → section **How we work**.
+- Prefer small diffs; reuse existing helpers; no unbounded LLM autonomy (see DECISIONS E6 / G3 rejected).
+- After `src/` changes: keep architecture docs accurate when boundaries move.
+- **How we work:** `docs/agents/skills-playbook.md`.
 
 ## Locked direction (see DECISIONS.md)
 
 Vertical slice: NL goal → LLM discovery → versioned capability artifact → deterministic replay (no LLM) → exceptional business outcome → same-session HITL → `/evidence/` + `REPORT.md`.
 
-Runtime config over redeploy: default **Ollama `qwen2.5-coder:7b`**, switchable to Anthropic/OpenAI; `.env` + `config.yaml` + CLI + `config set` (non-secrets).
+Runtime config: default **Ollama**; Anthropic/OpenAI switchable; `.env` + `config.yaml` + CLI + `config set` (non-secrets).
 
-## Design-first & documentation (mandatory)
+## Design & documentation
 
-- **Before implementing a module:** update `docs/ARCHITECTURE.md` (Mermaid + prose) so user-facing vs internal boundaries stay accurate.
-- **Docs and diagrams ship together** with the code change that introduces the module.
-- **Naming:** self-explanatory file / class / function / variable names. Prefer clarity over brevity.
-- **Docstrings:** `@file` module blurb at top of every source file; JSDoc on every exported function and class (contract + side effects). TypeScript, not Python — same intent as module/function docstrings.
-- **Do not start feature code** until the relevant architecture section exists.
+- Update `docs/ARCHITECTURE.md` when introducing modules.
+- Clear names; `@file` / JSDoc on exported surfaces.
+- Do not start feature code until the relevant architecture section exists.

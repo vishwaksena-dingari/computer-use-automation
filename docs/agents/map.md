@@ -3,12 +3,19 @@
 **Destination:** Apply UI engine + Gen I/O bag (G13–G16) on `main` per `docs/PRODUCTIZE.md` + `DECISIONS.md`.
 
 **Operator contract:** `docs/APPLY.md`  
-**Active sprint:** Factory cleanup (T-F-*) — **done** on tip after `v0.4.0`. Prior Adapt G17–G20 done; freeze tags `v0.3.0` / `v0.4.0`. Not G3; keep dual `fillForm` / `fillFormFlow` arms.
+**Active sprint:** Land + Bridge-2 **partial**. Done: T-L-1…7 + Ashby ledger canonicalize + doctor allowlist/path_jail + E phrase asserts + `CUA_LIVE_SUBMIT_GO` gate + `scripts/cua-apply-from-item.sh` + G21 explicit `form.DUPLICATE`. Open: live attended `--submit` (operator GO) + career-data drop Python UI assist. Cluster 3: H done, G partial, F wait. Freeze `v0.5.0`. Program: `.scratch/land-program-2026-09-14.md`. Runbook: `.scratch/land-live-submit-runbook.md`.
 
 ## Tickets
 
 | Id | Title | Status | Sprint |
 |---|---|---|---|
+| T-L-1 | Greenhouse location VERIFY: scope `readComboboxDisplay` | `done` (live exit 0 fill-only) | Land |
+| T-L-2 | Double-submit / run ledger guard (host+job+profile) | `done` (G21 `.private/submit-ledger.json`; Ashby Overview≡`/application`) | Land |
+| T-L-3 | B–D career-data handshake (one contract; delete Python UI assist) | `partial` — claim/`--item-json`/`--no-submit`/vault-root/resume-stage; live ATS verified + Python delete still open | Bridge-2 |
+| T-L-4 | Live-shaped submit-proof fixtures (letter E) | `done` (`fixtures/submit-proof/*` + self-check) | Land |
+| T-L-5 | `cua doctor` env checks (letter I) | `done` (+ path_jail / item+resume fixtures) | Land |
+| T-L-6 | `cua last` evidence index (letter H) | `done` | Land |
+| T-L-7 | Stage item/claim resume into `.private/` | `done` | Bridge-2 |
 | T-F-1 | Explicit `allowLlm` (no reason-regex sniff) | `done` | Factory |
 | T-F-2 | Dedupe `callOllamaJson` → `src/llm` | `done` | Factory |
 | T-F-3 | Multi-provider `callModel` + stubs | `done` | Factory |
@@ -19,7 +26,7 @@
 | T-F-8 | `runCapabilityRequest`; apply on runner | `done` | Factory |
 | T-F-9 | Wire replay/invoke to shared runner | `done` | Factory |
 | T-F-10 | Live Ashby fill-only matrix (Maximor) | `done` (gitignored `evidence/private/factory-matrix-ashby-*`) | Factory |
-| T-F-11 | Live Lever fill-only (+ Greenhouse attempt) | `done` Lever exit 0; Greenhouse `field.VERIFY` (allowlisted) | Factory |
+| T-F-11 | Live Lever fill-only (+ Greenhouse attempt) | `done` Lever exit 0; Greenhouse later greened by T-L-1 | Factory |
 | T-F-12 | ARCHITECTURE / APPLY / map reconcile | `done` | Factory |
 | T-A-1 | extractSubmitProof text/reference | `done` | Adapt |
 | T-A-2 | submitAttempted + submitProof → gathered | `done` | Adapt |

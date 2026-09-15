@@ -23,6 +23,7 @@ import { getProfilePath, setProfilePath } from '../artifact/profile.js';
 import { buildFillReceipt, writeFillReceipt, unverifiedRequiredKeys, type FillReceipt } from '../artifact/fill-receipt.js';
 import { formOutcomeFromPageText } from '../artifact/form-outcomes.js';
 import { extractSubmitProof, submitConfirmVisibleRegex } from '../artifact/submit-proof.js';
+import { checkSubmitGuard, clearSubmitGuardKey, recordSubmitGuard, submitGuardKey } from '../artifact/submit-ledger.js';
 import {
   filterFieldMapToControls,
   repairFieldMap,
@@ -508,6 +509,14 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
         /* best effort */
       }
       tracingStarted = false;
+    }
+    // Operator watch: keep headed window open after fill (CUA_HEADED_HOLD_MS, cap 5m).
+    const holdMs = Math.min(
+      Math.max(0, Number(process.env.CUA_HEADED_HOLD_MS || 0) || 0),
+      300_000,
+    );
+    if (opts.headed && holdMs > 0 && page) {
+      await page.waitForTimeout(holdMs).catch(() => undefined);
     }
     if (ownsBrowser && context) await context.close().catch(() => undefined);
     if (ownsBrowser && browser) await browser.close().catch(() => undefined);
@@ -1308,8 +1317,83 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                     step.id,
                   );
                 }
+                // G21: refuse a second --submit for same job URL + profile email.
+                const jobUrl = resolveUrlFrom(config, 'config.target.entryPath', capability);
+                const guardKey = submitGuardKey(jobUrl, (opts.profile ?? {}) as Record<string, unknown>);
+                let guard: { ok: true } | { ok: false; detail: string };
+                try {
+                  guard = checkSubmitGuard(root, guardKey);
+                } catch (e) {
+                  const detail = (e as Error).message;
+                  ledger.push({
+                    at: new Date().toISOString(),
+                    stepId: step.id,
+                    action: 'fillFormFlow',
+                    ok: false,
+                    detail,
+                  });
+                  persistFillReceipt(evidenceDir, page, {
+                    entries: allReceiptEntries,
+                    filledKeys: allFilledKeys,
+                    failDetail: detail,
+                    skippedOptional: allSkippedOptional,
+                  });
+                  writeScreenshotManifest(evidenceDir, pageGallery);
+                  flushPendingSiteMap('submit ledger corrupt');
+                  return finishFormOutcome(detail, step.id);
+                }
+                if (!guard.ok) {
+                  ledger.push({
+                    at: new Date().toISOString(),
+                    stepId: step.id,
+                    action: 'fillFormFlow',
+                    ok: false,
+                    detail: guard.detail,
+                  });
+                  persistFillReceipt(evidenceDir, page, {
+                    entries: allReceiptEntries,
+                    filledKeys: allFilledKeys,
+                    failDetail: guard.detail,
+                    skippedOptional: allSkippedOptional,
+                  });
+                  writeScreenshotManifest(evidenceDir, pageGallery);
+                  flushPendingSiteMap('submit refused duplicate');
+                  // Explicit code — do not sniff page body (leftover banners → UNMAPPED/CLOSED poison).
+                  return finish({
+                    ok: true,
+                    status: 'BUSINESS_OUTCOME',
+                    code: 'form.DUPLICATE',
+                    message: guard.detail,
+                    outputs: {},
+                    error: null,
+                  });
+                }
+                // Intent before click — crash between here and confirm still blocks a second fire.
+                recordSubmitGuard(root, { key: guardKey, jobUrl });
                 submitAttempted = true;
-                await submitOnly.first().click({ timeout: 8_000 }).catch(() => undefined);
+                try {
+                  await submitOnly.first().click({ timeout: 8_000 });
+                } catch (e) {
+                  clearSubmitGuardKey(root, guardKey);
+                  submitAttempted = false;
+                  const detail = `submit click failed: ${(e as Error).message}`;
+                  ledger.push({
+                    at: new Date().toISOString(),
+                    stepId: step.id,
+                    action: 'fillFormFlow',
+                    ok: false,
+                    detail,
+                  });
+                  persistFillReceipt(evidenceDir, page, {
+                    entries: allReceiptEntries,
+                    filledKeys: allFilledKeys,
+                    failDetail: detail,
+                    skippedOptional: allSkippedOptional,
+                  });
+                  writeScreenshotManifest(evidenceDir, pageGallery);
+                  flushPendingSiteMap('submit click failed');
+                  return finishFormOutcome(detail, step.id);
+                }
                 await page.waitForTimeout(800);
                 const defaultSubmit = page
                   .getByText(submitConfirmVisibleRegex(atsFamily))
@@ -1327,6 +1411,11 @@ export async function replayCapability(opts: ReplayOptions): Promise<ReplayResul
                   .catch(() => '');
                 const proof = extractSubmitProof(bodyText, atsFamily);
                 if (proof.text || proof.reference) submitProof = proof;
+                recordSubmitGuard(root, {
+                  key: guardKey,
+                  jobUrl,
+                  submitConfirmed,
+                });
                 ledger.push({
                   at: new Date().toISOString(),
                   stepId: step.id,

@@ -1,82 +1,52 @@
 # REPORT — Computer-Use Automation
 
-## 1. Problem framing
+## 1. Architecture
 
-Hostile UIs punish brittle selectors. This system turns a natural-language goal into a **reusable capability**, then **replays without an LLM**, distinguishing **business outcomes** (member not found) from hard failures.
+CLI `cua` loads runtime config (CLI > env > gitignored `config.local.yaml` > `config.yaml` > defaults). **Discovery** opens a local hostile bank-ish mock, observes page text + controls, asks the LLM (default Ollama) to emit **locator candidates only** (JSON-Schema constrained), and merges them into a **code-owned Capability skeleton** (Zod fail-closed). **Replay** resolves ranked accessibility/CSS locators with Playwright and does **not** call the LLM for decisions (`llmCalls: 0` by default). Results classify as `SUCCESS` | `BUSINESS_OUTCOME` | `HARD_FAILURE`.
 
-## 2. Architecture
+Calling agents use `cua invoke <capabilityId>` with typed params. Same-session **HITL** pauses on stuck/policy; `cua escalate resume` continues after a human fixes the live page. Evidence chapters live under `/evidence/` (apply/live runs default to gitignored `evidence/private/`).
 
-CLI `cua` loads runtime config (CLI > env > **`config.local.yaml`** > `config.yaml` > defaults). **Discovery** opens the local mock, observes page text + controls, asks Ollama to emit **locator candidates only** (JSON-Schema constrained), and merges them into a **code-owned Capability skeleton** (Zod fail-closed). **Replay** resolves ranked a11y/css locators with Playwright (`llmCalls: 0` by default), classifies `SUCCESS` | `BUSINESS_OUTCOME` | `HARD_FAILURE`. Opt-in: `--auto-retrain` / `--autonomous-repair` (capped re-discover on `locator_miss`), `--hitl-locator-patch` (note→locator), `--record-actions` (P3 HITL click→locator teach). **`cua invoke <id>`** (S9) is the calling-agent surface. **`cua apply` / `import-plan`** (product track) fill apply UIs with profile + FieldMap; see §9 and `docs/APPLY.md`. **HITL** pauses the same Playwright session on stuck/policy; `cua escalate resume` continues after the operator fixes the live page. Evidence chapters under `/evidence/` mirror the demo story; apply defaults to gitignored `evidence/private/`.
+**Trade-off:** discovery is real and bounded; production path is deterministic replay. Opt-in repair/retrain exists but is capped—unbounded autonomy (always-on agent) was rejected. Forms / Apply UI (`cua apply`) are a stretch on the same factory, not the core bank slice—see Cuts.
 
-## 3. Capability artifact
+Demo: `./scripts/setup.sh` → `npm run mock` → `./scripts/train.sh` → `./scripts/run.sh M-10042` / `M-99999`, or `npm run demo:reviewer`.
 
-`capabilities/lookup-member-savings-balance.json` (written by train) declares inputs (`memberId`), outputs (`savingsBalance`), ranked targets, checkpoints, and a `branch` that maps the not-found alert to `member.NOT_FOUND`. Zod validation is fail-closed (`src/artifact/`). Private human backups may live under gitignored `.private/golden-capabilities/` — the app does not auto-load them.
+## 2. Artifact schema
 
-## 4. Deterministic replay
+A capability is a typed, versioned JSON artifact (Zod). Example: `capabilities/lookup-member-savings-balance.json`.
 
-Replay defaults to no LLM (`llmCalls: 0`). Happy path extracts `$12,480.55` for `M-10042`. Exception path returns `ok: true`, `status: BUSINESS_OUTCOME`, `code: member.NOT_FOUND` for `M-99999` (HTTP 200 from mock API; UI `role=alert`). Tenant Beta stretch: same artifact + `capabilities/bindings/tenant-beta.json` against `/member-lookup-beta/`.
+It declares: ordered steps/actions; ranked locator candidates per control (role/label/text/css with fallback order); typed inputs (e.g. `memberId`); typed outputs (e.g. `savingsBalance`); checkpoints / success conditions; optional `branch` rules that map UI states to **business outcomes** (not crashes).
 
-## 5. Exceptional / business outcomes
+**Why this shape:** a calling agent needs a clear contract (params in, outcomes out), and a human reviewer needs to see *what* will be clicked without reading a model transcript. Locators are ranked candidates, not a single brittle selector, so replay can degrade gracefully. Secrets and raw PII never belong in the artifact—profiles stay on the invoke/replay CLI (`--profile`), not inside capability JSON.
 
-Business detection is **branch-only** (not HTTP status). Hard failures cover locator miss, policy block, and missing success checkpoint. `RECOVERABLE` is reserved in the enum but unused in mock v1. Form fills reuse the same taxonomy with codes such as `field.UNMAPPED`, `field.VERIFY`, `form.CAPTCHA`, `form.CLOSED` (page text + fill detail); captcha with `--escalate` pauses for HITL.
+## 3. Determinism & error handling
 
-## 6. Human-in-the-loop
+Replay uses only the saved artifact + params. Stable targeting prefers accessibility names/roles, then CSS fallbacks; waits and checkpoints assert expected state rather than assuming a click worked.
 
-Risky/stuck paths can pause with `intervention.json` + screenshot; `cua escalate resume --run <id>` writes `resume.json` and automation retries after re-observing the live DOM in the same browser context. Human clicks during pause are opaque (not written into the capability).
+**Error taxonomy (deliberate):**
+- **Business outcome** — expected for the caller (e.g. `member.NOT_FOUND` for `M-99999`); `ok: true`, distinct `code`, not a crash. Detection is **branch/UI**, not HTTP status alone (mock can return 200 with an alert).
+- **Recoverable** — reserved for known interstitial / retry patterns; unused on the v1 mock happy path.
+- **Hard failure** — locator miss, policy block, missing success checkpoint; structured detail (step, expected, observed) + evidence (screenshot / optional HAR or trace on failure).
 
-## 7. Evidence & limits
+Happy path: `M-10042` → extract `$12,480.55` (`evidence/02-replay-happy`). Exception path: `M-99999` → `member.NOT_FOUND` (`evidence/03-replay-exception`). Discovery evidence: `evidence/01-discovery`.
 
-See `/evidence/01-discovery`, `02-replay-happy`, `03-replay-exception`. Discovery `llmCalls >= 1` when Ollama is reachable; `--allow-offline-seed` requires an **explicit** `--seed` path.
+## 4. Heterogeneity & multi-tenant
 
-Default form evidence (E7): a11y observe, fill-receipt/verify, `ats-family.json`, run ledger, terminal screenshot. **Opt-in:** `--record-har` + `--har-on-failure` (retain HAR only on fail — avoids huge/PII-heavy network dumps on happy path); `--trace-on-failure` → `trace.zip` on fail. Not default: DOM event firehose, full HTML dumps, happy-path video.
+**Surface seam:** the capability records *intent* (steps, params, checkpoints, outcomes). Perception/action (DOM, a11y tree, screenshot+coords, OS automation) sits behind a locator/resolve layer. Extending to legacy web or desktop means new resolvers, not a new schema language.
 
-Example (local Co A):
+**Multi-tenant:** many institutions share a vendor product with different branding/config. Bindings overlays parameterize host/path/skin (demo: Tenant Beta — same capability + `capabilities/bindings/tenant-beta.json` against `/member-lookup-beta/`). Per-tenant overrides stay outside the core flow; drift is handled by capped re-discover/repair or HITL, not by rewriting the artifact by hand for every tenant. Full multi-tenant plumbing is design-only—not built.
 
-```bash
-npx cua replay capabilities/apply-demo-co-a.json \
-  --profile fixtures/applicant-profile.json \
-  --record-har --har-on-failure --trace-on-failure
-```
+## 5. Escalation & handoff
 
-Local: `./scripts/setup.sh`, `./scripts/train.sh`, `./scripts/run.sh`, or `npm run demo:slice`. **One-shot demo:** `npm run demo:reviewer` (happy+exception + G1 Co A/B/C on the **local mock** — not live ATS). **With discovery:** `npm run demo:reviewer:train` or `bash scripts/demo-reviewer.sh --train --headed` (Ollama required; no offline seed). Optional Sauce Demo retarget is an experiment only (`./scripts/try-sauce.sh`) — not the core member-lookup slice.
+Stuck / policy / risky paths write `intervention.json` + screenshot and pause the **same** Playwright session (not a fresh browser). A human operates that live page; `cua escalate resume --run <id>` writes `resume.json` and automation retries after re-observing the DOM. Control transfer is explicit: automation owns → pause → human owns → resume signal → automation owns. Human clicks during pause are not auto-written into the capability (opaque teach path exists as opt-in). A full co-browsing console is out of scope; the pause/resume seam is real.
 
-## 8. Stretch — G1 hybrid forms (natural extension)
+## 6. Safety
 
-Same factory, messier UI: **field-maps + `fillForm` / `fillFormFlow`**, dormant repair/craft (wake only when stuck / empty essay), page-as-judge receipts (E8), Ollama default for craft/repair (E9/C6).
+Configurable **allowlist** of hosts/routes and action classes; the agent must not navigate or act outside it. Risky/irreversible actions (e.g. live Submit on apply) are off by default and gated (explicit flags / operator GO). Artifacts and default logs **redact** secrets and sensitive values; profiles and storage-state stay gitignored under `.private/` / `config.local.yaml`. Limits: allowlists are only as strong as config; a human on a headed session can still do anything the browser can—HITL is trusted.
 
-`--profile` is invoke/replay context only (never baked into Capability JSON) so PII stays out of versioned artifacts. `--mode hybrid` matters when the map is stale or essays need craft; Co A/B happy path is deterministic (`llmCalls:0`). `--form-repair-max` caps stuck repair iterations (default 3, hard cap 5).
+## 7. Cuts
 
-| Demo | Command / evidence |
-|---|---|
-| Co A / B deterministic | `npm run demo:g1` → `evidence/g1-co-a-receipt`, `g1-co-b-receipt` |
-| Co C stale map + repair | same script → `evidence/g1-co-c-autonomy-reprove` (`llmCalls:0` heuristics) |
-| HITL escalate/resume | `evidence/g1-co-c-hitl-smoke` |
-| Craft wake (Ollama) | `./scripts/demo-craft-ollama.sh` → `evidence/g1-co-a-craft-dormant` |
-| Ashby / Lever live (fill no-submit) | caps under `capabilities/apply-*-auto.json` + matching `evidence/g1-*` (separate from `demo:g1`) |
-| Workday multipage mock | `capabilities/apply-workday-shaped-auto.json` |
-| Workday live auth scaffold (gated) | `evidence/g1-workday-live-scaffold-prove` — Create Account not auto-run |
-| Goldens | `docs/golden-forms.md` |
+**Deliberately thin or out:** always-on LLM agent (rejected); full operator UI; desktop surface implementation; queues/clusters; payment / unbounded live ATS autonomy; merging external job-hunter products into this repo.
 
-Does **not** replace the core bank mock. Rejected: always-on LLM agent (G3), merging external job products into this repo.
+**Stretch kept minimal (same factory, not the graded core):** G1 local apply demos (`npm run demo:g1`); optional hybrid craft/repair for forms; product-track `cua apply` documented in `docs/APPLY.md`. Live Ashby/Color apply is **not** submission-complete (required-field / radio honesty still open)—do not treat it as the demo path.
 
-## 9. Product track — Apply UI engine
-
-Post-tag work on `main` (tags `v0.1.0` / `v0.2.0` stay frozen snapshots). Full operator contract: **`docs/APPLY.md`**.
-
-**Goal:** one worker command fills an apply URL without baking PII into Capability JSON; Submit only with an explicit flag; captcha pauses the same Playwright session.
-
-| Piece | What shipped |
-|---|---|
-| Config | `config.local.yaml` overlay (gitignored) over `config.yaml`; CLI `--storage-state` |
-| Profile | `--profile` + vault aliases (`normalizeApplyProfile`); path jail under repo / `.private/` |
-| Plan import | `cua import-plan` → FieldMap; label/`name=` first; UUID css rank ≥3 |
-| Worker CLI | `cua apply --url …` → fillFormFlow; default evidence under `evidence/private/` |
-| Ladder | `--escalate` for captcha/HITL; `--submit` default **off**; stdout `worker.json` + exit `0/2/3/4` |
-| Prove | `npm run check:golden` (mock Co A apply + G1 forms) |
-
-```bash
-npx cua apply --url http://127.0.0.1:4173/apply-demo/co-a/ \
-  --profile fixtures/applicant-profile.json --field-map-id demo-co-a
-```
-
-**Still out of scope:** unbounded repair loops, always-on HAR/video, hunter/queue merge, payment submit, full Workday account-create autonomy. Upstream plan generation stays outside this repo — we only import plan JSON.
+**Next with more time:** stronger required-field observation on forms; freeze craft answers into artifacts for deterministic essay replay; richer recoverable-error catalog on the bank mock; one approved-capability gate for unattended invoke.

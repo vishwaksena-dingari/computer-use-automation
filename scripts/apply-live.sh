@@ -11,11 +11,13 @@ RESUME=""
 PLAN_JSON=""
 ATS="auto"
 MODE="deterministic"
+COMPANY_CONTEXT=""
 EVIDENCE=""
 HEADED=0
 ESCALATE=0
 SUBMIT=0
 WRITE_MAP=0
+FIELD_MAP_ID=""
 
 usage() {
   cat <<'EOF' >&2
@@ -26,12 +28,14 @@ usage: apply-live.sh --url <ashby|/application url> [options]
   --resume PATH             Resume PDF (used with --profile-from, or copies alone)
   --profile PATH            Profile under repo (default .private/profile.json)
   --plan-json PATH          Optional upstream plan → FieldMap
+  --field-map-id ID         Seed FieldMap id (.private/field-maps or capabilities/)
   --ats ashby|lever|…       Default auto
   --mode deterministic|hybrid
+  --company-context TEXT    Hybrid craft company/role blurb
   --evidence DIR            Evidence chapter (default evidence/private/live-<stamp>)
   --headed                  Show browser
   --escalate                HITL pause on captcha/stuck
-  --submit                  Click Submit (OFF by default — irreversible)
+  --submit                  Click Submit (OFF by default — irreversible; also needs CUA_LIVE_SUBMIT_GO=1)
   --write-field-map         Persist repaired field-map into tracked capabilities/
 EOF
   exit 1
@@ -62,8 +66,10 @@ while [[ $# -gt 0 ]]; do
     --resume) RESUME="${2:-}"; shift 2 ;;
     --profile) PROFILE="${2:-}"; shift 2 ;;
     --plan-json) PLAN_JSON="${2:-}"; shift 2 ;;
+    --field-map-id) FIELD_MAP_ID="${2:-}"; shift 2 ;;
     --ats) ATS="${2:-}"; shift 2 ;;
     --mode) MODE="${2:-}"; shift 2 ;;
+    --company-context) COMPANY_CONTEXT="${2:-}"; shift 2 ;;
     --evidence) EVIDENCE="${2:-}"; shift 2 ;;
     --headed) HEADED=1; shift ;;
     --escalate) ESCALATE=1; shift ;;
@@ -107,13 +113,21 @@ mkdir -p evidence/private
 
 ARGS=(apply --url "$URL" --profile "$PROFILE" --ats "$ATS" --mode "$MODE" --evidence "$EVIDENCE")
 [[ -n "$PLAN_JSON" ]] && ARGS+=(--plan-json "$PLAN_JSON")
+[[ -n "$FIELD_MAP_ID" ]] && ARGS+=(--field-map-id "$FIELD_MAP_ID")
+[[ -n "$COMPANY_CONTEXT" ]] && ARGS+=(--company-context "$COMPANY_CONTEXT")
 [[ "$HEADED" -eq 1 ]] && ARGS+=(--headed)
 [[ "$ESCALATE" -eq 1 ]] && ARGS+=(--escalate)
 [[ "$SUBMIT" -eq 1 ]] && ARGS+=(--submit)
 [[ "$WRITE_MAP" -eq 1 ]] && ARGS+=(--write-field-map)
 
 if [[ "$SUBMIT" -eq 1 ]]; then
-  echo "mode: SUBMIT (irreversible) → $URL"
+  # Hard operator GO — irreversible live submit must not be a flag typo.
+  if [[ "${CUA_LIVE_SUBMIT_GO:-}" != "1" ]]; then
+    echo "refusing --submit: set CUA_LIVE_SUBMIT_GO=1 after explicit operator GO" >&2
+    echo "fill-only is the default; deletion criterion: .scratch/land-python-assist-deletion-criterion.md" >&2
+    exit 2
+  fi
+  echo "mode: SUBMIT (irreversible; CUA_LIVE_SUBMIT_GO=1) → $URL"
 else
   echo "mode: fill-only → $URL"
 fi

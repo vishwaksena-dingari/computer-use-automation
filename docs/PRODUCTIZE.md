@@ -152,7 +152,7 @@ Council ACT + overridden DEFERs. **Keep** published `fillForm` / `fillFormFlow`.
 | T-F-1…7 | sniff→`allowLlm`, `callModel`, craft factory, receipts/Workday, `fillNow`/`pauseHitl`, `inferFieldMap` | **done** |
 | T-F-8/9 | `runCapabilityRequest` shared by apply → replay/invoke (commands stay separate) | **done** |
 | T-F-10 | Live Ashby Maximor `/application` fill-only | **done** (`evidence/private/factory-matrix-ashby-*`) |
-| T-F-11 | Live Lever 100ms fill-only; Greenhouse Figma attempted (`field.VERIFY`) | **done** / partial GH |
+| T-F-11 | Live Lever 100ms fill-only; Greenhouse Figma greened later (T-L-1) | **done** |
 | T-F-12 | Docs reconcile | **done** |
 
 **Done when:** `check:forms` + `check:golden` green; Ashby matrix exit 0; docs match modules.

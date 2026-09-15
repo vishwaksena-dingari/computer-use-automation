@@ -1,8 +1,7 @@
 # Tooling readiness inventory
 
 Installed and wired for this project (2026-09-11).  
-**Sources + install for any project:** [`agent-os/TOOLING.md`](../../agent-os/TOOLING.md).  
-**When to use:** `docs/agents/skills-playbook.md` (overlay) + `agent-os/PLAYBOOK.md`.
+**When to use:** `docs/agents/skills-playbook.md`.
 
 ## Status
 

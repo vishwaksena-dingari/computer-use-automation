@@ -19,6 +19,9 @@ export function formOutcomeCode(detail: string, fallback = 'field.UNMAPPED'): st
 
 /** Best-effort page text → outcome when repair exhausted (captcha / closed job). */
 export function formOutcomeFromPageText(bodyText: string, detail: string): string {
+  const d = detail.toLowerCase();
+  // Prefer detail over body — G21 refuse must not be poisoned by leftover "closed" copy.
+  if (/submit refused|already recorded for this job/.test(d)) return 'form.DUPLICATE';
   const t = `${bodyText}\n${detail}`.toLowerCase();
   if (/captcha|recaptcha|hcaptcha|cf-turnstile|verify you are human/.test(t)) return 'form.CAPTCHA';
   if (/no longer accepting|position (is )?closed|job (has been )?closed|not accepting applications/.test(t))
@@ -30,6 +33,12 @@ export function selfCheckFormOutcomes(): void {
   if (formOutcomeCode('verify failed for email') !== 'field.VERIFY') throw new Error('verify');
   if (formOutcomeCode('g-recaptcha required') !== 'form.CAPTCHA') throw new Error('captcha');
   if (formOutcomeFromPageText('This position is closed', 'stuck') !== 'form.CLOSED') throw new Error('closed');
+  if (
+    formOutcomeFromPageText('Application received', 'submit refused: already recorded for this job+profile') !==
+    'form.DUPLICATE'
+  ) {
+    throw new Error('duplicate submit');
+  }
 }
 
 if (process.argv[1]?.endsWith('form-outcomes.ts') || process.argv[1]?.endsWith('form-outcomes.js')) {
