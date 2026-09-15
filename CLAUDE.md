@@ -6,18 +6,26 @@ Local scratch (gitignored): `.scratch/`. Hygiene: `docs/REPO-HYGIENE.md`. Locks:
 
 ## Agent OS (portable — any project)
 
-Universal process kit: **`agent-os/`** (point agents here to reuse on other repos).
+Universal process kit: **`agent-os/`** (Layer B — vendored from the Agent OS library).
+Machine skill (Layer A): `~/.claude/skills/agent-os` / `~/.agents/skills/agent-os`.
 
 | Doc | Use |
 |---|---|
 | `agent-os/SETUP.md` | Setup grilling / adopt / invoke |
 | `agent-os/README.md` | Adopt / start order |
 | `agent-os/FROM-PRD.md` | PRD or idea → wayfinder → grill → council → lock |
-| `agent-os/PLAYBOOK.md` | Decision + implementation intensity |
+| `agent-os/FACTORY.md` | Product → Program Design → Architecture → Vertical Slices |
+| `agent-os/PLAYBOOK.md` | Decision + implementation intensity (D0–D3 / I0–I4) |
+| `agent-os/MODULES.md` | Interface-first deep modules |
+| `agent-os/DUAL-SKILL.md` | Two similar skills → two agents → merge |
+| `agent-os/CAPABILITIES.md` | gstack/pstack jobs: dispatch or portable |
+| `agent-os/PORTABLE.md` | Methods when host lacks Task/bins |
+| `agent-os/SKILL-ROOTS.md` | Point any harness at installed skill folders |
 | `agent-os/TOOLING.md` | Install + GitHub links |
 | `agent-os/BUNDLE.md` | What is universal vs this project |
 
 This project’s **overlay** (sprints, phase matrix): `docs/agents/skills-playbook.md`.
+Tracked map: `docs/agents/map.md`. Locks: `DECISIONS.md`.
 
 ## Agent skills
 

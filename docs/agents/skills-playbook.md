@@ -1,7 +1,7 @@
 # Skills playbook — project overlay
 
 **This file specializes [`agent-os/`](../../agent-os/README.md) for the computer-use project.**  
-Universal routers: `agent-os/PLAYBOOK.md`. PRD intake: `agent-os/FROM-PRD.md`. Install sources: `agent-os/TOOLING.md`.
+Universal routers: `agent-os/PLAYBOOK.md` · factory desk: `agent-os/FACTORY.md` · PRD intake: `agent-os/FROM-PRD.md` · capabilities: `agent-os/CAPABILITIES.md` · install: `agent-os/TOOLING.md` · setup: `agent-os/SETUP.md`.
 
 `CLAUDE.md` points here for **project** phase/sprint detail. Prefer this overlay + agent-os over inventing a new process.
 
