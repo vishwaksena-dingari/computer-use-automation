@@ -12,9 +12,9 @@
   "params": {
     "memberId": "M-10042"
   },
-  "runId": "replay_mu1jgwjt_k4k7kx",
+  "runId": "replay_mu1txt1e_uqg725",
   "evidenceDir": "evidence/g1-co-a-receipt",
-  "durationMs": 728,
+  "durationMs": 575,
   "llmCalls": 0,
   "submitConfirmed": false,
   "submitAttempted": false

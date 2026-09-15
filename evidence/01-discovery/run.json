@@ -11,7 +11,7 @@
     {
       "action": "llm_locator_emit",
       "ok": true,
-      "detail": "{\"targets\":{\"memberIdField\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"name\":\"Member ID\"},{\"kind\":\"text\",\"rank\":2,\"text\":\"Member ID\"},{\"kind\":\"role\",\"rank\":3,\"name\":\"member_id\",\"selector\":\"[data-field='member_id']\"}]}, \"searchButton\":{\"candidates\":[{\"kind\":\"label\",\"rank\":1,\"name\":\"Search\"},{\"kind\":\"text\",\"rank\":2,\"text\":\"Search\"},{\"kind\":\"role\",\"rank\":3,\"name\":\"search\",\"selector\":\"[data-field='searc"
+      "detail": "{\n  \"targets\": {\n    \"memberIdField\": {\n      \"candidates\": [\n        {\n          \"kind\": \"label\",\n          \"rank\": 1,\n          \"text\": \"Member ID\"\n        },\n        {\n          \"kind\": \"role\",\n          \"rank\": 2,\n          \"role\": \"textbox\"\n        },\n        {\n          \"kind\": \"role\",\n          \"rank\": 3,\n          \"role\": \"textinput\"\n        },\n        {\n          \"kind\": \"placeholder\",\n  "
     },
     {
       "action": "compile",
