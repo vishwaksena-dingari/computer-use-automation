@@ -52,8 +52,15 @@ Project **overlay** (`docs/agents/skills-playbook.md`, `DECISIONS.md`) holds spr
 | **Setup / invoke** | [`SETUP.md`](./SETUP.md) | Global vs per-project, grilling |
 | Adopt / sync | [`scripts/`](./scripts/) | File seeds; library → live |
 | PRD / idea | [`FROM-PRD.md`](./FROM-PRD.md) | Intake |
+| Factory desk | [`FACTORY.md`](./FACTORY.md) | Product → Program → Arch → Slices |
+| Modules | [`MODULES.md`](./MODULES.md) | Interface-first; when to open the body |
+| Dual-skill | [`DUAL-SKILL.md`](./DUAL-SKILL.md) | Two agents, then merge |
+| Capabilities | [`CAPABILITIES.md`](./CAPABILITIES.md) | gstack/pstack jobs: dispatch or fallback |
+| Portable methods | [`PORTABLE.md`](./PORTABLE.md) | Arena/architect/review when the host lacks the plugin |
+| Skill roots | [`SKILL-ROOTS.md`](./SKILL-ROOTS.md) | Point any harness at folders already installed |
 | Build loop | [`PLAYBOOK.md`](./PLAYBOOK.md) | Intensity routers |
 | Tools | [`TOOLING.md`](./TOOLING.md) | Install + GitHub links |
+| Installer | [`scripts/install-essentials.sh`](./scripts/install-essentials.sh) | Essential packs (+ `--extras`) |
 | Seeds | [`TEMPLATES/`](./TEMPLATES/) | CONTEXT, DECISIONS, … |
 | Bundle map | [`BUNDLE.md`](./BUNDLE.md) | Universal vs project-only |
 
@@ -61,28 +68,33 @@ Project **overlay** (`docs/agents/skills-playbook.md`, `DECISIONS.md`) holds spr
 
 1. Set `CLAUDE_SKILLS_ROOT` (or rely on script path detection).  
 2. `cp -R "$CLAUDE_SKILLS_ROOT/skills/agent-os" ~/.claude/skills/`  
-3. Per repo: `bash "$AGENT_OS_HOME/scripts/adopt-project.sh" /path/to/repo my-slug`  
-4. Say: *Agent OS: setup this project* (or idea / FROM-PRD intake).
+3. `bash "$AGENT_OS_HOME/scripts/install-essentials.sh"` (Addy, Superpowers, Matt, library copies).  
+4. Per repo: `bash "$AGENT_OS_HOME/scripts/adopt-project.sh" /path/to/repo my-slug`  
+   (`--install` or `--install-extras` if you want packs in the same step.)  
+5. Say: *Agent OS: setup this project* (or idea / FROM-PRD intake).
 
 ## Agent start order
 
 1. [`SETUP.md`](./SETUP.md) if first time, else [`PLAYBOOK.md`](./PLAYBOOK.md).  
 2. No `DECISIONS.md` / map → [`FROM-PRD.md`](./FROM-PRD.md).  
-3. Overlay first for sprints/out-of-scope.  
-4. Intensity caps.  
-5. Grill humans for preference locks.
+3. Factory gate unfinished → [`FACTORY.md`](./FACTORY.md) (dual-skill if a pair is live).  
+4. gstack/pstack job → [`CAPABILITIES.md`](./CAPABILITIES.md) (dispatch or fallback).  
+5. Overlay first for sprints/out-of-scope.  
+6. Intensity caps.  
+7. Grill humans for preference locks.
 
 ## Scale rule
 
 | Scale | Bias |
 |---|---|
 | Tiny | D0–D1, I0–I1; skip council |
-| Weekend / greenfield | Full FROM-PRD; named sprints; council only on irreversible forks |
+| Take-home / weekend | Full FROM-PRD; named sprints; council only on irreversible forks |
 | Long-lived product | Same routers; more tickets; sprint retarget |
 
 ## What this is not
 
 - Not a product SDK.  
 - Not “council everything.”  
-- Not silent install of every host plugin.  
+- Not silent install of every *host plugin* (ponytail / pstack marketplace). Essential `npx` packs **are** installed at setup. gstack clones once, then `./setup --host auto` fans out to detected hosts.  
+- Not Claude-or-Cursor-required. No those hosts → Layer B (`<repo>/agent-os/`) is the whole OS.
 - Not a place for usernames, home paths, or host project names.

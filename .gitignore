@@ -38,3 +38,6 @@ config.local.yaml
 !fixtures/applicant-profile*.json
 # Generated import demos with plan literals (regenerate via golden / import-plan)
 capabilities/field-maps/bridge-alias-demo.json
+
+# Agent OS — machine-local pointers
+docs/agents/*.local.md

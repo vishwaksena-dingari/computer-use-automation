@@ -10,6 +10,13 @@ Append what you need. Do not force Graft on every repo.
 !.env.example
 ```
 
+## Machine skill scan (do not commit)
+
+```
+docs/agents/skill-inventory.local.md
+docs/agents/*.local.md
+```
+
 ## Local planning (optional — often keep `.scratch/` in git for solo work)
 
 ```

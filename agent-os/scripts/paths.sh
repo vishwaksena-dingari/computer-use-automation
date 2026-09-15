@@ -22,3 +22,7 @@ fi
 
 # Live install (Claude Code)
 export AGENT_OS_LIVE="${AGENT_OS_LIVE:-$HOME/.claude/skills/agent-os}"
+
+# Machine skill homes (create at install; never inside Agent OS)
+export AGENT_OS_VENDOR="${AGENT_OS_VENDOR:-$HOME/.agents/vendor}"
+export AGENT_OS_SKILLS="${AGENT_OS_SKILLS:-$HOME/.agents/skills}"

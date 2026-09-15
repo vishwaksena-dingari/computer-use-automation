@@ -31,8 +31,20 @@ flowchart TB
 
 ---
 
-## 3. Module index (fill as you build)
+## 3. How it runs / fails / is trusted / changes
 
-| Module | Doc / contract | Status |
-|---|---|---|
-| | | stub |
+| View | Notes |
+|---|---|
+| Runtime (process, store, offline) | |
+| Trust (where untrusted input enters) | |
+| Data (who owns records; what crosses a seam) | |
+| Failure (timeout, retry, degrade) | |
+| Change (cheap vs expensive to reverse) | |
+
+## 4. Module index (filesystem = map)
+
+Public exports only. Kind is per module — not “API” by default. Full glossary + table: `docs/agents/modules.md`.
+
+| Module (folder) | Interface kind | Public entry | Status |
+|---|---|---|---|
+| | function / package / CLI / HTTP / UI / events / port | | stub |

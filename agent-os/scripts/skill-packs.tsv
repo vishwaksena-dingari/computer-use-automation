@@ -1,0 +1,20 @@
+# Agent OS skill packs — source of truth for install-essentials.sh
+# tier	pack	github	method	role
+# method: npx | library-copy | npm-global | uv-tool | gstack-clone | pstack-vendor | print
+# Do not put usernames or absolute home paths in this file.
+essential	addyosmani/agent-skills	https://github.com/addyosmani/agent-skills	npx	Lifecycle: idea-refine, incremental-implementation, ADRs, CI, observability
+essential	obra/superpowers	https://github.com/obra/superpowers	npx	Brainstorm, writing-plans, executing-plans
+essential	mattpocock/skills	https://github.com/mattpocock/skills	npx	Wayfinder, grilling, to-tickets, implement, tdd, domain-modeling
+essential	llm-council	https://github.com/karpathy/llm-council	library-copy	D3 high-stakes forks only (method from Karpathy; skill lives in the library)
+essential	critic	(library)	library-copy	I4 review — pick one; copy from $CLAUDE_SKILLS_ROOT/skills/critic
+essential	multi-lens-review	(library)	library-copy	I4 review — pick one; copy from $CLAUDE_SKILLS_ROOT/skills/multi-lens-review
+essential	project-bootstrapper	(library)	library-copy	Workspace file scaffold; copy from $CLAUDE_SKILLS_ROOT/skills/project-bootstrapper
+essential	graft	https://github.com/NanoNets/context-graph-engine	npm-global	Repo context graph CLI only — never graft init at machine setup
+essential	graphify	https://github.com/safishamsi/graphify	uv-tool	Knowledge graph CLI (PyPI graphifyy) — never graphify . at machine setup
+essential	gstack	https://github.com/garrytan/gstack	gstack-clone	Clone once into ~/.claude/skills/gstack, symlink ~/.agents/vendor/gstack, then ./setup --host auto. Do not vendor inside agent-os/.
+essential	pstack	https://github.com/cursor/plugins	pstack-vendor	Copy the pstack slice to ~/.agents/vendor/pstack (Cursor cache or sparse clone). Cursor plugin stays the runtime. Do not vendor inside agent-os/.
+companion	ponytail	https://github.com/DietrichGebert/ponytail	print	Claude/Cursor plugin — not a skills.sh pack
+extra	vercel-labs/agent-skills	https://github.com/vercel-labs/agent-skills	npx	React / Next / web performance — install when that is the stack
+extra	diogoX451/principal-software-architect	https://github.com/diogoX451/principal-software-architect	npx	Heavy architecture / ADR / ATAM — overlaps factory stage 3
+extra	hungv47/prod-skills	https://github.com/hungv47/prod-skills	npx	System-architecture orchestrator — overlaps Addy + Matt
+extra	anthropics/skills	https://github.com/anthropics/skills	npx	Official Anthropic pack (frontend-design, docx, …) — large; install if missing

@@ -31,12 +31,21 @@ if [[ -f "$HERE/FROM-PRD.md" ]]; then
   cp "$HERE/README.md"   "$SKILL/README.md"
   [[ -f "$HERE/references/skill-catalog.md" ]] && cp "$HERE/references/skill-catalog.md" "$SKILL/references/skill-catalog.md"
   [[ -f "$HERE/skill-catalog.md" ]] && cp "$HERE/skill-catalog.md" "$SKILL/references/skill-catalog.md"
+  [[ -f "$HERE/FACTORY.md" ]] && cp "$HERE/FACTORY.md" "$SKILL/references/factory.md"
+  [[ -f "$HERE/MODULES.md" ]] && cp "$HERE/MODULES.md" "$SKILL/references/modules.md"
+  [[ -f "$HERE/DUAL-SKILL.md" ]] && cp "$HERE/DUAL-SKILL.md" "$SKILL/references/dual-skill.md"
+  [[ -f "$HERE/CAPABILITIES.md" ]] && cp "$HERE/CAPABILITIES.md" "$SKILL/references/capabilities.md"
+  [[ -f "$HERE/PORTABLE.md" ]] && cp "$HERE/PORTABLE.md" "$SKILL/references/portable.md"
+  [[ -f "$HERE/SKILL-ROOTS.md" ]] && cp "$HERE/SKILL-ROOTS.md" "$SKILL/references/skill-roots.md"
   cp "$HERE/TEMPLATES/"* "$SKILL/assets/templates/"
   cp "$HERE/scripts/"*.sh "$SKILL/scripts/"
+  cp "$HERE/scripts/"*.tsv "$SKILL/scripts/" 2>/dev/null || true
 elif [[ -f "$HERE/references/from-prd.md" ]]; then
-  # Already skill layout — copy tree except maybe preserve SKILL.md
-  rsync -a --exclude SKILL.md "$HERE/" "$SKILL/"
-  [[ -f "$HERE/SKILL.md" ]] && cp "$HERE/SKILL.md" "$SKILL/SKILL.md"
+  # Already skill layout. Skip self-copy when we *are* the library.
+  if [[ "$(cd "$HERE" && pwd)" != "$(cd "$SKILL" && pwd)" ]]; then
+    rsync -a --exclude SKILL.md "$HERE/" "$SKILL/"
+    [[ -f "$HERE/SKILL.md" ]] && cp "$HERE/SKILL.md" "$SKILL/SKILL.md"
+  fi
 else
   echo "Unrecognized kit layout at $HERE" >&2
   exit 1

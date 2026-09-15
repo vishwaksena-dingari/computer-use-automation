@@ -6,7 +6,9 @@ If the repo is not adopted yet (no `agent-os/` / no `docs/agents/`), run **setup
 
 **No PRD? Fine.** Treat the idea as the brief. Run a short **idea grilling** (below) to produce a one-page destination, then the same wayfinder fog loop. Do not invent a fake PRD document.
 
-This is the same intake used for greenfield ideas and short builds (orient → decide with skills → design → build). It is **scale-adaptive**: tiny projects exit early; large ones keep more tickets.
+**Locks already exist, but they are stumped on the next feature / improvement?** Do not restart FROM-PRD. Use **Stumped / next features** in `playbook.md` (context pack + research, they pick).
+
+This is the same intake used for take-homes and greenfield ideas (orient → decide with skills → design → build). It is **scale-adaptive**: tiny projects exit early; large ones keep more tickets.
 
 ---
 
@@ -40,7 +42,8 @@ flowchart TD
   Map --> Fog{Fog cleared enough?}
   Fog -->|no| Chart
   Fog -->|yes| Arch[Architecture stub + named first sprints]
-  Arch --> Build[Enter PLAYBOOK implementation routing]
+  Arch --> Desk[Enter FACTORY desk — Product / Program / Arch / Slices]
+  Desk --> Build[Enter PLAYBOOK implementation routing]
 ```
 
 ---
@@ -126,10 +129,13 @@ Skills: **grilling** / **grill-me**, **domain-modeling** (when glossary shifts),
 
 Self-descriptive outcome names (never “Sprint 1”). Example pattern: `Scaffold-CLI-and-Config`, `Core-Happy-Path`, `Evidence-and-Writeup`. Put the sequence in the project overlay or map Notes.
 
-### 6. Hand off to build
+### 6. Hand off to the factory desk, then build
 
 - Confirm human on remaining provisionals **or** accept provisionals explicitly.
-- Enter [`PLAYBOOK.md`](./PLAYBOOK.md) implementation routing with **ponytail** on.
+- Seed `.scratch/<slug>/factory-gate.md` from the factory-gate template.
+- Enter [`factory.md`](./factory.md) (Product → Program Design → Architecture → Vertical Slices). Skip a stage only if its exit artifact already exists.
+- Dual-skill on if a pair is installed for the active stage (`dual-skill.md`).
+- Only then enter [`playbook.md`](./playbook.md) implementation routing with **ponytail** on. Tiny D0/I0 work may skip the desk.
 
 ---
 
@@ -152,6 +158,7 @@ Agents **must not** silently invent product taste, brand, or irreversible schema
 - [ ] `DECISIONS.md` has locked rows for language, shape of done, critical tech  
 - [ ] Map “Not yet specified” is empty **or** only labeled provisionals  
 - [ ] First named sprint “Done when” is written  
-- [ ] Human OK to build (or provisionals accepted)  
+- [ ] Human OK to leave intake (or provisionals accepted)  
+- [ ] Factory gate seeded — do **not** treat intake as a license to skip Product / Program / Architecture / Slices on anything bigger than I0  
 
-Then stop deciding. Build.
+Then stop deciding. Run the factory desk. Then build.

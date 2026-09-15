@@ -10,6 +10,11 @@ _One paragraph: working outcome you can demo._
 
 - _
 
+## Quality bar (must be checkable)
+
+- Reject if:
+- Floor (if any):
+
 ## Constraints
 
 - Deadline / deliverables:
