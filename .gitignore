@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 
-# Confidential local docs
+# Confidential local docs / assignment brief (if present)
 *.pdf
 
 # Local-only progress / caches
@@ -39,5 +39,11 @@ config.local.yaml
 # Generated import demos with plan literals (regenerate via golden / import-plan)
 capabilities/field-maps/bridge-alias-demo.json
 
-# Agent OS — machine-local pointers
+# Process kit — never re-vendor into this product repo
+/agent-os/
+.claude/skills/agent-os/
+
+# Agent / IDE machine-local pointers
 docs/agents/*.local.md
+.cursor/
+.mcp.json
