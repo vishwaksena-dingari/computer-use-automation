@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 
-# Confidential local docs / assignment brief (if present)
+# Confidential local docs / assignment brief (if present on disk)
 *.pdf
 
 # Local-only progress / caches
@@ -27,6 +27,7 @@ graphify-out/
 /evidence/**/hitl/resume.json
 /evidence/**/network.har
 /evidence/**/*.har
+/evidence/**/trace.zip
 
 # All local planning / research / scratch (never publish)
 .scratch/
@@ -43,7 +44,6 @@ capabilities/field-maps/bridge-alias-demo.json
 /agent-os/
 .claude/skills/agent-os/
 
-# Agent / IDE machine-local pointers
+# Machine-local agent pointers (tracked .cursor/rules stay — graft/ponytail)
 docs/agents/*.local.md
-.cursor/
-.mcp.json
+.claude/settings.local.json
